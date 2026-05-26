@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Feeder Device Dataset Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#f5f6f8;--surface:#fff;--surface2:#f0f1f4;--border:#e2e4ea;--border2:#c8cad4;
+  --text:#16181f;--text2:#5a5d6b;--text3:#9ea1af;
+  --accent:#1a3a6b;--accent-light:#e8edf5;--accent-text:#0f2448;
+  --amber:#8a5f00;--amber-bg:#fff8e8;--amber-bdr:#e8c84a;
+  --red:#8b1a1a;--red-bg:#fff0f0;--red-bdr:#e8a0a0;
+  --green:#1a5c30;--green-bg:#edf7f0;--green-bdr:#80c898;
+  --blue:#1a4a7a;--blue-bg:#e8f0f8;--blue-bdr:#90b8e0;
+  --r:8px;--rlg:12px;--font:'Instrument Sans',sans-serif;--mono:'DM Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px}
+.page{max-width:1200px;margin:0 auto;padding:1.5rem 1.25rem 4rem}
+
+/* header */
+.hdr{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1.5rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border)}
+.hdr-left{display:flex;align-items:center;gap:10px}
+.logo{width:34px;height:34px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.logo svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+h1{font-size:17px;font-weight:600;letter-spacing:-.02em}
+.sub{font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:2px}
+.privacy{font-size:12px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:5px 11px;display:flex;align-items:center;gap:6px}
+.privacy svg{width:12px;height:12px;stroke:var(--green);fill:none;stroke-width:2;stroke-linecap:round;flex-shrink:0}
+
+/* device tabs */
+.dev-tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:6px}
+.dev-tab{padding:6px 16px;border-radius:var(--r);border:none;background:transparent;cursor:pointer;font-size:13px;font-family:var(--font);font-weight:500;color:var(--text2);transition:all .15s;white-space:nowrap}
+.dev-tab:hover{background:var(--surface2)}
+.dev-tab.active{background:var(--accent);color:#fff}
+
+/* type tabs */
+.type-tabs{display:flex;gap:6px;margin-bottom:12px}
+.type-tab{padding:5px 14px;border-radius:20px;border:1px solid var(--border2);background:transparent;cursor:pointer;font-size:12px;font-family:var(--mono);color:var(--text2);transition:all .15s;white-space:nowrap}
+.type-tab:hover{background:var(--surface2)}
+.type-tab.active{background:var(--accent-light);color:var(--accent-text);border-color:var(--blue-bdr);font-weight:500}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:12px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:.75rem 1rem}
+.stat-lbl{font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+.stat-val{font-size:20px;font-weight:600;font-family:var(--mono);letter-spacing:-.03em}
+.stat-val.amber{color:var(--amber)}
+.stat-val.red{color:var(--red)}
+
+/* key bar */
+.key-bar{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:9px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.key-lbl{font-size:11px;color:var(--text2);font-family:var(--mono);white-space:nowrap;display:flex;align-items:center;gap:5px}
+.key-lbl svg{width:12px;height:12px;stroke:var(--accent);fill:none;stroke-width:2;stroke-linecap:round}
+.chips{display:flex;gap:5px;flex-wrap:wrap;flex:1}
+.chip{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--border2);background:transparent;color:var(--text2);transition:all .12s;font-family:var(--mono)}
+.chip.on{background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bdr)}
+
+/* alerts */
+.alert{border-radius:var(--rlg);padding:10px 14px;font-size:13px;display:flex;align-items:flex-start;gap:9px;margin-bottom:10px}
+.alert svg{width:15px;height:15px;flex-shrink:0;margin-top:1px;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.alert.warn{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bdr)}
+.alert.warn svg{stroke:var(--amber)}
+.alert.ok{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bdr)}
+.alert.ok svg{stroke:var(--green)}
+
+/* sel bar */
+.sel-bar{background:var(--blue-bg);border:1px solid var(--blue-bdr);border-radius:var(--rlg);padding:8px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.sel-cnt{font-size:13px;color:var(--blue);font-weight:500;font-family:var(--mono)}
+
+/* toolbar */
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.srch{position:relative;flex:1;min-width:150px}
+.srch svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);width:13px;height:13px;stroke:var(--text3);fill:none;stroke-width:2;stroke-linecap:round;pointer-events:none}
+.srch input{width:100%;padding:6px 10px 6px 30px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);outline:none}
+.srch input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(26,58,107,.08)}
+.legend{display:flex;gap:10px;font-size:11px;color:var(--text3);align-items:center;font-family:var(--mono);flex-wrap:wrap}
+.leg{display:flex;align-items:center;gap:4px}
+.leg-dot{width:8px;height:8px;border-radius:2px}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 13px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);cursor:pointer;font-size:13px;font-family:var(--font);color:var(--text);transition:all .15s;font-weight:500;white-space:nowrap}
+.btn:hover{background:var(--surface2)}
+.btn:active{transform:scale(.98)}
+.btn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent-text)}
+.btn.danger{color:var(--red);border-color:var(--red-bdr);background:var(--red-bg)}
+.btn.danger:hover{background:#fae0e0}
+.btn.warn{color:var(--amber);border-color:var(--amber-bdr);background:var(--amber-bg)}
+.btn.success{color:var(--green);border-color:var(--green-bdr);background:var(--green-bg)}
+.btn-group{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+
+/* upload */
+.drop-zone{border:2px dashed var(--border2);border-radius:var(--rlg);padding:1.5rem;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:12px;background:var(--surface);display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--accent);background:var(--accent-light)}
+.drop-zone svg{width:22px;height:22px;stroke:var(--text3);fill:none;stroke-width:1.5;stroke-linecap:round;flex-shrink:0}
+.drop-zone p{font-size:13px;color:var(--text2);font-weight:500}
+.drop-zone span{font-size:12px;color:var(--text3)}
+.drop-zone input{display:none}
+
+/* table */
+.tbl-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden}
+.tbl-wrap{overflow-x:auto;max-height:440px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{background:var(--surface2);padding:8px 10px;text-align:left;font-weight:600;font-size:10px;color:var(--text2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:2;white-space:nowrap;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em}
+td{padding:7px 10px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--bg)}
+tr.dup td{background:#fffaed}
+tr.dup td.fl{border-left:3px solid var(--amber-bdr);padding-left:7px}
+tr.orig td{background:#edf7f0}
+tr.orig td.fl{border-left:3px solid var(--green-bdr);padding-left:7px}
+tr.sel td{background:var(--blue-bg)!important}
+td[contenteditable]{outline:none;cursor:text}
+td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1px var(--blue-bdr)}
+.rn{color:var(--text3);font-size:10px;font-family:var(--mono);width:28px;text-align:right;padding-right:6px}
+.act{text-align:center;width:32px;padding:3px}
+.rbtn{background:none;border:none;cursor:pointer;color:var(--text3);padding:3px;border-radius:4px;transition:all .1s;display:inline-flex;align-items:center;justify-content:center}
+.rbtn:hover{color:var(--red);background:var(--red-bg)}
+.rbtn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:20px;font-weight:500;white-space:nowrap;font-family:var(--mono)}
+.badge.dup{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bdr)}
+.badge.orig{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bdr)}
+.badge.new{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bdr)}
+.empty{padding:3rem 1rem;text-align:center;color:var(--text3)}
+.empty svg{width:36px;height:36px;stroke:var(--text3);fill:none;stroke-width:1.5;stroke-linecap:round;margin-bottom:8px;opacity:.4}
+.empty p{font-size:13px;color:var(--text2);font-weight:500;margin-bottom:3px}
+.empty span{font-size:12px}
+
+/* modals */
+.overlay{display:none;position:fixed;inset:0;background:rgba(10,8,6,.45);z-index:100;align-items:center;justify-content:center;padding:1rem}
+.overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:var(--rlg);padding:1.5rem;width:420px;max-width:100%;max-height:90vh;overflow-y:auto}
+.modal h3{font-size:15px;font-weight:600;margin-bottom:14px;letter-spacing:-.02em}
+.fgrid{display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto}
+.frow{display:flex;flex-direction:column;gap:3px}
+.frow label{font-size:10px;color:var(--text2);font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;font-weight:500}
+.frow input{padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);outline:none;width:100%}
+.frow input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(26,58,107,.08)}
+.mfooter{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;border-top:1px solid var(--border);padding-top:14px}
+.confirm-modal h3{color:var(--red)}
+.confirm-modal p{font-size:13px;color:var(--text2);line-height:1.6}
+
+@media(max-width:600px){.stats{grid-template-columns:repeat(2,1fr)}.hdr{flex-direction:column;align-items:flex-start}}
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="hdr">
+  <div class="hdr-left">
+    <div class="logo"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg></div>
+    <div>
+      <h1>Feeder Device Dataset Manager</h1>
+      <div class="sub">AVR · LBS · RCS(SF6) · RCS(Solid Dielectric) · REC · SCB</div>
+    </div>
+  </div>
+  <div class="privacy">
+    <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    All data stays in your browser — nothing is sent to any server.
+  </div>
+</header>
+
+<!-- device tabs -->
+<div class="dev-tabs" id="devTabs"></div>
+
+<!-- type tabs -->
+<div class="type-tabs" id="typeTabs"></div>
+
+<!-- upload -->
+<div class="drop-zone" id="dropZone" onclick="document.getElementById('fileIn').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+  <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+  <div><p>Drop a file or click to import into this dataset</p><span>Supports .csv, .xlsx, .xls — appends to current table</span></div>
+  <input type="file" id="fileIn" accept=".csv,.xlsx,.xls" onchange="handleUpload(this)">
+</div>
+
+<!-- stats -->
+<div class="stats">
+  <div class="stat"><div class="stat-lbl">total rows</div><div class="stat-val" id="sTotal">0</div></div>
+  <div class="stat"><div class="stat-lbl">columns</div><div class="stat-val" id="sCols">0</div></div>
+  <div class="stat"><div class="stat-lbl">dup groups</div><div class="stat-val amber" id="sDupG">—</div></div>
+  <div class="stat"><div class="stat-lbl">dup rows</div><div class="stat-val red" id="sDupR">—</div></div>
+</div>
+
+<!-- key bar -->
+<div class="key-bar" id="keyBar">
+  <div class="key-lbl">
+    <svg viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+    key columns:
+  </div>
+  <div class="chips" id="keyChips"></div>
+  <button class="btn warn" onclick="runDupCheck()" style="padding:4px 10px;font-size:11px">
+    <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+    re-check
+  </button>
+</div>
+
+<div id="dupAlert" style="display:none"></div>
+
+<!-- sel bar -->
+<div class="sel-bar" id="selBar" style="display:none">
+  <svg style="width:15px;height:15px;stroke:var(--blue);fill:none;stroke-width:2;stroke-linecap:round" viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+  <span class="sel-cnt" id="selCount">0 rows selected</span>
+  <button class="btn danger" onclick="confirmDeleteSelected()">
+    <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+    remove selected
+  </button>
+  <button class="btn" onclick="clearSel()" style="margin-left:auto">
+    <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    deselect all
+  </button>
+</div>
+
+<!-- toolbar -->
+<div class="toolbar">
+  <div class="srch">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" id="searchBox" placeholder="Search current dataset…" oninput="renderTable()">
+  </div>
+  <div class="btn-group">
+    <button class="btn" onclick="openAddRow()">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      add row
+    </button>
+    <button class="btn warn" onclick="runDupCheck()">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      check duplicates
+    </button>
+    <button class="btn success" onclick="exportExcel()">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      export Excel
+    </button>
+    <button class="btn success" onclick="exportAllExcel()">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      export all sheets
+    </button>
+    <button class="btn" onclick="exportCSV()">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      CSV
+    </button>
+  </div>
+  <div class="legend">
+    <div class="leg"><div class="leg-dot" style="background:var(--amber-bdr)"></div><span>duplicate</span></div>
+    <div class="leg"><div class="leg-dot" style="background:var(--green-bdr)"></div><span>original</span></div>
+    <div class="leg"><div class="leg-dot" style="background:var(--blue-bdr)"></div><span>added</span></div>
+  </div>
+</div>
+
+<!-- table -->
+<div class="tbl-card" id="tableArea"></div>
+
+</div><!-- /page -->
+
+<!-- Add Row Modal -->
+<div class="overlay" id="addModal">
+  <div class="modal">
+    <h3>Add new row</h3>
+    <div class="fgrid" id="addFields"></div>
+    <div class="mfooter">
+      <button class="btn" onclick="closeModal('addModal')">Cancel</button>
+      <button class="btn primary" onclick="saveNewRow()">Add row</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="overlay" id="confirmModal">
+  <div class="modal confirm-modal">
+    <h3>Remove rows?</h3>
+    <p id="confirmMsg"></p>
+    <div class="mfooter">
+      <button class="btn" onclick="closeModal('confirmModal')">Cancel</button>
+      <button class="btn danger" id="confirmOkBtn">Remove</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Schema from Feeder_Device.py ──────────────────────────────────────────────
+const GROUPS = {
+  "AVR": {"Status Point":"AVR_Status_point","Control Output":"AVR_Control_Output","Analog Point":"AVR_Analog_point"},
+  "LBS": {"Status Point":"LBS_Status_point","Control Output":"LBS_Control_Output","Analog Point":"LBS_Analog_point"},
+  "RCS(SF6)": {"Status Point":"RCS(SF6)_Status_point","Control Output":"RCS(SF6)_Control_Output","Analog Point":"RCS(SF6)_Analog_point"},
+  "RCS(Solid Dielectric)": {"Status Point":"RCS(Solid Dielectric)_Status_point","Control Output":"RCS(Solid Dielectric)_Control_Output","Analog Point":"RCS(Solid Dielectric)_Analog_point"},
+  "REC": {"Status Point":"REC_Status_point","Control Output":"REC_Control_Output","Analog Point":"REC_Analog_point"},
+  "SCB": {"Status Point":"SCB_Status_point","Control Output":"SCB_Control_Output","Analog Point":"SCB_Analog_point"}
+};
+
+const DEFAULT_COLUMNS = {
+  "AVR_Status_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCIPRTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "AVR_Control_Output":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCIPRTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "AVR_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "LBS_Status_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCIPRTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "LBS_Control_Output":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCIPRTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "LBS_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "RCS(SF6)_Status_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCIPRTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "RCS(SF6)_Control_Output":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCIPRTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "RCS(SF6)_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCIPRTOR","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "RCS(Solid Dielectric)_Status_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCIPRTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "RCS(Solid Dielectric)_Control_Output":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCIPRTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "RCS(Solid Dielectric)_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCIPRTOR","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "REC_Status_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCIPRTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "REC_Control_Output":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCIPRTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "REC_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCIPRTOR","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "SCB_Status_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCIPRTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "SCB_Control_Output":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCIPRTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "SCB_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCIPRTOR","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"]
+};
+
+// ── State ─────────────────────────────────────────────────────────────────────
+// datasets: { [datasetKey]: { rows: [], manuallyAdded: Set, dupInfo: {}, keyColumns: Set, checked: bool } }
+const DATASETS = {};
+Object.values(GROUPS).forEach(types => Object.values(types).forEach(key => {
+  DATASETS[key] = { rows:[], manuallyAdded:new Set(), dupInfo:{}, keyColumns:new Set(DEFAULT_COLUMNS[key].slice(0,2)), checked:false };
+}));
+
+let currentDevice = Object.keys(GROUPS)[0];
+let currentType   = Object.keys(Object.values(GROUPS)[0])[0];
+let selected = new Set();
+
+function currentKey(){ return GROUPS[currentDevice][currentType]; }
+function ds(){ return DATASETS[currentKey()]; }
+function cols(){ return DEFAULT_COLUMNS[currentKey()]; }
+
+// ── Drag/drop upload ──────────────────────────────────────────────────────────
+function onDragOver(e){e.preventDefault();document.getElementById('dropZone').classList.add('drag');}
+function onDragLeave(){document.getElementById('dropZone').classList.remove('drag');}
+function onDrop(e){e.preventDefault();document.getElementById('dropZone').classList.remove('drag');const f=e.dataTransfer.files[0];if(f)processFile(f);}
+function handleUpload(inp){const f=inp.files[0];if(f)processFile(f);inp.value='';}
+
+function processFile(f){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const data=XLSX.utils.sheet_to_json(ws,{defval:''});
+      if(!data.length){alert('File appears empty.');return;}
+      const d=ds(); const c=cols();
+      data.forEach(r=>{
+        const row={};
+        c.forEach(col=>row[col]=r[col]!==undefined?r[col]:'');
+        d.rows.push(row);
+        d.manuallyAdded.add(d.rows.length-1);
+      });
+      d.dupInfo={};d.checked=false;
+      selected=new Set();
+      hideDupAlert();
+      renderAll();
+    }catch(err){alert('Could not read file: '+err.message);}
+  };
+  reader.readAsArrayBuffer(f);
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function renderDevTabs(){
+  document.getElementById('devTabs').innerHTML=Object.keys(GROUPS).map(dev=>
+    `<button class="dev-tab${dev===currentDevice?' active':''}" onclick="switchDevice('${dev}')">${dev}</button>`
+  ).join('');
+}
+
+function renderTypeTabs(){
+  document.getElementById('typeTabs').innerHTML=Object.keys(GROUPS[currentDevice]).map(t=>
+    `<button class="type-tab${t===currentType?' active':''}" onclick="switchType('${t}')">${t}</button>`
+  ).join('');
+}
+
+function switchDevice(dev){
+  currentDevice=dev;
+  currentType=Object.keys(GROUPS[dev])[0];
+  selected=new Set();hideDupAlert();renderAll();
+}
+function switchType(t){
+  currentType=t;selected=new Set();hideDupAlert();renderAll();
+}
+
+// ── Key columns ───────────────────────────────────────────────────────────────
+function renderKeyChips(){
+  const d=ds();
+  document.getElementById('keyChips').innerHTML=cols().map(c=>
+    `<button class="chip${d.keyColumns.has(c)?' on':''}" onclick="toggleKey('${c.replace(/'/g,"\\'")}')">${c}</button>`
+  ).join('');
+}
+
+function toggleKey(col){
+  const d=ds();
+  if(d.keyColumns.has(col)){if(d.keyColumns.size>1)d.keyColumns.delete(col);}
+  else d.keyColumns.add(col);
+  d.dupInfo={};d.checked=false;hideDupAlert();
+  renderKeyChips();renderTable();
+}
+
+// ── Duplicate check ───────────────────────────────────────────────────────────
+function runDupCheck(){
+  const d=ds();const c=cols();
+  if(!d.rows.length){alert('No rows to check.');return;}
+  const groups=new Map();
+  d.rows.forEach((r,i)=>{
+    const key=[...d.keyColumns].map(col=>String(r[col]||'').toLowerCase().trim()).join('||');
+    if(!groups.has(key))groups.set(key,[]);
+    groups.get(key).push(i);
+  });
+  d.dupInfo={};let dg=0,dr=0;
+  groups.forEach(idxs=>{
+    if(idxs.length>1){dg++;idxs.forEach((idx,p)=>{d.dupInfo[idx]=p===0?'orig':'dup';if(p>0)dr++;});}
+  });
+  d.checked=true;
+  document.getElementById('sDupG').textContent=dg;
+  document.getElementById('sDupR').textContent=dr;
+  const el=document.getElementById('dupAlert');el.style.display='block';
+  if(dr===0){
+    el.innerHTML=`<div class="alert ok"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>No duplicates found on: <strong>${[...d.keyColumns].join(', ')}</strong>.</span></div>`;
+  }else{
+    el.innerHTML=`<div class="alert warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div><strong>${dr} duplicate row(s)</strong> in <strong>${dg} group(s)</strong> — matched on: <strong>${[...d.keyColumns].join(', ')}</strong>.<br><span style="font-size:11px;margin-top:3px;display:block;opacity:.8">Green = first occurrence (kept). Amber = duplicates. Select and remove as needed.</span></div></div>`;
+  }
+  renderTable();
+}
+
+function hideDupAlert(){
+  document.getElementById('dupAlert').style.display='none';
+  document.getElementById('sDupG').textContent='—';
+  document.getElementById('sDupR').textContent='—';
+}
+
+// ── Selection ─────────────────────────────────────────────────────────────────
+function toggleSelect(i,chk){if(chk)selected.add(i);else selected.delete(i);updateSelBar();renderTable();}
+function toggleAll(chk){
+  const q=(document.getElementById('searchBox').value||'').toLowerCase();
+  ds().rows.forEach((r,i)=>{
+    const vis=!q||cols().some(c=>String(r[c]||'').toLowerCase().includes(q));
+    if(vis){if(chk)selected.add(i);else selected.delete(i);}
+  });
+  updateSelBar();renderTable();
+}
+function clearSel(){selected=new Set();updateSelBar();renderTable();}
+function updateSelBar(){
+  const b=document.getElementById('selBar');
+  if(!selected.size){b.style.display='none';}
+  else{b.style.display='flex';document.getElementById('selCount').textContent=selected.size+' row'+(selected.size>1?'s':'')+' selected';}
+}
+
+// ── Delete ────────────────────────────────────────────────────────────────────
+function confirmDeleteSelected(){
+  if(!selected.size)return;
+  document.getElementById('confirmMsg').textContent=`Remove ${selected.size} selected row${selected.size>1?'s':''}? This cannot be undone.`;
+  document.getElementById('confirmOkBtn').onclick=doDeleteSelected;
+  document.getElementById('confirmModal').classList.add('open');
+}
+function confirmDeleteOne(i){
+  document.getElementById('confirmMsg').textContent='Remove this row? This cannot be undone.';
+  document.getElementById('confirmOkBtn').onclick=()=>doDeleteOne(i);
+  document.getElementById('confirmModal').classList.add('open');
+}
+function doDeleteSelected(){
+  const d=ds();
+  const idxs=[...selected].sort((a,b)=>b-a);
+  idxs.forEach(i=>{
+    d.rows.splice(i,1);
+    d.manuallyAdded=new Set([...d.manuallyAdded].filter(x=>x!==i).map(x=>x>i?x-1:x));
+  });
+  selected=new Set();d.dupInfo={};d.checked=false;hideDupAlert();
+  closeModal('confirmModal');renderAll();
+}
+function doDeleteOne(i){
+  const d=ds();
+  d.rows.splice(i,1);
+  selected.delete(i);const ns=new Set();selected.forEach(x=>ns.add(x>i?x-1:x));selected=ns;
+  d.manuallyAdded=new Set([...d.manuallyAdded].filter(x=>x!==i).map(x=>x>i?x-1:x));
+  const nd={};Object.entries(d.dupInfo).forEach(([k,v])=>{const ki=parseInt(k);if(ki!==i)nd[ki>i?ki-1:ki]=v;});d.dupInfo=nd;
+  closeModal('confirmModal');renderAll();
+}
+
+// ── Edit cell ─────────────────────────────────────────────────────────────────
+function editCell(idx,col,el){
+  ds().rows[idx][col]=el.innerText.trim();
+  ds().dupInfo={};ds().checked=false;hideDupAlert();
+  document.getElementById('sTotal').textContent=ds().rows.length;
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+function renderStats(){
+  document.getElementById('sTotal').textContent=ds().rows.length;
+  document.getElementById('sCols').textContent=cols().length;
+  if(!ds().checked){document.getElementById('sDupG').textContent='—';document.getElementById('sDupR').textContent='—';}
+}
+
+// ── Table ─────────────────────────────────────────────────────────────────────
+function renderTable(){
+  const d=ds();const c=cols();
+  const q=(document.getElementById('searchBox').value||'').toLowerCase();
+  const area=document.getElementById('tableArea');
+  if(!d.rows.length){
+    area.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg><p>No data in this dataset</p><span>Add rows manually or import a CSV / Excel file.</span></div>`;
+    return;
+  }
+  const filtered=d.rows.map((r,i)=>({r,i})).filter(({r})=>!q||c.some(col=>String(r[col]||'').toLowerCase().includes(q)));
+  const allSel=filtered.length>0&&filtered.every(({i})=>selected.has(i));
+  const trash=`<svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>`;
+  const thead=`<tr>
+    <th style="width:32px;text-align:center"><input type="checkbox" ${allSel?'checked':''} onchange="toggleAll(this.checked)" style="cursor:pointer"></th>
+    <th style="width:28px">#</th>
+    ${c.map(col=>`<th>${col}</th>`).join('')}
+    <th style="width:76px">status</th>
+    <th style="width:32px"></th>
+  </tr>`;
+  const tbody=filtered.map(({r,i})=>{
+    const st=d.dupInfo[i];const isM=d.manuallyAdded.has(i);const isSel=selected.has(i);
+    const rc=st==='dup'?'dup':st==='orig'?'orig':'';
+    const badge=st==='dup'?`<span class="badge dup">duplicate</span>`:st==='orig'?`<span class="badge orig">original</span>`:isM?`<span class="badge new">added</span>`:'';
+    const cells=c.map((col,ci)=>`<td contenteditable="true" onblur="editCell(${i},'${col.replace(/'/g,"\\'")}',this)" spellcheck="false"${ci===0?' class="fl"':''}>${String(r[col]??'').replace(/</g,'&lt;')}</td>`).join('');
+    return `<tr class="${rc}${isSel?' sel':''}">
+      <td style="text-align:center;width:32px"><input type="checkbox" ${isSel?'checked':''} onchange="toggleSelect(${i},this.checked)" style="cursor:pointer"></td>
+      <td class="rn">${i+1}</td>
+      ${cells}
+      <td>${badge}</td>
+      <td class="act"><button class="rbtn" title="remove row" onclick="confirmDeleteOne(${i})">${trash}</button></td>
+    </tr>`;
+  }).join('');
+  area.innerHTML=`<div class="tbl-wrap"><table><thead>${thead}</thead><tbody>${tbody}</tbody></table></div>`;
+}
+
+// ── Add Row ───────────────────────────────────────────────────────────────────
+function openAddRow(){
+  const c=cols();
+  document.getElementById('addFields').innerHTML=c.map(col=>`<div class="frow"><label>${col}</label><input type="text" id="nf_${col.replace(/\W/g,'_')}" placeholder="${col}"></div>`).join('');
+  document.getElementById('addModal').classList.add('open');
+}
+function saveNewRow(){
+  const d=ds();const c=cols();
+  const row={};c.forEach(col=>{row[col]=(document.getElementById('nf_'+col.replace(/\W/g,'_'))||{value:''}).value||'';});
+  d.rows.push(row);d.manuallyAdded.add(d.rows.length-1);
+  d.dupInfo={};d.checked=false;hideDupAlert();
+  closeModal('addModal');renderAll();
+}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+
+// ── Export ────────────────────────────────────────────────────────────────────
+function exportExcel(){
+  const d=ds();const c=cols();
+  if(!d.rows.length){alert('No data to export.');return;}
+  const out=d.rows.map((r,i)=>{const o={};c.forEach(col=>o[col]=r[col]??'');if(d.checked&&d.dupInfo[i])o['dup_status']=d.dupInfo[i];return o;});
+  const ws=XLSX.utils.json_to_sheet(out);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,currentKey().replace(/[\\/*?:[\]]/g,'_').substring(0,31));
+  XLSX.writeFile(wb,currentKey()+'_export.xlsx');
+}
+
+function exportAllExcel(){
+  const wb=XLSX.utils.book_new();
+  Object.keys(GROUPS).forEach(dev=>{
+    Object.entries(GROUPS[dev]).forEach(([type,key])=>{
+      const d=DATASETS[key];const c=DEFAULT_COLUMNS[key];
+      const out=d.rows.length?d.rows.map(r=>{const o={};c.forEach(col=>o[col]=r[col]??'');return o;}):[Object.fromEntries(c.map(col=>[col,'']))];
+      const ws=XLSX.utils.json_to_sheet(out);
+      const sheetName=(dev+'_'+type).replace(/[\\/*?:[\]()]/g,'').replace(/\s+/g,'_').substring(0,31);
+      XLSX.utils.book_append_sheet(wb,ws,sheetName);
+    });
+  });
+  XLSX.writeFile(wb,'FeederDevice_all_datasets.xlsx');
+}
+
+function exportCSV(){
+  const d=ds();const c=cols();
+  if(!d.rows.length){alert('No data to export.');return;}
+  const lines=[c.join(','),...d.rows.map(r=>c.map(col=>'"'+(String(r[col]??'').replace(/"/g,'""'))+'"').join(','))];
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'}));
+  a.download=currentKey()+'.csv';a.click();
+}
+
+// ── Render all ────────────────────────────────────────────────────────────────
+function renderAll(){
+  renderDevTabs();renderTypeTabs();renderKeyChips();renderStats();updateSelBar();renderTable();
+}
+renderAll();
+</script>
+</body>
+</html>
