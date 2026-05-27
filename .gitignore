@@ -9,6 +9,7 @@ env/
 # Backups folder
 backups/
 OG/
+Feeder_csv/
 # CSV data files (if you don't want to push live data)
 *.csv
 
