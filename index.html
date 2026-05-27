@@ -130,6 +130,23 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
 .spinner{width:32px;height:32px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading-text{font-size:13px;color:var(--text2);font-family:var(--mono)}
+/* ── Compare ─────────────────────────────── */
+.cmp-tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--rlg);max-height:420px;overflow-y:auto}
+.cmp-tbl-wrap table{width:100%;border-collapse:collapse;font-size:11px}
+.cmp-tbl-wrap thead th{background:var(--surface2);padding:7px 8px;text-align:left;font-weight:600;font-size:10px;color:var(--text2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:2;white-space:nowrap;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em}
+.cmp-tbl-wrap td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmp-tbl-wrap tbody tr:last-child td{border-bottom:none}
+.row-same td{background:#edf7f0}
+.row-only-a td{background:#e8f0f8}
+.row-only-b td{background:#fff8e8}
+.row-diff td{background:#fff0f0}
+.cell-diff{background:#fde8e8!important;font-weight:600;color:var(--red)}
+.cell-diff-b{background:#e8f5fe!important;font-weight:600;color:var(--blue)}
+.stat-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:12px;font-family:var(--mono);font-weight:500}
+.pill-same{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bdr)}
+.pill-a{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bdr)}
+.pill-b{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bdr)}
+.pill-diff{background:var(--red-bg);color:var(--red);border:1px solid var(--red-bdr)}
 @media(max-width:600px){.stats{grid-template-columns:repeat(2,1fr)}.hdr{flex-direction:column;align-items:flex-start}}
 </style>
 </head>
@@ -209,6 +226,14 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       add row
     </button>
+    <button class="btn danger" onclick="confirmClearAll()">
+      <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+      clear all rows
+    </button>
+    <button class="btn" onclick="openCompare()" style="color:var(--blue);border-color:var(--blue-bdr);background:var(--blue-bg)">
+      <svg viewBox="0 0 24 24" style="stroke:var(--blue)"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+      compare files
+    </button>
     <button class="btn warn" onclick="runDupCheck()">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       check duplicates
@@ -256,6 +281,81 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
     <div class="mfooter">
       <button class="btn" onclick="closeModal('confirmModal')">Cancel</button>
       <button class="btn danger" id="confirmOkBtn">Remove</button>
+    </div>
+  </div>
+</div>
+
+<!-- Compare Modal -->
+<div class="overlay" id="compareModal">
+  <div class="modal" style="width:98vw;max-width:1100px;max-height:92vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <h3 style="margin:0">Compare Files</h3>
+      <button class="btn" onclick="closeModal('compareModal')">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        close
+      </button>
+    </div>
+
+    <!-- upload zone row -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div>
+        <div style="font-size:11px;font-family:var(--mono);color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">File A (Current Dataset — loaded automatically)</div>
+        <div class="drop-zone" style="margin:0;cursor:default;flex-direction:column;padding:1rem;gap:6px;border-color:var(--green-bdr);background:var(--green-bg)" id="dzA">
+          <svg viewBox="0 0 24 24" style="stroke:var(--green)"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <p id="lblA" style="color:var(--green);font-weight:500">Loading from Supabase…</p>
+          <span id="lblASub">current device + type dataset</span>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-family:var(--mono);color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">File B (New)</div>
+        <label class="drop-zone" style="margin:0;cursor:pointer;flex-direction:column;padding:1rem;gap:6px" id="dzB">
+          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <p id="lblB">Drop or click to upload File B</p>
+          <span>.csv, .xlsx, .xls</span>
+          <input type="file" accept=".csv,.xlsx,.xls" onchange="loadCompareFile('B',this)" style="display:none">
+        </label>
+      </div>
+    </div>
+
+    <!-- key column selector for compare -->
+    <div id="cmpKeyBar" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;margin-bottom:10px;display:none;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:11px;font-family:var(--mono);color:var(--text2)">match rows by:</span>
+      <div id="cmpKeyChips" style="display:flex;gap:5px;flex-wrap:wrap;flex:1"></div>
+      <button class="btn warn" onclick="runCompare()" style="padding:4px 10px;font-size:11px">
+        <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+        compare
+      </button>
+    </div>
+
+    <!-- legend -->
+    <div id="cmpLegend" style="display:none;gap:14px;font-size:11px;font-family:var(--mono);color:var(--text3);margin-bottom:8px;flex-wrap:wrap">
+      <div class="leg"><div class="leg-dot" style="background:#90c8a0"></div><span>same in both</span></div>
+      <div class="leg"><div class="leg-dot" style="background:#90b8e0"></div><span>only in File A</span></div>
+      <div class="leg"><div class="leg-dot" style="background:#e8c84a"></div><span>only in File B</span></div>
+      <div class="leg"><div class="leg-dot" style="background:#e8a0a0"></div><span>different value</span></div>
+    </div>
+
+    <!-- summary bar -->
+    <div id="cmpSummary" style="display:none;gap:8px;margin-bottom:10px;flex-wrap:wrap"></div>
+
+    <!-- side by side table -->
+    <div id="cmpTable"></div>
+
+    <!-- action bar -->
+    <div id="cmpActions" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:none;gap:8px;flex-wrap:wrap;align-items:center">
+      <span style="font-size:13px;color:var(--text2)">Apply to current dataset:</span>
+      <button class="btn primary" onclick="applyFile('A')">
+        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        use File A
+      </button>
+      <button class="btn primary" onclick="applyFile('B')">
+        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        use File B
+      </button>
+      <button class="btn success" onclick="applyMerged()">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        use merged (A + unique from B)
+      </button>
     </div>
   </div>
 </div>
@@ -320,7 +420,7 @@ const DEFAULT_COLUMNS = {
 // ── State ─────────────────────────────────────────────────────────────────────
 const DATASETS = {};
 Object.values(GROUPS).forEach(types=>Object.values(types).forEach(key=>{
-  DATASETS[key]={rows:[],dbIds:[],manuallyAdded:new Set(),dupInfo:{},keyColumns:new Set(['SPECIFICATION_POINT_NAME','DNP3.0_ADDRESS']),checked:false};
+  DATASETS[key]={rows:[],dbIds:[],manuallyAdded:new Set(),dupInfo:{},keyColumns:new Set(DEFAULT_COLUMNS[key].slice(0,2)),checked:false};
 }));
 
 let currentDevice=Object.keys(GROUPS)[0];
@@ -625,6 +725,19 @@ async function saveNewRow(){
   closeModal('addModal');renderAll();
   showLoading('Saving…');await saveDataset(currentKey());hideLoading();
 }
+function confirmClearAll(){
+  if(!ds().rows.length){alert('No rows to clear.');return;}
+  document.getElementById('confirmMsg').textContent=`Remove all ${ds().rows.length} rows from this dataset? This cannot be undone.`;
+  document.getElementById('confirmOkBtn').onclick=doClearAll;
+  document.getElementById('confirmModal').classList.add('open');
+}
+async function doClearAll(){
+  const d=ds();
+  d.rows=[];d.dbIds=[];d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
+  selected=new Set();hideDupAlert();
+  closeModal('confirmModal');renderAll();
+  showLoading('Clearing data…');await saveDataset(currentKey());hideLoading();
+}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 
 // ── Export ────────────────────────────────────────────────────────────────────
@@ -671,6 +784,181 @@ function renderAll(){
   hideLoading();
   renderAll();
 })();
+
+// ── Compare ───────────────────────────────────────────────────────────────────
+const CMP={A:null,B:null,colsA:[],colsB:[],keyColumns:new Set(),result:null};
+
+function openCompare(){
+  // reset
+  CMP.A=null;CMP.B=null;CMP.colsA=[];CMP.colsB=[];CMP.keyColumns=new Set();CMP.result=null;
+  document.getElementById('lblB').textContent='Drop or click to upload File B';
+  document.getElementById('dzB').style.borderColor='';
+  document.getElementById('cmpKeyBar').style.display='none';
+  document.getElementById('cmpLegend').style.display='none';
+  document.getElementById('cmpSummary').style.display='none';
+  document.getElementById('cmpActions').style.display='none';
+  document.getElementById('cmpTable').innerHTML='';
+  document.getElementById('compareModal').classList.add('open');
+
+  // auto-load File A from current dataset
+  const d=ds();const c=cols();
+  if(d.rows.length===0){
+    document.getElementById('lblA').textContent='No data in current dataset';
+    document.getElementById('lblASub').textContent='Add rows first or import a file';
+    document.getElementById('dzA').style.background='var(--amber-bg)';
+    document.getElementById('dzA').style.borderColor='var(--amber-bdr)';
+    CMP.A=[];CMP.colsA=c;
+  } else {
+    CMP.A=d.rows.map(r=>{const o={};c.forEach(col=>o[col]=String(r[col]??''));return o;});
+    CMP.colsA=c;
+    document.getElementById('lblA').textContent=currentDevice+' — '+currentType+' ('+d.rows.length+' rows)';
+    document.getElementById('lblASub').textContent='loaded from Supabase ✓';
+    document.getElementById('dzA').style.background='var(--green-bg)';
+    document.getElementById('dzA').style.borderColor='var(--green-bdr)';
+  }
+}
+
+function loadCompareFile(side,inp){
+  const f=inp.files[0];if(!f)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const data=XLSX.utils.sheet_to_json(ws,{defval:''});
+      if(!data.length){alert('File appears empty.');return;}
+      const fileCols=Object.keys(data[0]);
+      CMP[side]=data;
+      if(side==='A')CMP.colsA=fileCols;
+      else CMP.colsB=fileCols;
+      document.getElementById('lbl'+side).textContent=f.name+' ('+data.length+' rows)';
+      document.getElementById('dz'+side).style.borderColor='var(--green-bdr)';
+      // update key chips when both loaded
+      if(CMP.A&&CMP.B){
+        // union of columns from both files
+        const allCols=[...new Set([...CMP.colsA,...CMP.colsB])];
+        // default key = first col of file A
+        CMP.keyColumns=new Set([CMP.colsA[0]]);
+        renderCmpKeyChips(allCols);
+        document.getElementById('cmpKeyBar').style.display='flex';
+      }
+    }catch(err){alert('Could not read file: '+err.message);}
+  };
+  reader.readAsArrayBuffer(f);
+  inp.value='';
+}
+
+function renderCmpKeyChips(allCols){
+  document.getElementById('cmpKeyChips').innerHTML=allCols.map(c=>
+    `<button class="chip${CMP.keyColumns.has(c)?' on':''}" onclick="toggleCmpKey('${c.replace(/'/g,"\'")}')">${c}</button>`
+  ).join('');
+}
+
+function toggleCmpKey(col){
+  if(CMP.keyColumns.has(col)){if(CMP.keyColumns.size>1)CMP.keyColumns.delete(col);}
+  else CMP.keyColumns.add(col);
+  const allCols=[...new Set([...CMP.colsA,...CMP.colsB])];
+  renderCmpKeyChips(allCols);
+}
+
+function getRowKey(row){
+  return [...CMP.keyColumns].map(c=>String(row[c]||'').toLowerCase().trim()).join('||');
+}
+
+function runCompare(){
+  if(!CMP.A||!CMP.B){alert('Upload both files first.');return;}
+  const allCols=[...new Set([...CMP.colsA,...CMP.colsB])];
+  const mapA=new Map();CMP.A.forEach(r=>mapA.set(getRowKey(r),r));
+  const mapB=new Map();CMP.B.forEach(r=>mapB.set(getRowKey(r),r));
+  const allKeys=[...new Set([...mapA.keys(),...mapB.keys()])];
+
+  const rows=allKeys.map(k=>{
+    const ra=mapA.get(k)||null;
+    const rb=mapB.get(k)||null;
+    let status='same';
+    if(ra&&!rb)status='only-a';
+    else if(!ra&&rb)status='only-b';
+    else{
+      // check if any col differs
+      if(allCols.some(c=>String(ra[c]??'')!==String(rb[c]??'')))status='diff';
+    }
+    return{key:k,ra,rb,status,cols:allCols};
+  });
+
+  CMP.result=rows;
+  const same=rows.filter(r=>r.status==='same').length;
+  const onlyA=rows.filter(r=>r.status==='only-a').length;
+  const onlyB=rows.filter(r=>r.status==='only-b').length;
+  const diff=rows.filter(r=>r.status==='diff').length;
+
+  // summary
+  const sum=document.getElementById('cmpSummary');
+  sum.style.display='flex';
+  sum.innerHTML=`
+    <span class="stat-pill pill-same">✓ ${same} same</span>
+    <span class="stat-pill pill-a">A only: ${onlyA}</span>
+    <span class="stat-pill pill-b">B only: ${onlyB}</span>
+    <span class="stat-pill pill-diff">⚠ ${diff} different</span>`;
+
+  // legend
+  document.getElementById('cmpLegend').style.display='flex';
+
+  // table
+  const thead=`<tr>
+    <th>#</th>
+    <th>status</th>
+    ${allCols.map(c=>`<th colspan="2" style="text-align:center;border-left:2px solid var(--border2)">${c}</th>`).join('')}
+  </tr>
+  <tr>
+    <th></th><th></th>
+    ${allCols.map(()=>`<th style="border-left:2px solid var(--border2);color:#3B6D11">A</th><th style="color:#1a4a7a">B</th>`).join('')}
+  </tr>`;
+
+  const tbody=rows.map((r,i)=>{
+    const sc=r.status==='same'?'row-same':r.status==='only-a'?'row-only-a':r.status==='only-b'?'row-only-b':'row-diff';
+    const statusBadge=r.status==='same'
+      ?`<span class="badge orig">same</span>`
+      :r.status==='only-a'
+      ?`<span class="badge new">A only</span>`
+      :r.status==='only-b'
+      ?`<span class="badge dup" style="background:var(--amber-bg);color:var(--amber)">B only</span>`
+      :`<span class="badge dup">different</span>`;
+    const cells=r.cols.map(c=>{
+      const va=r.ra?String(r.ra[c]??''):'—';
+      const vb=r.rb?String(r.rb[c]??''):'—';
+      const isDiff=va!==vb;
+      return `<td style="border-left:2px solid var(--border2)" class="${isDiff?'cell-diff':''}" title="${va}">${va}</td><td class="${isDiff?'cell-diff-b':''}" title="${vb}">${vb}</td>`;
+    }).join('');
+    return `<tr class="${sc}"><td class="rn">${i+1}</td><td>${statusBadge}</td>${cells}</tr>`;
+  }).join('');
+
+  document.getElementById('cmpTable').innerHTML=`<div class="cmp-tbl-wrap"><table><thead>${thead}</thead><tbody>${tbody}</tbody></table></div>`;
+  document.getElementById('cmpActions').style.display='flex';
+}
+
+async function applyFile(side){
+  if(!CMP[side]){alert('File '+side+' not loaded.');return;}
+  const d=ds();const c=cols();
+  d.rows=CMP[side].map(r=>{const o={};c.forEach(col=>o[col]=r[col]??'');return o;});
+  d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
+  selected=new Set();hideDupAlert();
+  closeModal('compareModal');renderAll();
+  showLoading('Saving File '+side+' to cloud…');await saveDataset(currentKey());hideLoading();
+}
+
+async function applyMerged(){
+  if(!CMP.A||!CMP.B){alert('Both files must be loaded.');return;}
+  const d=ds();const c=cols();
+  const mapA=new Map();CMP.A.forEach(r=>mapA.set(getRowKey(r),r));
+  // start with all A rows, add B rows not in A
+  const merged=[...CMP.A];
+  CMP.B.forEach(r=>{if(!mapA.has(getRowKey(r)))merged.push(r);});
+  d.rows=merged.map(r=>{const o={};c.forEach(col=>o[col]=r[col]??'');return o;});
+  d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
+  selected=new Set();hideDupAlert();
+  closeModal('compareModal');renderAll();
+  showLoading('Saving merged data to cloud…');await saveDataset(currentKey());hideLoading();
+}
 </script>
 </body>
 </html>
