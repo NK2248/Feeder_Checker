@@ -20,58 +20,48 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px}
 .page{max-width:1200px;margin:0 auto;padding:1.5rem 1.25rem 4rem}
-
-/* header */
 .hdr{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1.5rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border)}
 .hdr-left{display:flex;align-items:center;gap:10px}
 .logo{width:34px;height:34px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .logo svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 h1{font-size:17px;font-weight:600;letter-spacing:-.02em}
 .sub{font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:2px}
+.hdr-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
 .privacy{font-size:12px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:5px 11px;display:flex;align-items:center;gap:6px}
 .privacy svg{width:12px;height:12px;stroke:var(--green);fill:none;stroke-width:2;stroke-linecap:round;flex-shrink:0}
-
-/* device tabs */
+.sync-status{font-size:11px;font-family:var(--mono);padding:4px 10px;border-radius:20px;display:flex;align-items:center;gap:5px;border:1px solid var(--border)}
+.sync-status.syncing{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-bdr)}
+.sync-status.synced{background:var(--green-bg);color:var(--green);border-color:var(--green-bdr)}
+.sync-status.error{background:var(--red-bg);color:var(--red);border-color:var(--red-bdr)}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0}
 .dev-tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:6px}
 .dev-tab{padding:6px 16px;border-radius:var(--r);border:none;background:transparent;cursor:pointer;font-size:13px;font-family:var(--font);font-weight:500;color:var(--text2);transition:all .15s;white-space:nowrap}
 .dev-tab:hover{background:var(--surface2)}
 .dev-tab.active{background:var(--accent);color:#fff}
-
-/* type tabs */
 .type-tabs{display:flex;gap:6px;margin-bottom:12px}
 .type-tab{padding:5px 14px;border-radius:20px;border:1px solid var(--border2);background:transparent;cursor:pointer;font-size:12px;font-family:var(--mono);color:var(--text2);transition:all .15s;white-space:nowrap}
 .type-tab:hover{background:var(--surface2)}
 .type-tab.active{background:var(--accent-light);color:var(--accent-text);border-color:var(--blue-bdr);font-weight:500}
-
-/* stats */
 .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:12px}
 .stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:.75rem 1rem}
 .stat-lbl{font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
 .stat-val{font-size:20px;font-weight:600;font-family:var(--mono);letter-spacing:-.03em}
 .stat-val.amber{color:var(--amber)}
 .stat-val.red{color:var(--red)}
-
-/* key bar */
 .key-bar{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:9px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
 .key-lbl{font-size:11px;color:var(--text2);font-family:var(--mono);white-space:nowrap;display:flex;align-items:center;gap:5px}
 .key-lbl svg{width:12px;height:12px;stroke:var(--accent);fill:none;stroke-width:2;stroke-linecap:round}
 .chips{display:flex;gap:5px;flex-wrap:wrap;flex:1}
 .chip{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--border2);background:transparent;color:var(--text2);transition:all .12s;font-family:var(--mono)}
 .chip.on{background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bdr)}
-
-/* alerts */
 .alert{border-radius:var(--rlg);padding:10px 14px;font-size:13px;display:flex;align-items:flex-start;gap:9px;margin-bottom:10px}
 .alert svg{width:15px;height:15px;flex-shrink:0;margin-top:1px;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .alert.warn{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bdr)}
 .alert.warn svg{stroke:var(--amber)}
 .alert.ok{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bdr)}
 .alert.ok svg{stroke:var(--green)}
-
-/* sel bar */
 .sel-bar{background:var(--blue-bg);border:1px solid var(--blue-bdr);border-radius:var(--rlg);padding:8px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
 .sel-cnt{font-size:13px;color:var(--blue);font-weight:500;font-family:var(--mono)}
-
-/* toolbar */
 .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
 .srch{position:relative;flex:1;min-width:150px}
 .srch svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);width:13px;height:13px;stroke:var(--text3);fill:none;stroke-width:2;stroke-linecap:round;pointer-events:none}
@@ -80,8 +70,6 @@ h1{font-size:17px;font-weight:600;letter-spacing:-.02em}
 .legend{display:flex;gap:10px;font-size:11px;color:var(--text3);align-items:center;font-family:var(--mono);flex-wrap:wrap}
 .leg{display:flex;align-items:center;gap:4px}
 .leg-dot{width:8px;height:8px;border-radius:2px}
-
-/* buttons */
 .btn{display:inline-flex;align-items:center;gap:5px;padding:6px 13px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);cursor:pointer;font-size:13px;font-family:var(--font);color:var(--text);transition:all .15s;font-weight:500;white-space:nowrap}
 .btn:hover{background:var(--surface2)}
 .btn:active{transform:scale(.98)}
@@ -93,16 +81,12 @@ h1{font-size:17px;font-weight:600;letter-spacing:-.02em}
 .btn.warn{color:var(--amber);border-color:var(--amber-bdr);background:var(--amber-bg)}
 .btn.success{color:var(--green);border-color:var(--green-bdr);background:var(--green-bg)}
 .btn-group{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-
-/* upload */
-.drop-zone{border:2px dashed var(--border2);border-radius:var(--rlg);padding:1.5rem;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:12px;background:var(--surface);display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center}
+.drop-zone{border:2px dashed var(--border2);border-radius:var(--rlg);padding:1.25rem;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:12px;background:var(--surface);display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center}
 .drop-zone:hover,.drop-zone.drag{border-color:var(--accent);background:var(--accent-light)}
-.drop-zone svg{width:22px;height:22px;stroke:var(--text3);fill:none;stroke-width:1.5;stroke-linecap:round;flex-shrink:0}
+.drop-zone svg{width:20px;height:20px;stroke:var(--text3);fill:none;stroke-width:1.5;stroke-linecap:round;flex-shrink:0}
 .drop-zone p{font-size:13px;color:var(--text2);font-weight:500}
 .drop-zone span{font-size:12px;color:var(--text3)}
 .drop-zone input{display:none}
-
-/* table */
 .tbl-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden}
 .tbl-wrap{overflow-x:auto;max-height:440px;overflow-y:auto}
 table{width:100%;border-collapse:collapse;font-size:12px}
@@ -130,8 +114,6 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
 .empty svg{width:36px;height:36px;stroke:var(--text3);fill:none;stroke-width:1.5;stroke-linecap:round;margin-bottom:8px;opacity:.4}
 .empty p{font-size:13px;color:var(--text2);font-weight:500;margin-bottom:3px}
 .empty span{font-size:12px}
-
-/* modals */
 .overlay{display:none;position:fixed;inset:0;background:rgba(10,8,6,.45);z-index:100;align-items:center;justify-content:center;padding:1rem}
 .overlay.open{display:flex}
 .modal{background:var(--surface);border:1px solid var(--border2);border-radius:var(--rlg);padding:1.5rem;width:420px;max-width:100%;max-height:90vh;overflow-y:auto}
@@ -144,7 +126,10 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
 .mfooter{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;border-top:1px solid var(--border);padding-top:14px}
 .confirm-modal h3{color:var(--red)}
 .confirm-modal p{font-size:13px;color:var(--text2);line-height:1.6}
-
+.loading-overlay{position:fixed;inset:0;background:rgba(245,246,248,.85);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+.spinner{width:32px;height:32px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:13px;color:var(--text2);font-family:var(--mono)}
 @media(max-width:600px){.stats{grid-template-columns:repeat(2,1fr)}.hdr{flex-direction:column;align-items:flex-start}}
 </style>
 </head>
@@ -159,26 +144,27 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
       <div class="sub">AVR · LBS · RCS(SF6) · RCS(Solid Dielectric) · REC · SCB</div>
     </div>
   </div>
-  <div class="privacy">
-    <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-    All data stays in your browser — nothing is sent to any server.
+  <div class="hdr-right">
+    <div class="privacy">
+      <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Synced across all browsers via Supabase
+    </div>
+    <div class="sync-status synced" id="syncStatus">
+      <div class="sync-dot"></div>
+      <span id="syncText">connected</span>
+    </div>
   </div>
 </header>
 
-<!-- device tabs -->
 <div class="dev-tabs" id="devTabs"></div>
-
-<!-- type tabs -->
 <div class="type-tabs" id="typeTabs"></div>
 
-<!-- upload -->
 <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileIn').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
   <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
   <div><p>Drop a file or click to import into this dataset</p><span>Supports .csv, .xlsx, .xls — appends to current table</span></div>
   <input type="file" id="fileIn" accept=".csv,.xlsx,.xls" onchange="handleUpload(this)">
 </div>
 
-<!-- stats -->
 <div class="stats">
   <div class="stat"><div class="stat-lbl">total rows</div><div class="stat-val" id="sTotal">0</div></div>
   <div class="stat"><div class="stat-lbl">columns</div><div class="stat-val" id="sCols">0</div></div>
@@ -186,7 +172,6 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   <div class="stat"><div class="stat-lbl">dup rows</div><div class="stat-val red" id="sDupR">—</div></div>
 </div>
 
-<!-- key bar -->
 <div class="key-bar" id="keyBar">
   <div class="key-lbl">
     <svg viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
@@ -201,7 +186,6 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
 
 <div id="dupAlert" style="display:none"></div>
 
-<!-- sel bar -->
 <div class="sel-bar" id="selBar" style="display:none">
   <svg style="width:15px;height:15px;stroke:var(--blue);fill:none;stroke-width:2;stroke-linecap:round" viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
   <span class="sel-cnt" id="selCount">0 rows selected</span>
@@ -215,7 +199,6 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   </button>
 </div>
 
-<!-- toolbar -->
 <div class="toolbar">
   <div class="srch">
     <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -250,10 +233,8 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   </div>
 </div>
 
-<!-- table -->
 <div class="tbl-card" id="tableArea"></div>
-
-</div><!-- /page -->
+</div>
 
 <!-- Add Row Modal -->
 <div class="overlay" id="addModal">
@@ -279,17 +260,42 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   </div>
 </div>
 
-<script>
-// ── Schema from Feeder_Device.py ──────────────────────────────────────────────
-const GROUPS = {
-  "AVR": {"Status Point":"AVR_Status_point","Control Output":"AVR_Control_Output","Analog Point":"AVR_Analog_point"},
-  "LBS": {"Status Point":"LBS_Status_point","Control Output":"LBS_Control_Output","Analog Point":"LBS_Analog_point"},
-  "RCS(SF6)": {"Status Point":"RCS(SF6)_Status_point","Control Output":"RCS(SF6)_Control_Output","Analog Point":"RCS(SF6)_Analog_point"},
-  "RCS(Solid Dielectric)": {"Status Point":"RCS(Solid Dielectric)_Status_point","Control Output":"RCS(Solid Dielectric)_Control_Output","Analog Point":"RCS(Solid Dielectric)_Analog_point"},
-  "REC": {"Status Point":"REC_Status_point","Control Output":"REC_Control_Output","Analog Point":"REC_Analog_point"},
-  "SCB": {"Status Point":"SCB_Status_point","Control Output":"SCB_Control_Output","Analog Point":"SCB_Analog_point"}
-};
+<!-- Loading overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loadingText">Loading data…</div>
+</div>
 
+<script>
+// ── Supabase config ───────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://patzykppxenvdctsybcb.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhdHp5a3BweGVudmRjdHN5YmNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MDcxNzYsImV4cCI6MjA5NTM4MzE3Nn0.REJqzClu-xKaUm5_vu3cNwtwbTCkBP2Fw2uEFQaH1PU';
+const TABLE = 'feeder_data';
+
+async function sbFetch(method, path, body){
+  const res = await fetch(SUPABASE_URL+'/rest/v1/'+path, {
+    method,
+    headers:{
+      'Content-Type':'application/json',
+      'apikey': SUPABASE_KEY,
+      'Authorization':'Bearer '+SUPABASE_KEY,
+      'Prefer': method==='POST'?'return=representation':'return=representation'
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if(!res.ok){ const t=await res.text(); throw new Error(t); }
+  return res.status===204?null:res.json();
+}
+
+// ── Schema ────────────────────────────────────────────────────────────────────
+const GROUPS = {
+  "AVR":{"Status Point":"AVR_Status_point","Control Output":"AVR_Control_Output","Analog Point":"AVR_Analog_point"},
+  "LBS":{"Status Point":"LBS_Status_point","Control Output":"LBS_Control_Output","Analog Point":"LBS_Analog_point"},
+  "RCS(SF6)":{"Status Point":"RCS(SF6)_Status_point","Control Output":"RCS(SF6)_Control_Output","Analog Point":"RCS(SF6)_Analog_point"},
+  "RCS(Solid Dielectric)":{"Status Point":"RCS(Solid Dielectric)_Status_point","Control Output":"RCS(Solid Dielectric)_Control_Output","Analog Point":"RCS(Solid Dielectric)_Analog_point"},
+  "REC":{"Status Point":"REC_Status_point","Control Output":"REC_Control_Output","Analog Point":"REC_Analog_point"},
+  "SCB":{"Status Point":"SCB_Status_point","Control Output":"SCB_Control_Output","Analog Point":"SCB_Analog_point"}
+};
 const DEFAULT_COLUMNS = {
   "AVR_Status_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCIPRTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
   "AVR_Control_Output":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCIPRTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
@@ -312,19 +318,85 @@ const DEFAULT_COLUMNS = {
 };
 
 // ── State ─────────────────────────────────────────────────────────────────────
-// datasets: { [datasetKey]: { rows: [], manuallyAdded: Set, dupInfo: {}, keyColumns: Set, checked: bool } }
 const DATASETS = {};
-Object.values(GROUPS).forEach(types => Object.values(types).forEach(key => {
-  DATASETS[key] = { rows:[], manuallyAdded:new Set(), dupInfo:{}, keyColumns:new Set(DEFAULT_COLUMNS[key].slice(0,2)), checked:false };
+Object.values(GROUPS).forEach(types=>Object.values(types).forEach(key=>{
+  DATASETS[key]={rows:[],dbIds:[],manuallyAdded:new Set(),dupInfo:{},keyColumns:new Set(DEFAULT_COLUMNS[key].slice(0,2)),checked:false};
 }));
 
-let currentDevice = Object.keys(GROUPS)[0];
-let currentType   = Object.keys(Object.values(GROUPS)[0])[0];
-let selected = new Set();
+let currentDevice=Object.keys(GROUPS)[0];
+let currentType=Object.keys(Object.values(GROUPS)[0])[0];
+let selected=new Set();
+let syncTimer=null;
 
-function currentKey(){ return GROUPS[currentDevice][currentType]; }
-function ds(){ return DATASETS[currentKey()]; }
-function cols(){ return DEFAULT_COLUMNS[currentKey()]; }
+function currentKey(){return GROUPS[currentDevice][currentType];}
+function ds(){return DATASETS[currentKey()];}
+function cols(){return DEFAULT_COLUMNS[currentKey()];}
+
+// ── Sync status UI ────────────────────────────────────────────────────────────
+function setSyncStatus(state,text){
+  const el=document.getElementById('syncStatus');
+  el.className='sync-status '+state;
+  document.getElementById('syncText').textContent=text;
+}
+
+// ── Load from Supabase ────────────────────────────────────────────────────────
+async function loadDataset(key){
+  try{
+    setSyncStatus('syncing','loading…');
+    const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(key)+'&order=row_index.asc','');
+    const d=DATASETS[key];
+    d.rows=data.map(r=>r.data);
+    d.dbIds=data.map(r=>r.id);
+    d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
+    setSyncStatus('synced','synced');
+  }catch(e){
+    setSyncStatus('error','sync error');
+    console.error('Load error:',e);
+  }
+}
+
+async function loadCurrentDataset(){
+  showLoading('Loading data…');
+  await loadDataset(currentKey());
+  hideLoading();
+  renderAll();
+}
+
+// ── Save to Supabase ──────────────────────────────────────────────────────────
+async function saveDataset(key){
+  try{
+    setSyncStatus('syncing','saving…');
+    const d=DATASETS[key];
+    // delete all existing rows for this dataset
+    await sbFetch('DELETE', TABLE+'?dataset_key=eq.'+encodeURIComponent(key));
+    // re-insert all rows
+    if(d.rows.length){
+      const inserts=d.rows.map((row,i)=>({dataset_key:key,row_index:i,data:row}));
+      const result=await sbFetch('POST', TABLE, inserts);
+      d.dbIds=result.map(r=>r.id);
+    } else {
+      d.dbIds=[];
+    }
+    setSyncStatus('synced','synced ✓');
+  }catch(e){
+    setSyncStatus('error','save failed');
+    console.error('Save error:',e);
+  }
+}
+
+function debounceSave(){
+  clearTimeout(syncTimer);
+  syncTimer=setTimeout(()=>saveDataset(currentKey()),800);
+}
+
+// ── Loading overlay ───────────────────────────────────────────────────────────
+function showLoading(text='Loading…'){
+  document.getElementById('loadingText').textContent=text;
+  document.getElementById('loadingOverlay').style.display='flex';
+}
+function hideLoading(){
+  document.getElementById('loadingOverlay').style.display='none';
+}
 
 // ── Drag/drop upload ──────────────────────────────────────────────────────────
 function onDragOver(e){e.preventDefault();document.getElementById('dropZone').classList.add('drag');}
@@ -334,24 +406,23 @@ function handleUpload(inp){const f=inp.files[0];if(f)processFile(f);inp.value=''
 
 function processFile(f){
   const reader=new FileReader();
-  reader.onload=e=>{
+  reader.onload=async e=>{
     try{
       const wb=XLSX.read(e.target.result,{type:'array'});
       const ws=wb.Sheets[wb.SheetNames[0]];
       const data=XLSX.utils.sheet_to_json(ws,{defval:''});
       if(!data.length){alert('File appears empty.');return;}
-      const d=ds(); const c=cols();
+      const d=ds();const c=cols();
       data.forEach(r=>{
-        const row={};
-        c.forEach(col=>row[col]=r[col]!==undefined?r[col]:'');
-        d.rows.push(row);
-        d.manuallyAdded.add(d.rows.length-1);
+        const row={};c.forEach(col=>row[col]=r[col]!==undefined?r[col]:'');
+        d.rows.push(row);d.manuallyAdded.add(d.rows.length-1);
       });
-      d.dupInfo={};d.checked=false;
-      selected=new Set();
-      hideDupAlert();
+      d.dupInfo={};d.checked=false;selected=new Set();hideDupAlert();
       renderAll();
-    }catch(err){alert('Could not read file: '+err.message);}
+      showLoading('Saving to cloud…');
+      await saveDataset(currentKey());
+      hideLoading();
+    }catch(err){hideLoading();alert('Could not read file: '+err.message);}
   };
   reader.readAsArrayBuffer(f);
 }
@@ -362,20 +433,21 @@ function renderDevTabs(){
     `<button class="dev-tab${dev===currentDevice?' active':''}" onclick="switchDevice('${dev}')">${dev}</button>`
   ).join('');
 }
-
 function renderTypeTabs(){
   document.getElementById('typeTabs').innerHTML=Object.keys(GROUPS[currentDevice]).map(t=>
     `<button class="type-tab${t===currentType?' active':''}" onclick="switchType('${t}')">${t}</button>`
   ).join('');
 }
-
-function switchDevice(dev){
-  currentDevice=dev;
-  currentType=Object.keys(GROUPS[dev])[0];
-  selected=new Set();hideDupAlert();renderAll();
+async function switchDevice(dev){
+  currentDevice=dev;currentType=Object.keys(GROUPS[dev])[0];
+  selected=new Set();hideDupAlert();
+  renderDevTabs();renderTypeTabs();
+  await loadCurrentDataset();
 }
-function switchType(t){
-  currentType=t;selected=new Set();hideDupAlert();renderAll();
+async function switchType(t){
+  currentType=t;selected=new Set();hideDupAlert();
+  renderTypeTabs();
+  await loadCurrentDataset();
 }
 
 // ── Key columns ───────────────────────────────────────────────────────────────
@@ -385,45 +457,37 @@ function renderKeyChips(){
     `<button class="chip${d.keyColumns.has(c)?' on':''}" onclick="toggleKey('${c.replace(/'/g,"\\'")}')">${c}</button>`
   ).join('');
 }
-
 function toggleKey(col){
   const d=ds();
   if(d.keyColumns.has(col)){if(d.keyColumns.size>1)d.keyColumns.delete(col);}
   else d.keyColumns.add(col);
-  d.dupInfo={};d.checked=false;hideDupAlert();
-  renderKeyChips();renderTable();
+  d.dupInfo={};d.checked=false;hideDupAlert();renderKeyChips();renderTable();
 }
 
 // ── Duplicate check ───────────────────────────────────────────────────────────
 function runDupCheck(){
-  const d=ds();const c=cols();
-  if(!d.rows.length){alert('No rows to check.');return;}
+  const d=ds();if(!d.rows.length){alert('No rows to check.');return;}
   const groups=new Map();
   d.rows.forEach((r,i)=>{
     const key=[...d.keyColumns].map(col=>String(r[col]||'').toLowerCase().trim()).join('||');
-    if(!groups.has(key))groups.set(key,[]);
-    groups.get(key).push(i);
+    if(!groups.has(key))groups.set(key,[]);groups.get(key).push(i);
   });
   d.dupInfo={};let dg=0,dr=0;
-  groups.forEach(idxs=>{
-    if(idxs.length>1){dg++;idxs.forEach((idx,p)=>{d.dupInfo[idx]=p===0?'orig':'dup';if(p>0)dr++;});}
-  });
+  groups.forEach(idxs=>{if(idxs.length>1){dg++;idxs.forEach((idx,p)=>{d.dupInfo[idx]=p===0?'orig':'dup';if(p>0)dr++;})}});
   d.checked=true;
   document.getElementById('sDupG').textContent=dg;
   document.getElementById('sDupR').textContent=dr;
   const el=document.getElementById('dupAlert');el.style.display='block';
   if(dr===0){
-    el.innerHTML=`<div class="alert ok"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>No duplicates found on: <strong>${[...d.keyColumns].join(', ')}</strong>.</span></div>`;
+    el.innerHTML=`<div class="alert ok"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>No duplicates on: <strong>${[...d.keyColumns].join(', ')}</strong>.</span></div>`;
   }else{
-    el.innerHTML=`<div class="alert warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div><strong>${dr} duplicate row(s)</strong> in <strong>${dg} group(s)</strong> — matched on: <strong>${[...d.keyColumns].join(', ')}</strong>.<br><span style="font-size:11px;margin-top:3px;display:block;opacity:.8">Green = first occurrence (kept). Amber = duplicates. Select and remove as needed.</span></div></div>`;
+    el.innerHTML=`<div class="alert warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div><strong>${dr} duplicate(s)</strong> in <strong>${dg} group(s)</strong> on: <strong>${[...d.keyColumns].join(', ')}</strong>.<br><span style="font-size:11px;margin-top:3px;display:block;opacity:.8">Green = original. Amber = duplicate. Select and remove as needed.</span></div></div>`;
   }
   renderTable();
 }
-
 function hideDupAlert(){
   document.getElementById('dupAlert').style.display='none';
-  document.getElementById('sDupG').textContent='—';
-  document.getElementById('sDupR').textContent='—';
+  document.getElementById('sDupG').textContent='—';document.getElementById('sDupR').textContent='—';
 }
 
 // ── Selection ─────────────────────────────────────────────────────────────────
@@ -455,7 +519,7 @@ function confirmDeleteOne(i){
   document.getElementById('confirmOkBtn').onclick=()=>doDeleteOne(i);
   document.getElementById('confirmModal').classList.add('open');
 }
-function doDeleteSelected(){
+async function doDeleteSelected(){
   const d=ds();
   const idxs=[...selected].sort((a,b)=>b-a);
   idxs.forEach(i=>{
@@ -464,14 +528,16 @@ function doDeleteSelected(){
   });
   selected=new Set();d.dupInfo={};d.checked=false;hideDupAlert();
   closeModal('confirmModal');renderAll();
+  showLoading('Saving…');await saveDataset(currentKey());hideLoading();
 }
-function doDeleteOne(i){
+async function doDeleteOne(i){
   const d=ds();
   d.rows.splice(i,1);
   selected.delete(i);const ns=new Set();selected.forEach(x=>ns.add(x>i?x-1:x));selected=ns;
   d.manuallyAdded=new Set([...d.manuallyAdded].filter(x=>x!==i).map(x=>x>i?x-1:x));
   const nd={};Object.entries(d.dupInfo).forEach(([k,v])=>{const ki=parseInt(k);if(ki!==i)nd[ki>i?ki-1:ki]=v;});d.dupInfo=nd;
   closeModal('confirmModal');renderAll();
+  showLoading('Saving…');await saveDataset(currentKey());hideLoading();
 }
 
 // ── Edit cell ─────────────────────────────────────────────────────────────────
@@ -479,6 +545,7 @@ function editCell(idx,col,el){
   ds().rows[idx][col]=el.innerText.trim();
   ds().dupInfo={};ds().checked=false;hideDupAlert();
   document.getElementById('sTotal').textContent=ds().rows.length;
+  debounceSave();
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
@@ -529,12 +596,13 @@ function openAddRow(){
   document.getElementById('addFields').innerHTML=c.map(col=>`<div class="frow"><label>${col}</label><input type="text" id="nf_${col.replace(/\W/g,'_')}" placeholder="${col}"></div>`).join('');
   document.getElementById('addModal').classList.add('open');
 }
-function saveNewRow(){
+async function saveNewRow(){
   const d=ds();const c=cols();
   const row={};c.forEach(col=>{row[col]=(document.getElementById('nf_'+col.replace(/\W/g,'_'))||{value:''}).value||'';});
   d.rows.push(row);d.manuallyAdded.add(d.rows.length-1);
   d.dupInfo={};d.checked=false;hideDupAlert();
   closeModal('addModal');renderAll();
+  showLoading('Saving…');await saveDataset(currentKey());hideLoading();
 }
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 
@@ -548,7 +616,6 @@ function exportExcel(){
   XLSX.utils.book_append_sheet(wb,ws,currentKey().replace(/[\\/*?:[\]]/g,'_').substring(0,31));
   XLSX.writeFile(wb,currentKey()+'_export.xlsx');
 }
-
 function exportAllExcel(){
   const wb=XLSX.utils.book_new();
   Object.keys(GROUPS).forEach(dev=>{
@@ -556,13 +623,12 @@ function exportAllExcel(){
       const d=DATASETS[key];const c=DEFAULT_COLUMNS[key];
       const out=d.rows.length?d.rows.map(r=>{const o={};c.forEach(col=>o[col]=r[col]??'');return o;}):[Object.fromEntries(c.map(col=>[col,'']))];
       const ws=XLSX.utils.json_to_sheet(out);
-      const sheetName=(dev+'_'+type).replace(/[\\/*?:[\]()]/g,'').replace(/\s+/g,'_').substring(0,31);
-      XLSX.utils.book_append_sheet(wb,ws,sheetName);
+      const sn=(dev+'_'+type).replace(/[\\/*?:[\]()]/g,'').replace(/\s+/g,'_').substring(0,31);
+      XLSX.utils.book_append_sheet(wb,ws,sn);
     });
   });
   XLSX.writeFile(wb,'FeederDevice_all_datasets.xlsx');
 }
-
 function exportCSV(){
   const d=ds();const c=cols();
   if(!d.rows.length){alert('No data to export.');return;}
@@ -576,7 +642,14 @@ function exportCSV(){
 function renderAll(){
   renderDevTabs();renderTypeTabs();renderKeyChips();renderStats();updateSelBar();renderTable();
 }
-renderAll();
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+(async()=>{
+  showLoading('Connecting to database…');
+  await loadDataset(currentKey());
+  hideLoading();
+  renderAll();
+})();
 </script>
 </body>
 </html>
