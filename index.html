@@ -130,6 +130,12 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
 .spinner{width:32px;height:32px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading-text{font-size:13px;color:var(--text2);font-family:var(--mono)}
+/* ── Device Management ──────────────────── */
+.dev-tab-wrap{display:flex;align-items:center;gap:4px;flex-wrap:wrap;flex:1}
+.btn-icon{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:var(--r);border:1px dashed var(--border2);background:transparent;cursor:pointer;color:var(--text3);transition:all .15s;flex-shrink:0}
+.btn-icon:hover{background:var(--accent-light);color:var(--accent);border-color:var(--accent)}
+.btn-icon svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.type-tab-wrap{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 /* ── Compare ─────────────────────────────── */
 .cmp-tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--rlg);max-height:420px;overflow-y:auto}
 .cmp-tbl-wrap table{width:100%;border-collapse:collapse;font-size:11px}
@@ -173,8 +179,18 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   </div>
 </header>
 
-<div class="dev-tabs" id="devTabs"></div>
-<div class="type-tabs" id="typeTabs"></div>
+<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+  <div class="dev-tabs" id="devTabs" style="margin-bottom:0;flex:1"></div>
+  <button class="btn-icon" onclick="openAddDevice()" title="Add new device">
+    <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
+</div>
+<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+  <div class="type-tabs" id="typeTabs" style="margin-bottom:0"></div>
+  <button class="btn-icon" onclick="openAddSubset()" title="Add new subset to current device">
+    <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
+</div>
 
 <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileIn').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
   <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -281,6 +297,62 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
     <div class="mfooter">
       <button class="btn" onclick="closeModal('confirmModal')">Cancel</button>
       <button class="btn danger" id="confirmOkBtn">Remove</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Device Modal -->
+<div class="overlay" id="addDeviceModal">
+  <div class="modal" style="width:380px">
+    <h3>Add New Device</h3>
+    <div class="fgrid">
+      <div class="frow">
+        <label>Device Name</label>
+        <input type="text" id="newDeviceName" placeholder="e.g. FCB, VCB, ACR">
+      </div>
+      <div class="frow">
+        <label>Default Subsets</label>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);text-transform:none;letter-spacing:0;font-weight:400;cursor:pointer">
+            <input type="checkbox" id="chk_status" checked style="width:auto;height:auto"> Status Point
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);text-transform:none;letter-spacing:0;font-weight:400;cursor:pointer">
+            <input type="checkbox" id="chk_control" checked style="width:auto;height:auto"> Control Output
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);text-transform:none;letter-spacing:0;font-weight:400;cursor:pointer">
+            <input type="checkbox" id="chk_analog" checked style="width:auto;height:auto"> Analog Point
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="mfooter">
+      <button class="btn" onclick="closeModal('addDeviceModal')">Cancel</button>
+      <button class="btn primary" onclick="saveNewDevice()">Add Device</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Subset Modal -->
+<div class="overlay" id="addSubsetModal">
+  <div class="modal" style="width:380px">
+    <h3>Add Subset to <span id="addSubsetDeviceName"></span></h3>
+    <div class="fgrid">
+      <div class="frow">
+        <label>Subset Name</label>
+        <input type="text" id="newSubsetName" placeholder="e.g. Protection Point">
+      </div>
+      <div class="frow">
+        <label>Column Schema (based on type)</label>
+        <select id="newSubsetSchema" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);outline:none;width:100%">
+          <option value="status">Status Point schema</option>
+          <option value="control">Control Output schema</option>
+          <option value="analog">Analog Point schema</option>
+        </select>
+      </div>
+    </div>
+    <div class="mfooter">
+      <button class="btn" onclick="closeModal('addSubsetModal')">Cancel</button>
+      <button class="btn primary" onclick="saveNewSubset()">Add Subset</button>
     </div>
   </div>
 </div>
@@ -780,10 +852,138 @@ function renderAll(){
 // ── Init ──────────────────────────────────────────────────────────────────────
 (async()=>{
   showLoading('Connecting to database…');
+  await loadConfig(); // restore custom devices/subsets from Supabase
   await loadDataset(currentKey());
   hideLoading();
   renderAll();
 })();
+
+// ── Schema templates for new subsets ─────────────────────────────────────────
+const SCHEMA_TEMPLATES = {
+  status: ["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCIPRTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  control: ["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCIPRTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  analog: ["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"]
+};
+
+const SCHEMA_TYPE_MAP = {
+  "Status Point":"status","Control Output":"control","Analog Point":"analog"
+};
+
+// ── Persist device/subset config to Supabase ──────────────────────────────────
+async function saveConfig(){
+  try{
+    // store config as a special row in feeder_data
+    await sbFetch('DELETE', TABLE+'?dataset_key=eq.__config__');
+    await sbFetch('POST', TABLE, [{
+      dataset_key:'__config__',
+      row_index:0,
+      data:{
+        groups: Object.fromEntries(Object.entries(GROUPS).map(([dev,types])=>[dev,Object.fromEntries(Object.entries(types))])),
+        columns: Object.fromEntries(Object.entries(DEFAULT_COLUMNS))
+      }
+    }]);
+  }catch(e){console.error('Config save error:',e);}
+}
+
+async function loadConfig(){
+  try{
+    const data=await sbFetch('GET', TABLE+'?dataset_key=eq.__config__&limit=1');
+    if(data&&data.length){
+      const cfg=data[0].data;
+      // restore groups
+      Object.keys(cfg.groups).forEach(dev=>{
+        if(!GROUPS[dev]){
+          GROUPS[dev]={};
+        }
+        Object.entries(cfg.groups[dev]).forEach(([type,key])=>{
+          if(!GROUPS[dev][type]) GROUPS[dev][type]=key;
+          if(!DEFAULT_COLUMNS[key]) DEFAULT_COLUMNS[key]=cfg.columns[key]||SCHEMA_TEMPLATES.status;
+          if(!DATASETS[key]) DATASETS[key]={rows:[],dbIds:[],manuallyAdded:new Set(),dupInfo:{},keyColumns:new Set(['SPECIFICATION_POINT_NAME','DNP3.0_ADDRESS'].filter(k=>(DEFAULT_COLUMNS[key]||[]).includes(k))),checked:false};
+        });
+      });
+      return true;
+    }
+  }catch(e){console.error('Config load error:',e);}
+  return false;
+}
+
+// ── Add Device ────────────────────────────────────────────────────────────────
+function openAddDevice(){
+  document.getElementById('newDeviceName').value='';
+  document.getElementById('chk_status').checked=true;
+  document.getElementById('chk_control').checked=true;
+  document.getElementById('chk_analog').checked=true;
+  document.getElementById('addDeviceModal').classList.add('open');
+}
+
+async function saveNewDevice(){
+  const name=document.getElementById('newDeviceName').value.trim();
+  if(!name){alert('Enter a device name.');return;}
+  if(GROUPS[name]){alert('Device "'+name+'" already exists.');return;}
+
+  const subsets={};
+  const wantStatus=document.getElementById('chk_status').checked;
+  const wantControl=document.getElementById('chk_control').checked;
+  const wantAnalog=document.getElementById('chk_analog').checked;
+
+  if(!wantStatus&&!wantControl&&!wantAnalog){alert('Select at least one subset.');return;}
+
+  if(wantStatus){
+    const key=name+'_Status_point';
+    subsets['Status Point']=key;
+    DEFAULT_COLUMNS[key]=[...SCHEMA_TEMPLATES.status];
+    DATASETS[key]={rows:[],dbIds:[],manuallyAdded:new Set(),dupInfo:{},keyColumns:new Set(['SPECIFICATION_POINT_NAME','DNP3.0_ADDRESS']),checked:false};
+  }
+  if(wantControl){
+    const key=name+'_Control_Output';
+    subsets['Control Output']=key;
+    DEFAULT_COLUMNS[key]=[...SCHEMA_TEMPLATES.control];
+    DATASETS[key]={rows:[],dbIds:[],manuallyAdded:new Set(),dupInfo:{},keyColumns:new Set(['SPECIFICATION_POINT_NAME','DNP3.0_ADDRESS']),checked:false};
+  }
+  if(wantAnalog){
+    const key=name+'_Analog_point';
+    subsets['Analog Point']=key;
+    DEFAULT_COLUMNS[key]=[...SCHEMA_TEMPLATES.analog];
+    DATASETS[key]={rows:[],dbIds:[],manuallyAdded:new Set(),dupInfo:{},keyColumns:new Set(['SPECIFICATION_POINT_NAME','DNP3.0_ADDRESS'].filter(k=>DEFAULT_COLUMNS[key].includes(k))),checked:false};
+  }
+
+  GROUPS[name]=subsets;
+  currentDevice=name;
+  currentType=Object.keys(subsets)[0];
+  selected=new Set();hideDupAlert();
+  closeModal('addDeviceModal');
+  showLoading('Saving new device config…');
+  await saveConfig();
+  hideLoading();
+  renderAll();
+}
+
+// ── Add Subset ────────────────────────────────────────────────────────────────
+function openAddSubset(){
+  document.getElementById('addSubsetDeviceName').textContent=currentDevice;
+  document.getElementById('newSubsetName').value='';
+  document.getElementById('newSubsetSchema').value='status';
+  document.getElementById('addSubsetModal').classList.add('open');
+}
+
+async function saveNewSubset(){
+  const name=document.getElementById('newSubsetName').value.trim();
+  if(!name){alert('Enter a subset name.');return;}
+  if(GROUPS[currentDevice][name]){alert('Subset "'+name+'" already exists in '+currentDevice+'.');return;}
+
+  const schema=document.getElementById('newSubsetSchema').value;
+  const key=currentDevice+'_'+name.replace(/\s+/g,'_');
+  DEFAULT_COLUMNS[key]=[...SCHEMA_TEMPLATES[schema]];
+  DATASETS[key]={rows:[],dbIds:[],manuallyAdded:new Set(),dupInfo:{},keyColumns:new Set(['SPECIFICATION_POINT_NAME','DNP3.0_ADDRESS'].filter(k=>DEFAULT_COLUMNS[key].includes(k))),checked:false};
+  GROUPS[currentDevice][name]=key;
+  currentType=name;
+  selected=new Set();hideDupAlert();
+  closeModal('addSubsetModal');
+  showLoading('Saving subset config…');
+  await saveConfig();
+  hideLoading();
+  renderAll();
+}
 
 // ── Compare ───────────────────────────────────────────────────────────────────
 const CMP={A:null,B:null,colsA:[],colsB:[],keyColumns:new Set(),result:null};
