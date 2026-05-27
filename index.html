@@ -130,6 +130,17 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
 .spinner{width:32px;height:32px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading-text{font-size:13px;color:var(--text2);font-family:var(--mono)}
+/* ── History panel ───────────────────────── */
+.hist-modal{width:520px}
+.hist-list{display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto;margin-bottom:12px}
+.hist-item{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.hist-item:hover{border-color:var(--border2)}
+.hist-meta{display:flex;flex-direction:column;gap:3px}
+.hist-label{font-size:13px;font-weight:500;color:var(--text)}
+.hist-time{font-size:11px;color:var(--text3);font-family:var(--mono)}
+.hist-rows{font-size:11px;color:var(--text2);font-family:var(--mono)}
+.hist-actions{display:flex;gap:6px}
+.hist-empty{text-align:center;padding:2rem;color:var(--text3);font-size:13px}
 /* ── Device Management ──────────────────── */
 .dev-tab-wrap{display:flex;align-items:center;gap:4px;flex-wrap:wrap;flex:1}
 .btn-icon{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:var(--r);border:1px dashed var(--border2);background:transparent;cursor:pointer;color:var(--text3);transition:all .15s;flex-shrink:0}
@@ -297,6 +308,72 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
     <div class="mfooter">
       <button class="btn" onclick="closeModal('confirmModal')">Cancel</button>
       <button class="btn danger" id="confirmOkBtn">Remove</button>
+    </div>
+  </div>
+</div>
+
+<!-- History Modal -->
+<div class="overlay" id="historyModal">
+  <div class="modal hist-modal">
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <h3 style="margin:0">History</h3>
+      <button class="btn" onclick="closeModal('historyModal')">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        close
+      </button>
+    </div>
+    <!-- Sub info -->
+    <div style="font-size:12px;color:var(--text3);font-family:var(--mono);margin-bottom:14px" id="histSubLabel"></div>
+
+    <!-- Save manual checkpoint button -->
+    <button class="btn success" style="width:100%;justify-content:center;margin-bottom:14px" onclick="saveHistoryPoint('manual')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      save history point now
+    </button>
+
+    <!-- History list -->
+    <div class="hist-list" id="histList"></div>
+
+    <!-- Clear history -->
+    <div style="border-top:1px solid var(--border);padding-top:12px;display:flex;justify-content:flex-end">
+      <button class="btn danger" onclick="confirmClearHistory()">
+        <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+        clear all history
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Preview History Modal -->
+<div class="overlay" id="previewModal">
+  <div class="modal" style="width:95vw;max-width:900px;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">
+      <h3 style="margin:0" id="previewModalTitle">Preview</h3>
+      <button class="btn" onclick="closeModal('previewModal')">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        close
+      </button>
+    </div>
+    <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:12px" id="previewModalMeta"></div>
+    <div id="previewModalTable"></div>
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:flex;justify-content:flex-end">
+      <button class="btn primary" id="previewRestoreBtn">
+        <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+        restore this version
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Restore confirm modal -->
+<div class="overlay" id="restoreModal">
+  <div class="modal confirm-modal">
+    <h3>Restore this version?</h3>
+    <p id="restoreMsg" style="font-size:13px;color:var(--text2);line-height:1.6"></p>
+    <div class="mfooter">
+      <button class="btn" onclick="closeModal('restoreModal')">Cancel</button>
+      <button class="btn primary" id="restoreOkBtn">Restore</button>
     </div>
   </div>
 </div>
@@ -721,7 +798,7 @@ async function doDeleteSelected(){
   });
   selected=new Set();d.dupInfo={};d.checked=false;hideDupAlert();
   closeModal('confirmModal');renderAll();
-  showLoading('Saving…');await saveDataset(currentKey());hideLoading();
+  showLoading('Saving…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
 }
 async function doDeleteOne(i){
   const d=ds();
@@ -730,7 +807,7 @@ async function doDeleteOne(i){
   d.manuallyAdded=new Set([...d.manuallyAdded].filter(x=>x!==i).map(x=>x>i?x-1:x));
   const nd={};Object.entries(d.dupInfo).forEach(([k,v])=>{const ki=parseInt(k);if(ki!==i)nd[ki>i?ki-1:ki]=v;});d.dupInfo=nd;
   closeModal('confirmModal');renderAll();
-  showLoading('Saving…');await saveDataset(currentKey());hideLoading();
+  showLoading('Saving…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
 }
 
 // ── Edit cell ─────────────────────────────────────────────────────────────────
@@ -795,7 +872,7 @@ async function saveNewRow(){
   d.rows.push(row);d.manuallyAdded.add(d.rows.length-1);
   d.dupInfo={};d.checked=false;hideDupAlert();
   closeModal('addModal');renderAll();
-  showLoading('Saving…');await saveDataset(currentKey());hideLoading();
+  showLoading('Saving…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
 }
 function confirmClearAll(){
   if(!ds().rows.length){alert('No rows to clear.');return;}
@@ -808,7 +885,7 @@ async function doClearAll(){
   d.rows=[];d.dbIds=[];d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
   selected=new Set();hideDupAlert();
   closeModal('confirmModal');renderAll();
-  showLoading('Clearing data…');await saveDataset(currentKey());hideLoading();
+  showLoading('Clearing data…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
 }
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 
@@ -857,6 +934,182 @@ function renderAll(){
   hideLoading();
   renderAll();
 })();
+
+// ── History & Backup ─────────────────────────────────────────────────────────
+// History is stored in Supabase as special rows with dataset_key = __history__<key>
+// Each entry contains: { label, timestamp, trigger, rows[] }
+// Max 30 history entries per dataset to avoid bloat
+
+const MAX_HISTORY = 30;
+
+// Save a history point for the current dataset
+// trigger: 'auto' (on change) or 'manual' (user clicked)
+async function saveHistoryPoint(trigger='auto'){
+  const d = ds();
+  const key = currentKey();
+  const histKey = '__history__' + key;
+  const label = trigger === 'manual'
+    ? 'Manual save'
+    : 'Auto — ' + currentDevice + ' / ' + currentType;
+
+  const entry = {
+    label,
+    trigger,
+    timestamp: new Date().toISOString(),
+    rowCount: d.rows.length,
+    rows: JSON.parse(JSON.stringify(d.rows)) // deep copy
+  };
+
+  try {
+    // fetch existing history for this dataset
+    const existing = await sbFetch('GET', TABLE + '?dataset_key=eq.' + encodeURIComponent(histKey) + '&order=row_index.desc');
+    const entries = existing.map(r => r.data);
+
+    // prepend new entry, trim to MAX_HISTORY
+    entries.unshift(entry);
+    if(entries.length > MAX_HISTORY) entries.splice(MAX_HISTORY);
+
+    // delete and re-save
+    await sbFetch('DELETE', TABLE + '?dataset_key=eq.' + encodeURIComponent(histKey));
+    if(entries.length){
+      const inserts = entries.map((e,i) => ({dataset_key: histKey, row_index: i, data: e}));
+      await sbFetch('POST', TABLE, inserts);
+    }
+
+    if(trigger === 'manual'){
+      setSyncStatus('synced', 'history saved ✓');
+      renderHistList(); // refresh the list if modal is open
+    }
+  } catch(e){
+    console.error('History save error:', e);
+  }
+}
+
+// Open history modal for current dataset
+async function openHistory(){
+  const key = currentKey();
+  document.getElementById('histSubLabel').textContent =
+    currentDevice + ' — ' + currentType + '  (max ' + MAX_HISTORY + ' entries)';
+  document.getElementById('histList').innerHTML = '<div class="hist-empty">Loading…</div>';
+  document.getElementById('historyModal').classList.add('open');
+  await renderHistList();
+}
+
+// Render history list inside modal
+async function renderHistList(){
+  const histKey = '__history__' + currentKey();
+  try {
+    const existing = await sbFetch('GET', TABLE + '?dataset_key=eq.' + encodeURIComponent(histKey) + '&order=row_index.asc');
+    const entries = existing.map(r => ({...r.data, dbId: r.id}));
+    const list = document.getElementById('histList');
+
+    if(!entries.length){
+      list.innerHTML = '<div class="hist-empty">No history yet for this dataset.<br>Make changes or click "save history point now".</div>';
+      return;
+    }
+
+    list.innerHTML = entries.map((e,i) => {
+      const dt = new Date(e.timestamp);
+      const dateStr = dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+      const timeStr = dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      const isManual = e.trigger === 'manual';
+      return `<div class="hist-item">
+        <div class="hist-meta">
+          <div class="hist-label">
+            ${isManual ? '📌 ' : '🔄 '}${e.label}
+          </div>
+          <div class="hist-time">${dateStr} at ${timeStr}</div>
+          <div class="hist-rows">${e.rowCount ?? (e.rows ? e.rows.length : '?')} rows</div>
+        </div>
+        <div class="hist-actions">
+          <button class="btn" onclick="previewHistory(${i})" style="font-size:12px;padding:4px 10px">preview</button>
+          <button class="btn primary" onclick="confirmRestore(${i})" style="font-size:12px;padding:4px 10px">restore</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    // store entries on window for preview/restore
+    window._histEntries = entries;
+  } catch(e){
+    document.getElementById('histList').innerHTML = '<div class="hist-empty">Could not load history.</div>';
+    console.error(e);
+  }
+}
+
+// Preview a history entry — renders a mini table inside a modal
+function previewHistory(idx){
+  const e = window._histEntries[idx];
+  if(!e) return;
+  const dt = new Date(e.timestamp).toLocaleString('en-GB');
+  const rows = e.rows || [];
+  const c = cols();
+  const previewRows = rows.slice(0,10);
+  const thead = '<tr>' + c.map(col => '<th style="padding:5px 8px;background:var(--surface2);font-size:10px;font-family:var(--mono);text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap">' + col + '</th>').join('') + '</tr>';
+  const tbody = previewRows.length
+    ? previewRows.map((r,i) =>
+        '<tr style="' + (i%2===0?'background:var(--surface)':'background:var(--bg)') + '">' +
+        c.map(col => '<td style="padding:5px 8px;font-size:12px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-bottom:1px solid var(--border)">' + (r[col]??'') + '</td>').join('') +
+        '</tr>'
+      ).join('')
+    : '<tr><td colspan="' + c.length + '" style="padding:1rem;text-align:center;color:var(--text3)">No rows in this version</td></tr>';
+  document.getElementById('previewModalTitle').textContent = e.label;
+  document.getElementById('previewModalMeta').textContent = 'Saved: ' + dt + '  |  ' + rows.length + ' total rows' + (rows.length > 10 ? '  (showing first 10)' : '');
+  document.getElementById('previewModalTable').innerHTML =
+    '<div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--r);max-height:320px;overflow-y:auto">' +
+    '<table style="width:100%;border-collapse:collapse"><thead>' + thead + '</thead><tbody>' + tbody + '</tbody></table></div>';
+  document.getElementById('previewRestoreBtn').onclick = () => { closeModal('previewModal'); confirmRestore(idx); };
+  document.getElementById('previewModal').classList.add('open');
+}
+
+// Confirm restore
+function confirmRestore(idx){
+  const e = window._histEntries[idx];
+  if(!e) return;
+  const dt = new Date(e.timestamp).toLocaleString('en-GB');
+  document.getElementById('restoreMsg').textContent =
+    'This will replace all current data in "' + currentDevice + ' — ' + currentType +
+    '" with the version from ' + dt + ' (' + (e.rows ? e.rows.length : 0) + ' rows). This cannot be undone.';
+  document.getElementById('restoreOkBtn').onclick = () => doRestore(idx);
+  document.getElementById('restoreModal').classList.add('open');
+}
+
+// Perform restore
+async function doRestore(idx){
+  const e = window._histEntries[idx];
+  if(!e) return;
+  const d = ds(); const c = cols();
+  // save current state to history before restoring
+  await saveHistoryPoint('auto');
+  // restore
+  d.rows = (e.rows||[]).map(r=>{const o={};c.forEach(col=>o[col]=r[col]??'');return o;});
+  d.manuallyAdded = new Set();
+  d.dupInfo = {}; d.checked = false;
+  selected = new Set(); hideDupAlert();
+  closeModal('restoreModal');
+  closeModal('historyModal');
+  renderAll();
+  showLoading('Restoring and saving…');
+  await saveDataset(currentKey());
+  hideLoading();
+  setSyncStatus('synced','restored ✓');
+}
+
+// Clear all history for current dataset
+function confirmClearHistory(){
+  document.getElementById('confirmMsg').textContent =
+    'Delete all history entries for ' + currentDevice + ' — ' + currentType + '? This cannot be undone.';
+  document.getElementById('confirmOkBtn').onclick = doClearHistory;
+  document.getElementById('confirmModal').classList.add('open');
+}
+
+async function doClearHistory(){
+  const histKey = '__history__' + currentKey();
+  try{
+    await sbFetch('DELETE', TABLE + '?dataset_key=eq.' + encodeURIComponent(histKey));
+    closeModal('confirmModal');
+    await renderHistList();
+  }catch(e){ console.error(e); }
+}
 
 // ── Schema templates for new subsets ─────────────────────────────────────────
 const SCHEMA_TEMPLATES = {
@@ -1143,7 +1396,7 @@ async function applyFile(side){
   d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
   selected=new Set();hideDupAlert();
   closeModal('compareModal');renderAll();
-  showLoading('Saving File '+side+' to cloud…');await saveDataset(currentKey());hideLoading();
+  showLoading('Saving File '+side+' to cloud…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
 }
 
 async function applyMerged(){
@@ -1157,7 +1410,7 @@ async function applyMerged(){
   d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
   selected=new Set();hideDupAlert();
   closeModal('compareModal');renderAll();
-  showLoading('Saving merged data to cloud…');await saveDataset(currentKey());hideLoading();
+  showLoading('Saving merged data to cloud…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
 }
 </script>
 </body>
