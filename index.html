@@ -320,7 +320,7 @@ const DEFAULT_COLUMNS = {
 // ── State ─────────────────────────────────────────────────────────────────────
 const DATASETS = {};
 Object.values(GROUPS).forEach(types=>Object.values(types).forEach(key=>{
-  DATASETS[key]={rows:[],dbIds:[],manuallyAdded:new Set(),dupInfo:{},keyColumns:new Set(DEFAULT_COLUMNS[key].slice(0,2)),checked:false};
+  DATASETS[key]={rows:[],dbIds:[],manuallyAdded:new Set(),dupInfo:{},keyColumns:new Set(['SPECIFICATION_POINT_NAME','DNP3.0_ADDRESS']),checked:false};
 }));
 
 let currentDevice=Object.keys(GROUPS)[0];
