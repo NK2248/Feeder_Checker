@@ -921,6 +921,10 @@ async function doDeleteSelected(){
   showLoading('Saving…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
 }
 async function doDeleteOne(i){
+  // Route delete to feeder or device mode
+  if(currentMode==='feeder'){
+    await doDeleteFeederOne(i); return;
+  }
   const d=ds();
   d.rows.splice(i,1);
   selected.delete(i);const ns=new Set();selected.forEach(x=>ns.add(x>i?x-1:x));selected=ns;
@@ -1130,9 +1134,11 @@ async function saveHistoryPoint(trigger='auto'){
 
 // Open history modal for current dataset
 async function openHistory(){
-  const key = currentKey();
-  document.getElementById('histSubLabel').textContent =
-    currentDevice + ' — ' + currentType + '  (max ' + MAX_HISTORY + ' entries)';
+  // Show correct label based on mode
+  const lbl = currentMode==='feeder'
+    ? currentSubstation+' / '+currentFeeder+' / '+currentFeederType
+    : currentDevice+' — '+currentType;
+  document.getElementById('histSubLabel').textContent = lbl+'  (max '+MAX_HISTORY+' entries)';
   document.getElementById('histList').innerHTML = '<div class="hist-empty">Loading…</div>';
   document.getElementById('historyModal').classList.add('open');
   await renderHistList();
@@ -1140,7 +1146,8 @@ async function openHistory(){
 
 // Render history list inside modal
 async function renderHistList(){
-  const histKey = '__history__' + currentKey();
+  // Use feeder or device key depending on current mode
+  const histKey = '__history__' + (currentMode==='feeder' ? currentFeederKey() : currentKey());
   try {
     const existing = await sbFetch('GET', TABLE + '?dataset_key=eq.' + encodeURIComponent(histKey) + '&order=row_index.asc');
     const entries = existing.map(r => ({...r.data, dbId: r.id}));
@@ -1239,14 +1246,17 @@ async function doRestore(idx){
 
 // Clear all history for current dataset
 function confirmClearHistory(){
+  const lbl = currentMode==='feeder'
+    ? currentSubstation+' / '+currentFeeder+' / '+currentFeederType
+    : currentDevice+' — '+currentType;
   document.getElementById('confirmMsg').textContent =
-    'Delete all history entries for ' + currentDevice + ' — ' + currentType + '? This cannot be undone.';
+    'Delete all history entries for ' + lbl + '? This cannot be undone.';
   document.getElementById('confirmOkBtn').onclick = doClearHistory;
   document.getElementById('confirmModal').classList.add('open');
 }
 
 async function doClearHistory(){
-  const histKey = '__history__' + currentKey();
+  const histKey = '__history__' + (currentMode==='feeder' ? currentFeederKey() : currentKey());
   try{
     await sbFetch('DELETE', TABLE + '?dataset_key=eq.' + encodeURIComponent(histKey));
     closeModal('confirmModal');
@@ -2017,26 +2027,45 @@ function runCompare(){
 
 async function applyFile(side){
   if(!CMP[side]){alert('File '+side+' not loaded.');return;}
-  const d=ds();const c=cols();
-  d.rows=CMP[side].map(r=>{const o={};c.forEach(col=>o[col]=r[col]??'');return o;});
-  d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
-  selected=new Set();hideDupAlert();
-  closeModal('compareModal');renderAll();
-  showLoading('Saving File '+side+' to cloud…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
+  // Route save to feeder or device mode
+  if(currentMode==='feeder'){
+    const d=fds();const c=feederCols();
+    d.rows=CMP[side].map(r=>{const o={};c.forEach(col=>o[col]=r[col]??'');return o;});
+    d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
+    selected=new Set();hideDupAlert();
+    closeModal('compareModal');renderFeederTable();renderFeederStats();
+    showLoading('Saving File '+side+' to cloud…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();
+  } else {
+    const d=ds();const c=cols();
+    d.rows=CMP[side].map(r=>{const o={};c.forEach(col=>o[col]=r[col]??'');return o;});
+    d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
+    selected=new Set();hideDupAlert();
+    closeModal('compareModal');renderAll();
+    showLoading('Saving File '+side+' to cloud…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
+  }
 }
 
 async function applyMerged(){
   if(!CMP.A||!CMP.B){alert('Both files must be loaded.');return;}
-  const d=ds();const c=cols();
   const mapA=new Map();CMP.A.forEach(r=>mapA.set(getRowKey(r),r));
-  // start with all A rows, add B rows not in A
   const merged=[...CMP.A];
   CMP.B.forEach(r=>{if(!mapA.has(getRowKey(r)))merged.push(r);});
-  d.rows=merged.map(r=>{const o={};c.forEach(col=>o[col]=r[col]??'');return o;});
-  d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
-  selected=new Set();hideDupAlert();
-  closeModal('compareModal');renderAll();
-  showLoading('Saving merged data to cloud…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
+  // Route save to feeder or device mode
+  if(currentMode==='feeder'){
+    const d=fds();const c=feederCols();
+    d.rows=merged.map(r=>{const o={};c.forEach(col=>o[col]=r[col]??'');return o;});
+    d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
+    selected=new Set();hideDupAlert();
+    closeModal('compareModal');renderFeederTable();renderFeederStats();
+    showLoading('Saving merged data to cloud…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();
+  } else {
+    const d=ds();const c=cols();
+    d.rows=merged.map(r=>{const o={};c.forEach(col=>o[col]=r[col]??'');return o;});
+    d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
+    selected=new Set();hideDupAlert();
+    closeModal('compareModal');renderAll();
+    showLoading('Saving merged data to cloud…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
+  }
 }
 </script>
 </body>
