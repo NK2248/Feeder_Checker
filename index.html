@@ -141,6 +141,18 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
 .hist-rows{font-size:11px;color:var(--text2);font-family:var(--mono)}
 .hist-actions{display:flex;gap:6px}
 .hist-empty{text-align:center;padding:2rem;color:var(--text3);font-size:13px}
+/* ── Substation / Feeder level ───────────── */
+/* Top level switcher bar — shows Substation tabs */
+.mode-bar{display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;padding:6px;background:var(--accent);border-radius:var(--rlg)}
+.mode-tab{padding:5px 16px;border-radius:var(--r);border:none;background:transparent;cursor:pointer;font-size:13px;font-family:var(--font);font-weight:500;color:rgba(255,255,255,.7);transition:all .15s;white-space:nowrap}
+.mode-tab:hover{background:rgba(255,255,255,.15);color:#fff}
+.mode-tab.active{background:#fff;color:var(--accent);font-weight:600}
+.mode-label{font-size:11px;font-family:var(--mono);color:rgba(255,255,255,.5);padding:0 8px;white-space:nowrap}
+/* Feeder tabs — second level under substation */
+.feeder-bar{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:6px}
+.feeder-tab{padding:5px 14px;border-radius:var(--r);border:none;background:transparent;cursor:pointer;font-size:13px;font-family:var(--font);font-weight:500;color:var(--text2);transition:all .15s;white-space:nowrap}
+.feeder-tab:hover{background:var(--surface2)}
+.feeder-tab.active{background:var(--accent-light);color:var(--accent-text);border:1px solid var(--blue-bdr)}
 /* ── Device Management ──────────────────── */
 .dev-tab-wrap{display:flex;align-items:center;gap:4px;flex-wrap:wrap;flex:1}
 .btn-icon{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:var(--r);border:1px dashed var(--border2);background:transparent;cursor:pointer;color:var(--text3);transition:all .15s;flex-shrink:0}
@@ -190,18 +202,50 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   </div>
 </header>
 
-<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
-  <div class="dev-tabs" id="devTabs" style="margin-bottom:0;flex:1"></div>
-  <button class="btn-icon" onclick="openAddDevice()" title="Add new device">
-    <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-  </button>
+<!-- Mode bar: switches between Feeder mode and Device mode -->
+<div class="mode-bar" id="modeBar">
+  <span class="mode-label">mode:</span>
+  <button class="mode-tab active" id="modeTabFeeder" onclick="switchMode('feeder')">Substation / Feeder</button>
+  <button class="mode-tab" id="modeTabDevice" onclick="switchMode('device')">Device (AVR / LBS...)</button>
 </div>
-<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
-  <div class="type-tabs" id="typeTabs" style="margin-bottom:0"></div>
-  <button class="btn-icon" onclick="openAddSubset()" title="Add new subset to current device">
-    <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-  </button>
+
+<!-- Feeder mode: Substation → Feeder → Subset -->
+<div id="feederSection">
+  <!-- Substation tabs -->
+  <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+    <div class="feeder-bar" id="substationTabs" style="flex:1;margin-bottom:0"></div>
+    <button class="btn-icon" onclick="openAddSubstation()" title="Add new substation">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+  </div>
+  <!-- Feeder tabs -->
+  <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+    <div class="feeder-bar" id="feederTabs" style="flex:1;margin-bottom:0"></div>
+    <button class="btn-icon" onclick="openAddFeeder()" title="Add new feeder to current substation">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+  </div>
+  <!-- Subset tabs (Status Point / Control Output / Analog Point) -->
+  <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+    <div class="type-tabs" id="feederTypeTabs" style="margin-bottom:0"></div>
+  </div>
 </div>
+
+<!-- Device mode: existing AVR/LBS/... tabs -->
+<div id="deviceSection" style="display:none">
+  <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+    <div class="dev-tabs" id="devTabs" style="margin-bottom:0;flex:1"></div>
+    <button class="btn-icon" onclick="openAddDevice()" title="Add new device">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+    <div class="type-tabs" id="typeTabs" style="margin-bottom:0"></div>
+    <button class="btn-icon" onclick="openAddSubset()" title="Add new subset to current device">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+  </div>
+</div><!-- /deviceSection -->
 
 <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileIn').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
   <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -249,31 +293,43 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
     <input type="text" id="searchBox" placeholder="Search current dataset…" oninput="renderTable()">
   </div>
   <div class="btn-group">
-    <button class="btn" onclick="openAddRow()">
+    <!-- Add row — routes to feeder or device mode -->
+    <button class="btn" onclick="currentMode==='feeder'?openFeederAddRow():openAddRow()">
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       add row
     </button>
+    <!-- Clear all rows -->
     <button class="btn danger" onclick="confirmClearAll()">
       <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>
       clear all rows
     </button>
+    <!-- Compare files -->
     <button class="btn" onclick="openCompare()" style="color:var(--blue);border-color:var(--blue-bdr);background:var(--blue-bg)">
       <svg viewBox="0 0 24 24" style="stroke:var(--blue)"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
       compare files
     </button>
-    <button class="btn warn" onclick="runDupCheck()">
+    <!-- Check duplicates — routes to feeder or device mode -->
+    <button class="btn warn" onclick="currentMode==='feeder'?runFeederDupCheck():runDupCheck()">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       check duplicates
     </button>
-    <button class="btn success" onclick="exportExcel()">
+    <!-- History -->
+    <button class="btn" style="color:#5a3d8a;border-color:#c8a8e8;background:#f4eeff" onclick="openHistory()">
+      <svg viewBox="0 0 24 24" style="stroke:#5a3d8a"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      history
+    </button>
+    <!-- Export Excel — routes to feeder or device mode -->
+    <button class="btn success" onclick="currentMode==='feeder'?exportFeederExcel():exportExcel()">
       <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       export Excel
     </button>
-    <button class="btn success" onclick="exportAllExcel()">
+    <!-- Export all sheets — device mode only -->
+    <button class="btn success" onclick="currentMode==='feeder'?alert('Switch to Device mode to export all sheets'):exportAllExcel()">
       <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       export all sheets
     </button>
-    <button class="btn" onclick="exportCSV()">
+    <!-- Export CSV — routes to feeder or device mode -->
+    <button class="btn" onclick="currentMode==='feeder'?exportFeederCSV():exportCSV()">
       <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
       CSV
     </button>
@@ -374,6 +430,40 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
     <div class="mfooter">
       <button class="btn" onclick="closeModal('restoreModal')">Cancel</button>
       <button class="btn primary" id="restoreOkBtn">Restore</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Substation Modal -->
+<div class="overlay" id="addSubstationModal">
+  <div class="modal" style="width:380px">
+    <h3>Add New Substation</h3>
+    <div class="fgrid">
+      <div class="frow">
+        <label>Substation Name</label>
+        <input type="text" id="newSubstationName" placeholder="e.g. Station North">
+      </div>
+    </div>
+    <div class="mfooter">
+      <button class="btn" onclick="closeModal('addSubstationModal')">Cancel</button>
+      <button class="btn primary" onclick="saveNewSubstation()">Add Substation</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Feeder Modal -->
+<div class="overlay" id="addFeederModal">
+  <div class="modal" style="width:380px">
+    <h3>Add Feeder to <span id="addFeederSubstationName"></span></h3>
+    <div class="fgrid">
+      <div class="frow">
+        <label>Feeder Name</label>
+        <input type="text" id="newFeederName" placeholder="e.g. FEEDER_01">
+      </div>
+    </div>
+    <div class="mfooter">
+      <button class="btn" onclick="closeModal('addFeederModal')">Cancel</button>
+      <button class="btn primary" onclick="saveNewFeeder()">Add Feeder</button>
     </div>
   </div>
 </div>
@@ -554,16 +644,16 @@ const DEFAULT_COLUMNS = {
   "LBS_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
   "RCS(SF6)_Status_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
   "RCS(SF6)_Control_Output":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "RCS(SF6)_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "RCS(SF6)_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
   "RCS(Solid Dielectric)_Status_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
   "RCS(Solid Dielectric)_Control_Output":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "RCS(Solid Dielectric)_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "RCS(Solid Dielectric)_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
   "REC_Status_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
   "REC_Control_Output":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "REC_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "REC_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
   "SCB_Status_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
   "SCB_Control_Output":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "SCB_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"]
+  "SCB_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"]
 };
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -867,6 +957,8 @@ function openAddRow(){
   document.getElementById('addModal').classList.add('open');
 }
 async function saveNewRow(){
+  // if in feeder mode, delegate to feeder save
+  if(currentMode==='feeder'){ await saveFeederNewRow(); return; }
   const d=ds();const c=cols();
   const row={};c.forEach(col=>{row[col]=(document.getElementById('nf_'+col.replace(/\W/g,'_'))||{value:''}).value||'';});
   d.rows.push(row);d.manuallyAdded.add(d.rows.length-1);
@@ -929,10 +1021,19 @@ function renderAll(){
 // ── Init ──────────────────────────────────────────────────────────────────────
 (async()=>{
   showLoading('Connecting to database…');
-  await loadConfig(); // restore custom devices/subsets from Supabase
-  await loadDataset(currentKey());
+  await loadConfig();        // restore custom device/subset config from Supabase
+  await loadFeederConfig();  // restore custom substation/feeder config from Supabase
+  // start in feeder mode by default — load first feeder dataset
+  renderSubstationTabs();
+  renderFeederTabs();
+  renderFeederTypeTabs();
+  await loadFeederDataset();
   hideLoading();
+  // also pre-load device mode data in background
+  await loadDataset(currentKey());
   renderAll();
+  // default to feeder mode UI
+  switchMode('feeder');
 })();
 
 // ── History & Backup ─────────────────────────────────────────────────────────
@@ -1236,6 +1337,470 @@ async function saveNewSubset(){
   await saveConfig();
   hideLoading();
   renderAll();
+}
+
+// ── Substation / Feeder Mode ─────────────────────────────────────────────────
+// Separate from device mode — Substation > Feeder > Subset (no device level)
+// Data stored in Supabase with key: __feeder__<substation>__<feeder>__<subset>
+
+// Hardcoded initial substation + feeders
+const FEEDER_STRUCTURE = {
+  "BR & A Half": {
+    feeders: ["SSMN","TP_01","LINE_01","CENTER_01","BUS_ZONE_01","RCC_01"]
+  }
+};
+
+// Feeder subsets — same schema as device subsets
+const FEEDER_SUBSETS = ["Status Point","Control Output","Analog Point"];
+
+// Schema map for feeder subsets
+const FEEDER_SCHEMA_MAP = {
+  "Status Point":  "status",
+  "Control Output":"control",
+  "Analog Point":  "analog"
+};
+
+// Current feeder mode state
+let currentMode      = 'feeder'; // 'feeder' or 'device'
+let currentSubstation= Object.keys(FEEDER_STRUCTURE)[0];
+let currentFeeder    = FEEDER_STRUCTURE[currentSubstation].feeders[0];
+let currentFeederType= FEEDER_SUBSETS[0];
+
+// In-memory cache for feeder datasets
+const FEEDER_DATASETS = {};
+
+// Build dataset key for feeder data
+function feederKey(sub, feed, type){
+  return '__feeder__' + sub + '__' + feed + '__' + type;
+}
+
+function currentFeederKey(){
+  return feederKey(currentSubstation, currentFeeder, currentFeederType);
+}
+
+function feederCols(){
+  return SCHEMA_TEMPLATES[FEEDER_SCHEMA_MAP[currentFeederType]];
+}
+
+// Get or init feeder dataset
+function fds(){
+  const k = currentFeederKey();
+  if(!FEEDER_DATASETS[k]){
+    FEEDER_DATASETS[k] = {
+      rows:[], dbIds:[], manuallyAdded:new Set(),
+      dupInfo:{}, keyColumns:new Set(['SPECIFICATION_POINT_NAME','DNP3.0_ADDRESS']
+        .filter(c=>feederCols().includes(c))),
+      checked:false
+    };
+  }
+  return FEEDER_DATASETS[k];
+}
+
+// ── Mode switcher ─────────────────────────────────────────────────────────────
+function switchMode(mode){
+  currentMode = mode;
+  // toggle sections
+  document.getElementById('feederSection').style.display  = mode==='feeder'?'block':'none';
+  document.getElementById('deviceSection').style.display  = mode==='device'?'block':'none';
+  // toggle mode tab styles
+  document.getElementById('modeTabFeeder').classList.toggle('active', mode==='feeder');
+  document.getElementById('modeTabDevice').classList.toggle('active', mode==='device');
+  // reset selection and alerts
+  selected = new Set();
+  hideDupAlert();
+  document.getElementById('searchBox').value='';
+  if(mode==='feeder'){
+    renderSubstationTabs();
+    renderFeederTabs();
+    renderFeederTypeTabs();
+    loadFeederDataset();
+  } else {
+    renderAll();
+  }
+}
+
+// ── Substation tabs ───────────────────────────────────────────────────────────
+function renderSubstationTabs(){
+  document.getElementById('substationTabs').innerHTML =
+    Object.keys(FEEDER_STRUCTURE).map(s=>
+      `<button class="feeder-tab${s===currentSubstation?' active':''}" onclick="switchSubstation('${s.replace(/'/g,"\'")}')">
+        ${s}
+      </button>`
+    ).join('');
+}
+
+async function switchSubstation(s){
+  currentSubstation = s;
+  currentFeeder     = FEEDER_STRUCTURE[s].feeders[0];
+  currentFeederType = FEEDER_SUBSETS[0];
+  selected=new Set();hideDupAlert();
+  renderSubstationTabs();
+  renderFeederTabs();
+  renderFeederTypeTabs();
+  await loadFeederDataset();
+}
+
+// ── Feeder tabs ───────────────────────────────────────────────────────────────
+function renderFeederTabs(){
+  document.getElementById('feederTabs').innerHTML =
+    FEEDER_STRUCTURE[currentSubstation].feeders.map(f=>
+      `<button class="feeder-tab${f===currentFeeder?' active':''}" onclick="switchFeeder('${f.replace(/'/g,"\'")}')">
+        ${f}
+      </button>`
+    ).join('');
+}
+
+async function switchFeeder(f){
+  currentFeeder     = f;
+  currentFeederType = FEEDER_SUBSETS[0];
+  selected=new Set();hideDupAlert();
+  renderFeederTabs();
+  renderFeederTypeTabs();
+  await loadFeederDataset();
+}
+
+// ── Feeder type tabs (Status Point / Control Output / Analog Point) ───────────
+function renderFeederTypeTabs(){
+  document.getElementById('feederTypeTabs').innerHTML =
+    FEEDER_SUBSETS.map(t=>
+      `<button class="type-tab${t===currentFeederType?' active':''}" onclick="switchFeederType('${t}')">
+        ${t}
+      </button>`
+    ).join('');
+}
+
+async function switchFeederType(t){
+  currentFeederType = t;
+  selected=new Set();hideDupAlert();
+  renderFeederTypeTabs();
+  await loadFeederDataset();
+}
+
+// ── Load feeder dataset from Supabase ─────────────────────────────────────────
+async function loadFeederDataset(){
+  const k = currentFeederKey();
+  try{
+    setSyncStatus('syncing','loading…');
+    const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(k)+'&order=row_index.asc');
+    const d = fds();
+    d.rows  = data.map(r=>r.data);
+    d.dbIds = data.map(r=>r.id);
+    d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
+    setSyncStatus('synced','synced');
+  }catch(e){
+    setSyncStatus('error','sync error');
+    console.error('Feeder load error:',e);
+  }
+  renderFeederTable();
+  renderFeederStats();
+  renderFeederKeyChips();
+}
+
+// ── Save feeder dataset ───────────────────────────────────────────────────────
+async function saveFeederDataset(){
+  const k = currentFeederKey();
+  const d = fds();
+  try{
+    setSyncStatus('syncing','saving…');
+    await sbFetch('DELETE', TABLE+'?dataset_key=eq.'+encodeURIComponent(k));
+    if(d.rows.length){
+      const ins = d.rows.map((row,i)=>({dataset_key:k,row_index:i,data:row}));
+      const res = await sbFetch('POST', TABLE, ins);
+      d.dbIds = res.map(r=>r.id);
+    } else { d.dbIds=[]; }
+    setSyncStatus('synced','synced ✓');
+  }catch(e){
+    setSyncStatus('error','save failed');
+    console.error('Feeder save error:',e);
+  }
+}
+
+// ── Feeder table render ───────────────────────────────────────────────────────
+function renderFeederTable(){
+  const d  = fds();
+  const c  = feederCols();
+  const q  = (document.getElementById('searchBox').value||'').toLowerCase();
+  const area = document.getElementById('tableArea');
+
+  if(!d.rows.length){
+    area.innerHTML=`<div class="empty">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/>
+      <path d="M3 9h18M3 15h18M9 3v18"/></svg>
+      <p>No data — ${currentSubstation} / ${currentFeeder} / ${currentFeederType}</p>
+      <span>Add rows manually or import a CSV / Excel file.</span>
+    </div>`;
+    return;
+  }
+
+  const filtered = d.rows.map((r,i)=>({r,i})).filter(({r})=>
+    !q||c.some(col=>String(r[col]||'').toLowerCase().includes(q))
+  );
+  const allSel = filtered.length>0&&filtered.every(({i})=>selected.has(i));
+  const trash  = `<svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/>
+    <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+    <path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>`;
+
+  const thead=`<tr>
+    <th style="width:32px;text-align:center">
+      <input type="checkbox" ${allSel?'checked':''} onchange="toggleFeederAll(this.checked)" style="cursor:pointer">
+    </th>
+    <th style="width:28px">#</th>
+    ${c.map(col=>`<th>${col}</th>`).join('')}
+    <th style="width:76px">status</th>
+    <th style="width:32px"></th>
+  </tr>`;
+
+  const tbody=filtered.map(({r,i})=>{
+    const st=d.dupInfo[i];const isM=d.manuallyAdded.has(i);const isSel=selected.has(i);
+    const rc=st==='dup'?'dup':st==='orig'?'orig':'';
+    const badge=st==='dup'?`<span class="badge dup">duplicate</span>`
+      :st==='orig'?`<span class="badge orig">original</span>`
+      :isM?`<span class="badge new">added</span>`:'';
+    const cells=c.map((col,ci)=>
+      `<td contenteditable="true" onblur="editFeederCell(${i},'${col.replace(/'/g,"\'")}',this)"
+        spellcheck="false"${ci===0?' class="fl"':''}>${String(r[col]??'').replace(/</g,'&lt;')}</td>`
+    ).join('');
+    return `<tr class="${rc}${isSel?' sel':''}">
+      <td style="text-align:center;width:32px">
+        <input type="checkbox" ${isSel?'checked':''} onchange="toggleFeederSelect(${i},this.checked)" style="cursor:pointer">
+      </td>
+      <td class="rn">${i+1}</td>
+      ${cells}
+      <td>${badge}</td>
+      <td class="act">
+        <button class="rbtn" title="remove row" onclick="confirmDeleteFeederRow(${i})">${trash}</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  area.innerHTML=`<div class="tbl-wrap"><table><thead>${thead}</thead><tbody>${tbody}</tbody></table></div>`;
+}
+
+// ── Feeder stats ──────────────────────────────────────────────────────────────
+function renderFeederStats(){
+  const d=fds();
+  document.getElementById('sTotal').textContent=d.rows.length;
+  document.getElementById('sCols').textContent=feederCols().length;
+  if(!d.checked){
+    document.getElementById('sDupG').textContent='—';
+    document.getElementById('sDupR').textContent='—';
+  }
+}
+
+// ── Feeder key chips ──────────────────────────────────────────────────────────
+function renderFeederKeyChips(){
+  const d=fds();
+  document.getElementById('keyChips').innerHTML=feederCols().map(c=>
+    `<button class="chip${d.keyColumns.has(c)?' on':''}" onclick="toggleFeederKey('${c.replace(/'/g,"\'")}')">
+      ${c}
+    </button>`
+  ).join('');
+}
+
+function toggleFeederKey(col){
+  const d=fds();
+  if(d.keyColumns.has(col)){if(d.keyColumns.size>1)d.keyColumns.delete(col);}
+  else d.keyColumns.add(col);
+  d.dupInfo={};d.checked=false;hideDupAlert();
+  renderFeederKeyChips();renderFeederTable();
+}
+
+// ── Feeder edit cell ──────────────────────────────────────────────────────────
+let feederSyncTimer=null;
+function editFeederCell(idx,col,el){
+  fds().rows[idx][col]=el.innerText.trim();
+  fds().dupInfo={};fds().checked=false;hideDupAlert();
+  document.getElementById('sTotal').textContent=fds().rows.length;
+  clearTimeout(feederSyncTimer);
+  feederSyncTimer=setTimeout(()=>saveFeederDataset(),800);
+}
+
+// ── Feeder selection ──────────────────────────────────────────────────────────
+function toggleFeederSelect(i,chk){
+  if(chk)selected.add(i);else selected.delete(i);
+  updateSelBar();renderFeederTable();
+}
+function toggleFeederAll(chk){
+  const q=(document.getElementById('searchBox').value||'').toLowerCase();
+  fds().rows.forEach((r,i)=>{
+    const vis=!q||feederCols().some(c=>String(r[c]||'').toLowerCase().includes(q));
+    if(vis){if(chk)selected.add(i);else selected.delete(i);}
+  });
+  updateSelBar();renderFeederTable();
+}
+
+// ── Feeder delete ─────────────────────────────────────────────────────────────
+function confirmDeleteFeederRow(i){
+  document.getElementById('confirmMsg').textContent='Remove this row? This cannot be undone.';
+  document.getElementById('confirmOkBtn').onclick=()=>doDeleteFeederOne(i);
+  document.getElementById('confirmModal').classList.add('open');
+}
+async function doDeleteFeederOne(i){
+  const d=fds();
+  d.rows.splice(i,1);
+  selected.delete(i);const ns=new Set();selected.forEach(x=>ns.add(x>i?x-1:x));selected=ns;
+  d.manuallyAdded=new Set([...d.manuallyAdded].filter(x=>x!==i).map(x=>x>i?x-1:x));
+  closeModal('confirmModal');renderFeederTable();renderFeederStats();
+  showLoading('Saving…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();
+}
+
+// ── Feeder add row ────────────────────────────────────────────────────────────
+function openFeederAddRow(){
+  const c=feederCols();
+  document.getElementById('addFields').innerHTML=c.map(col=>
+    `<div class="frow"><label>${col}</label>
+    <input type="text" id="nf_${col.replace(/\W/g,'_')}" placeholder="${col}"></div>`
+  ).join('');
+  document.getElementById('addModal').classList.add('open');
+}
+async function saveFeederNewRow(){
+  const d=fds();const c=feederCols();
+  const row={};c.forEach(col=>{row[col]=(document.getElementById('nf_'+col.replace(/\W/g,'_'))||{value:''}).value||'';});
+  d.rows.push(row);d.manuallyAdded.add(d.rows.length-1);
+  d.dupInfo={};d.checked=false;hideDupAlert();
+  closeModal('addModal');renderFeederTable();renderFeederStats();
+  showLoading('Saving…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();
+}
+
+// ── Feeder history (reuse same pattern as device history) ─────────────────────
+async function saveFeederHistoryPoint(trigger='auto'){
+  const d=fds();const k=currentFeederKey();
+  const histKey='__history__'+k;
+  const entry={
+    label: trigger==='manual'?'Manual save':'Auto — '+currentSubstation+' / '+currentFeeder+' / '+currentFeederType,
+    trigger, timestamp:new Date().toISOString(),
+    rowCount:d.rows.length,
+    rows:JSON.parse(JSON.stringify(d.rows))
+  };
+  try{
+    const existing=await sbFetch('GET',TABLE+'?dataset_key=eq.'+encodeURIComponent(histKey)+'&order=row_index.desc');
+    const entries=existing.map(r=>r.data);
+    entries.unshift(entry);
+    if(entries.length>MAX_HISTORY)entries.splice(MAX_HISTORY);
+    await sbFetch('DELETE',TABLE+'?dataset_key=eq.'+encodeURIComponent(histKey));
+    if(entries.length){
+      const ins=entries.map((e,i)=>({dataset_key:histKey,row_index:i,data:e}));
+      await sbFetch('POST',TABLE,ins);
+    }
+    if(trigger==='manual')setSyncStatus('synced','history saved ✓');
+  }catch(e){console.error('Feeder history error:',e);}
+}
+
+// ── Feeder dup check ──────────────────────────────────────────────────────────
+function runFeederDupCheck(){
+  const d=fds();
+  if(!d.rows.length){alert('No rows to check.');return;}
+  const colMaps=new Map();
+  [...d.keyColumns].forEach(col=>{
+    const vm=new Map();
+    d.rows.forEach((r,i)=>{
+      const val=String(r[col]||'').toLowerCase().trim();
+      if(!val)return;
+      if(!vm.has(val))vm.set(val,[]);
+      vm.get(val).push(i);
+    });
+    colMaps.set(col,vm);
+  });
+  const dupSet=new Set();let dg=0;
+  colMaps.forEach(vm=>{
+    vm.forEach(idxs=>{if(idxs.length>1){dg++;idxs.slice(1).forEach(i=>dupSet.add(i));}});
+  });
+  d.dupInfo={};let dr=0;
+  d.rows.forEach((_,i)=>{
+    if(dupSet.has(i)){d.dupInfo[i]='dup';dr++;}
+    else if([...d.keyColumns].some(col=>{
+      const val=String(d.rows[i][col]||'').toLowerCase().trim();
+      const vm=colMaps.get(col);
+      return vm&&vm.has(val)&&vm.get(val).length>1&&vm.get(val)[0]===i;
+    })){d.dupInfo[i]='orig';}
+  });
+  d.checked=true;
+  document.getElementById('sDupG').textContent=dg;
+  document.getElementById('sDupR').textContent=dr;
+  const el=document.getElementById('dupAlert');el.style.display='block';
+  if(dr===0){
+    el.innerHTML=`<div class="alert ok"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>No duplicates on: <strong>${[...d.keyColumns].join(', ')}</strong>.</span></div>`;
+  }else{
+    el.innerHTML=`<div class="alert warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div><strong>${dr} duplicate(s)</strong> in <strong>${dg} group(s)</strong> on: <strong>${[...d.keyColumns].join(', ')}</strong>.</div></div>`;
+  }
+  renderFeederTable();
+}
+
+// ── Add Substation ────────────────────────────────────────────────────────────
+function openAddSubstation(){
+  document.getElementById('newSubstationName').value='';
+  document.getElementById('addSubstationModal').classList.add('open');
+}
+async function saveNewSubstation(){
+  const name=document.getElementById('newSubstationName').value.trim();
+  if(!name){alert('Enter a substation name.');return;}
+  if(FEEDER_STRUCTURE[name]){alert('Substation "'+name+'" already exists.');return;}
+  FEEDER_STRUCTURE[name]={feeders:[]};
+  currentSubstation=name;
+  currentFeeder=null;
+  closeModal('addSubstationModal');
+  await saveFeederConfig();
+  renderSubstationTabs();renderFeederTabs();renderFeederTypeTabs();
+  document.getElementById('tableArea').innerHTML='<div class="empty"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg><p>New substation created</p><span>Add feeders using the + button.</span></div>';
+}
+
+// ── Add Feeder ────────────────────────────────────────────────────────────────
+function openAddFeeder(){
+  document.getElementById('addFeederSubstationName').textContent=currentSubstation;
+  document.getElementById('newFeederName').value='';
+  document.getElementById('addFeederModal').classList.add('open');
+}
+async function saveNewFeeder(){
+  const name=document.getElementById('newFeederName').value.trim();
+  if(!name){alert('Enter a feeder name.');return;}
+  if(FEEDER_STRUCTURE[currentSubstation].feeders.includes(name)){alert('Feeder "'+name+'" already exists.');return;}
+  FEEDER_STRUCTURE[currentSubstation].feeders.push(name);
+  currentFeeder=name;currentFeederType=FEEDER_SUBSETS[0];
+  closeModal('addFeederModal');
+  await saveFeederConfig();
+  renderFeederTabs();renderFeederTypeTabs();
+  await loadFeederDataset();
+}
+
+// ── Save/load feeder config to Supabase ───────────────────────────────────────
+async function saveFeederConfig(){
+  try{
+    await sbFetch('DELETE',TABLE+'?dataset_key=eq.__feeder_config__');
+    await sbFetch('POST',TABLE,[{dataset_key:'__feeder_config__',row_index:0,data:{structure:FEEDER_STRUCTURE}}]);
+  }catch(e){console.error('Feeder config save error:',e);}
+}
+async function loadFeederConfig(){
+  try{
+    const data=await sbFetch('GET',TABLE+'?dataset_key=eq.__feeder_config__&limit=1');
+    if(data&&data.length){
+      const s=data[0].data.structure;
+      Object.entries(s).forEach(([sub,val])=>{
+        if(!FEEDER_STRUCTURE[sub])FEEDER_STRUCTURE[sub]={feeders:[]};
+        val.feeders.forEach(f=>{if(!FEEDER_STRUCTURE[sub].feeders.includes(f))FEEDER_STRUCTURE[sub].feeders.push(f);});
+      });
+    }
+  }catch(e){console.error('Feeder config load error:',e);}
+}
+
+// ── Feeder export ─────────────────────────────────────────────────────────────
+function exportFeederExcel(){
+  const d=fds();const c=feederCols();
+  if(!d.rows.length){alert('No data to export.');return;}
+  const out=d.rows.map(r=>{const o={};c.forEach(col=>o[col]=r[col]??'');return o;});
+  const ws=XLSX.utils.json_to_sheet(out);
+  const wb=XLSX.utils.book_new();
+  const sn=(currentSubstation+'_'+currentFeeder+'_'+currentFeederType).replace(/[\/*?:[\]&\s]/g,'_').substring(0,31);
+  XLSX.utils.book_append_sheet(wb,ws,sn);
+  XLSX.writeFile(wb,sn+'_export.xlsx');
+}
+function exportFeederCSV(){
+  const d=fds();const c=feederCols();
+  if(!d.rows.length){alert('No data to export.');return;}
+  const lines=[c.join(','),...d.rows.map(r=>c.map(col=>'"'+(String(r[col]??'').replace(/"/g,'""'))+'"').join(','))];
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'}));
+  a.download=currentSubstation+'_'+currentFeeder+'_'+currentFeederType+'.csv';
+  a.click();
 }
 
 // ── Compare ───────────────────────────────────────────────────────────────────
