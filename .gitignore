@@ -10,6 +10,7 @@ env/
 backups/
 OG/
 Feeder_csv/
+Station_csv/
 # CSV data files (if you don't want to push live data)
 *.csv
 
