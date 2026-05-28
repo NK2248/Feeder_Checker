@@ -130,7 +130,6 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
 .spinner{width:32px;height:32px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading-text{font-size:13px;color:var(--text2);font-family:var(--mono)}
-/* ── History panel ───────────────────────── */
 .hist-modal{width:520px}
 .hist-list{display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto;margin-bottom:12px}
 .hist-item{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
@@ -141,25 +140,20 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
 .hist-rows{font-size:11px;color:var(--text2);font-family:var(--mono)}
 .hist-actions{display:flex;gap:6px}
 .hist-empty{text-align:center;padding:2rem;color:var(--text3);font-size:13px}
-/* ── Substation / Feeder level ───────────── */
-/* Top level switcher bar — shows Substation tabs */
 .mode-bar{display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;padding:6px;background:var(--accent);border-radius:var(--rlg)}
 .mode-tab{padding:5px 16px;border-radius:var(--r);border:none;background:transparent;cursor:pointer;font-size:13px;font-family:var(--font);font-weight:500;color:rgba(255,255,255,.7);transition:all .15s;white-space:nowrap}
 .mode-tab:hover{background:rgba(255,255,255,.15);color:#fff}
 .mode-tab.active{background:#fff;color:var(--accent);font-weight:600}
 .mode-label{font-size:11px;font-family:var(--mono);color:rgba(255,255,255,.5);padding:0 8px;white-space:nowrap}
-/* Feeder tabs — second level under substation */
 .feeder-bar{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:6px}
 .feeder-tab{padding:5px 14px;border-radius:var(--r);border:none;background:transparent;cursor:pointer;font-size:13px;font-family:var(--font);font-weight:500;color:var(--text2);transition:all .15s;white-space:nowrap}
 .feeder-tab:hover{background:var(--surface2)}
 .feeder-tab.active{background:var(--accent-light);color:var(--accent-text);border:1px solid var(--blue-bdr)}
-/* ── Device Management ──────────────────── */
 .dev-tab-wrap{display:flex;align-items:center;gap:4px;flex-wrap:wrap;flex:1}
 .btn-icon{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:var(--r);border:1px dashed var(--border2);background:transparent;cursor:pointer;color:var(--text3);transition:all .15s;flex-shrink:0}
 .btn-icon:hover{background:var(--accent-light);color:var(--accent);border-color:var(--accent)}
 .btn-icon svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
 .type-tab-wrap{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-/* ── Compare ─────────────────────────────── */
 .cmp-tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--rlg);max-height:420px;overflow-y:auto}
 .cmp-tbl-wrap table{width:100%;border-collapse:collapse;font-size:11px}
 .cmp-tbl-wrap thead th{background:var(--surface2);padding:7px 8px;text-align:left;font-weight:600;font-size:10px;color:var(--text2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:2;white-space:nowrap;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em}
@@ -187,7 +181,6 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
     <div class="logo"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg></div>
     <div>
       <h1>Feeder Device Dataset Manager</h1>
-      
     </div>
   </div>
   <div class="hdr-right">
@@ -202,36 +195,30 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   </div>
 </header>
 
-<!-- Mode bar: switches between Feeder mode and Device mode -->
 <div class="mode-bar" id="modeBar">
   <span class="mode-label">mode:</span>
   <button class="mode-tab active" id="modeTabFeeder" onclick="switchMode('feeder')">Substation / Feeder</button>
   <button class="mode-tab" id="modeTabDevice" onclick="switchMode('device')">Device (AVR / LBS...)</button>
 </div>
 
-<!-- Feeder mode: Substation → Feeder → Subset -->
 <div id="feederSection">
-  <!-- Substation tabs -->
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap">
     <div class="feeder-bar" id="substationTabs" style="flex:1;margin-bottom:0"></div>
     <button class="btn-icon" onclick="openAddSubstation()" title="Add new substation">
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </button>
   </div>
-  <!-- Feeder tabs -->
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
     <div class="feeder-bar" id="feederTabs" style="flex:1;margin-bottom:0"></div>
     <button class="btn-icon" onclick="openAddFeeder()" title="Add new feeder to current substation">
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </button>
   </div>
-  <!-- Subset tabs (Status Point / Control Output / Analog Point) -->
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
     <div class="type-tabs" id="feederTypeTabs" style="margin-bottom:0"></div>
   </div>
 </div>
 
-<!-- Device mode: existing AVR/LBS/... tabs -->
 <div id="deviceSection" style="display:none">
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
     <div class="dev-tabs" id="devTabs" style="margin-bottom:0;flex:1"></div>
@@ -245,7 +232,7 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </button>
   </div>
-</div><!-- /deviceSection -->
+</div>
 
 <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileIn').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
   <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -293,42 +280,34 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
     <input type="text" id="searchBox" placeholder="Search current dataset…" oninput="renderTable()">
   </div>
   <div class="btn-group">
-    <!-- Add row — routes to feeder or device mode -->
     <button class="btn" onclick="currentMode==='feeder'?openFeederAddRow():openAddRow()">
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       add row
     </button>
-    <!-- Clear all rows -->
     <button class="btn danger" onclick="confirmClearAll()">
       <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>
       clear all rows
     </button>
-    <!-- Compare files -->
     <button class="btn" onclick="openCompare()" style="color:var(--blue);border-color:var(--blue-bdr);background:var(--blue-bg)">
       <svg viewBox="0 0 24 24" style="stroke:var(--blue)"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
       compare files
     </button>
-    <!-- Check duplicates — routes to feeder or device mode -->
     <button class="btn warn" onclick="currentMode==='feeder'?runFeederDupCheck():runDupCheck()">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       check duplicates
     </button>
-    <!-- History -->
     <button class="btn" style="color:#5a3d8a;border-color:#c8a8e8;background:#f4eeff" onclick="openHistory()">
       <svg viewBox="0 0 24 24" style="stroke:#5a3d8a"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       history
     </button>
-    <!-- Export Excel — routes to feeder or device mode -->
     <button class="btn success" onclick="currentMode==='feeder'?exportFeederExcel():exportExcel()">
       <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       export Excel
     </button>
-    <!-- Export all sheets — device mode only -->
     <button class="btn success" onclick="currentMode==='feeder'?alert('Switch to Device mode to export all sheets'):exportAllExcel()">
       <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       export all sheets
     </button>
-    <!-- Export CSV — routes to feeder or device mode -->
     <button class="btn" onclick="currentMode==='feeder'?exportFeederCSV():exportCSV()">
       <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
       CSV
@@ -371,7 +350,6 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
 <!-- History Modal -->
 <div class="overlay" id="historyModal">
   <div class="modal hist-modal">
-    <!-- Header -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
       <h3 style="margin:0">History</h3>
       <button class="btn" onclick="closeModal('historyModal')">
@@ -379,19 +357,12 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
         close
       </button>
     </div>
-    <!-- Sub info -->
     <div style="font-size:12px;color:var(--text3);font-family:var(--mono);margin-bottom:14px" id="histSubLabel"></div>
-
-    <!-- Save manual checkpoint button -->
     <button class="btn success" style="width:100%;justify-content:center;margin-bottom:14px" onclick="saveHistoryPoint('manual')">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       save history point now
     </button>
-
-    <!-- History list -->
     <div class="hist-list" id="histList"></div>
-
-    <!-- Clear history -->
     <div style="border-top:1px solid var(--border);padding-top:12px;display:flex;justify-content:flex-end">
       <button class="btn danger" onclick="confirmClearHistory()">
         <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
@@ -534,8 +505,6 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
         close
       </button>
     </div>
-
-    <!-- upload zone row -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
       <div>
         <div style="font-size:11px;font-family:var(--mono);color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">File A (Current Dataset — loaded automatically)</div>
@@ -555,9 +524,7 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
         </label>
       </div>
     </div>
-
-    <!-- key column selector for compare -->
-    <div id="cmpKeyBar" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;margin-bottom:10px;display:none;align-items:center;gap:8px;flex-wrap:wrap">
+    <div id="cmpKeyBar" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;margin-bottom:10px;align-items:center;gap:8px;flex-wrap:wrap">
       <span style="font-size:11px;font-family:var(--mono);color:var(--text2)">match rows by:</span>
       <div id="cmpKeyChips" style="display:flex;gap:5px;flex-wrap:wrap;flex:1"></div>
       <button class="btn warn" onclick="runCompare()" style="padding:4px 10px;font-size:11px">
@@ -565,23 +532,15 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
         compare
       </button>
     </div>
-
-    <!-- legend -->
     <div id="cmpLegend" style="display:none;gap:14px;font-size:11px;font-family:var(--mono);color:var(--text3);margin-bottom:8px;flex-wrap:wrap">
       <div class="leg"><div class="leg-dot" style="background:#90c8a0"></div><span>same in both</span></div>
       <div class="leg"><div class="leg-dot" style="background:#90b8e0"></div><span>only in File A</span></div>
       <div class="leg"><div class="leg-dot" style="background:#e8c84a"></div><span>only in File B</span></div>
       <div class="leg"><div class="leg-dot" style="background:#e8a0a0"></div><span>different value</span></div>
     </div>
-
-    <!-- summary bar -->
     <div id="cmpSummary" style="display:none;gap:8px;margin-bottom:10px;flex-wrap:wrap"></div>
-
-    <!-- side by side table -->
     <div id="cmpTable"></div>
-
-    <!-- action bar -->
-    <div id="cmpActions" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:none;gap:8px;flex-wrap:wrap;align-items:center">
+    <div id="cmpActions" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);gap:8px;flex-wrap:wrap;align-items:center">
       <span style="font-size:13px;color:var(--text2)">Apply to current dataset:</span>
       <button class="btn primary" onclick="applyFile('A')">
         <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
@@ -706,9 +665,7 @@ async function saveDataset(key){
   try{
     setSyncStatus('syncing','saving…');
     const d=DATASETS[key];
-    // delete all existing rows for this dataset
     await sbFetch('DELETE', TABLE+'?dataset_key=eq.'+encodeURIComponent(key));
-    // re-insert all rows
     if(d.rows.length){
       const inserts=d.rows.map((row,i)=>({dataset_key:key,row_index:i,data:row}));
       const result=await sbFetch('POST', TABLE, inserts);
@@ -743,6 +700,7 @@ function onDragLeave(){document.getElementById('dropZone').classList.remove('dra
 function onDrop(e){e.preventDefault();document.getElementById('dropZone').classList.remove('drag');const f=e.dataTransfer.files[0];if(f)processFile(f);}
 function handleUpload(inp){const f=inp.files[0];if(f)processFile(f);inp.value='';}
 
+// ── FIX 1: processFile now routes by currentMode ──────────────────────────────
 function processFile(f){
   const reader=new FileReader();
   reader.onload=async e=>{
@@ -751,16 +709,31 @@ function processFile(f){
       const ws=wb.Sheets[wb.SheetNames[0]];
       const data=XLSX.utils.sheet_to_json(ws,{defval:''});
       if(!data.length){alert('File appears empty.');return;}
-      const d=ds();const c=cols();
-      data.forEach(r=>{
-        const row={};c.forEach(col=>row[col]=r[col]!==undefined?r[col]:'');
-        d.rows.push(row);d.manuallyAdded.add(d.rows.length-1);
-      });
-      d.dupInfo={};d.checked=false;selected=new Set();hideDupAlert();
-      renderAll();
-      showLoading('Saving to cloud…');
-      await saveDataset(currentKey());
-      hideLoading();
+      if(currentMode==='feeder'){
+        const d=fds();const c=feederCols();
+        data.forEach(r=>{
+          const row={};c.forEach(col=>row[col]=r[col]!==undefined?r[col]:'');
+          d.rows.push(row);d.manuallyAdded.add(d.rows.length-1);
+        });
+        d.dupInfo={};d.checked=false;selected=new Set();hideDupAlert();
+        renderFeederTable();renderFeederStats();
+        showLoading('Saving to cloud…');
+        await saveFeederDataset();
+        await saveFeederHistoryPoint('auto');
+        hideLoading();
+      } else {
+        const d=ds();const c=cols();
+        data.forEach(r=>{
+          const row={};c.forEach(col=>row[col]=r[col]!==undefined?r[col]:'');
+          d.rows.push(row);d.manuallyAdded.add(d.rows.length-1);
+        });
+        d.dupInfo={};d.checked=false;selected=new Set();hideDupAlert();
+        renderAll();
+        showLoading('Saving to cloud…');
+        await saveDataset(currentKey());
+        await saveHistoryPoint('auto');
+        hideLoading();
+      }
     }catch(err){hideLoading();alert('Could not read file: '+err.message);}
   };
   reader.readAsArrayBuffer(f);
@@ -806,8 +779,7 @@ function toggleKey(col){
 // ── Duplicate check ───────────────────────────────────────────────────────────
 function runDupCheck(){
   const d=ds();if(!d.rows.length){alert('No rows to check.');return;}
-  // OR logic: flag row as duplicate if ANY selected key column value matches another row
-  const colMaps=new Map(); // col -> value -> [indices]
+  const colMaps=new Map();
   [...d.keyColumns].forEach(col=>{
     const vm=new Map();
     d.rows.forEach((r,i)=>{
@@ -818,7 +790,7 @@ function runDupCheck(){
     });
     colMaps.set(col,vm);
   });
-  const dupSet=new Set(); // indices that are duplicates on at least one column
+  const dupSet=new Set();
   let dg=0;
   colMaps.forEach(vm=>{
     vm.forEach(idxs=>{
@@ -879,17 +851,32 @@ function confirmDeleteOne(i){
   document.getElementById('confirmOkBtn').onclick=()=>doDeleteOne(i);
   document.getElementById('confirmModal').classList.add('open');
 }
+
+// ── FIX 4: doDeleteSelected now routes by currentMode ─────────────────────────
 async function doDeleteSelected(){
-  const d=ds();
-  const idxs=[...selected].sort((a,b)=>b-a);
-  idxs.forEach(i=>{
-    d.rows.splice(i,1);
-    d.manuallyAdded=new Set([...d.manuallyAdded].filter(x=>x!==i).map(x=>x>i?x-1:x));
-  });
-  selected=new Set();d.dupInfo={};d.checked=false;hideDupAlert();
-  closeModal('confirmModal');renderAll();
-  showLoading('Saving…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
+  if(currentMode==='feeder'){
+    const d=fds();
+    const idxs=[...selected].sort((a,b)=>b-a);
+    idxs.forEach(i=>{
+      d.rows.splice(i,1);
+      d.manuallyAdded=new Set([...d.manuallyAdded].filter(x=>x!==i).map(x=>x>i?x-1:x));
+    });
+    selected=new Set();d.dupInfo={};d.checked=false;hideDupAlert();
+    closeModal('confirmModal');renderFeederTable();renderFeederStats();
+    showLoading('Saving…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();
+  } else {
+    const d=ds();
+    const idxs=[...selected].sort((a,b)=>b-a);
+    idxs.forEach(i=>{
+      d.rows.splice(i,1);
+      d.manuallyAdded=new Set([...d.manuallyAdded].filter(x=>x!==i).map(x=>x>i?x-1:x));
+    });
+    selected=new Set();d.dupInfo={};d.checked=false;hideDupAlert();
+    closeModal('confirmModal');renderAll();
+    showLoading('Saving…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
+  }
 }
+
 async function doDeleteOne(i){
   const d=ds();
   d.rows.splice(i,1);
@@ -957,7 +944,6 @@ function openAddRow(){
   document.getElementById('addModal').classList.add('open');
 }
 async function saveNewRow(){
-  // if in feeder mode, delegate to feeder save
   if(currentMode==='feeder'){ await saveFeederNewRow(); return; }
   const d=ds();const c=cols();
   const row={};c.forEach(col=>{row[col]=(document.getElementById('nf_'+col.replace(/\W/g,'_'))||{value:''}).value||'';});
@@ -966,19 +952,31 @@ async function saveNewRow(){
   closeModal('addModal');renderAll();
   showLoading('Saving…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
 }
+
+// ── FIX 2 & 3: confirmClearAll / doClearAll now route by currentMode ──────────
 function confirmClearAll(){
-  if(!ds().rows.length){alert('No rows to clear.');return;}
-  document.getElementById('confirmMsg').textContent=`Remove all ${ds().rows.length} rows from this dataset? This cannot be undone.`;
+  const count=currentMode==='feeder'?fds().rows.length:ds().rows.length;
+  if(!count){alert('No rows to clear.');return;}
+  document.getElementById('confirmMsg').textContent=`Remove all ${count} rows from this dataset? This cannot be undone.`;
   document.getElementById('confirmOkBtn').onclick=doClearAll;
   document.getElementById('confirmModal').classList.add('open');
 }
 async function doClearAll(){
-  const d=ds();
-  d.rows=[];d.dbIds=[];d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
-  selected=new Set();hideDupAlert();
-  closeModal('confirmModal');renderAll();
-  showLoading('Clearing data…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
+  if(currentMode==='feeder'){
+    const d=fds();
+    d.rows=[];d.dbIds=[];d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
+    selected=new Set();hideDupAlert();
+    closeModal('confirmModal');renderFeederTable();renderFeederStats();
+    showLoading('Clearing data…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();
+  } else {
+    const d=ds();
+    d.rows=[];d.dbIds=[];d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
+    selected=new Set();hideDupAlert();
+    closeModal('confirmModal');renderAll();
+    showLoading('Clearing data…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
+  }
 }
+
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 
 // ── Export ────────────────────────────────────────────────────────────────────
@@ -1021,30 +1019,21 @@ function renderAll(){
 // ── Init ──────────────────────────────────────────────────────────────────────
 (async()=>{
   showLoading('Connecting to database…');
-  await loadConfig();        // restore custom device/subset config from Supabase
-  await loadFeederConfig();  // restore custom substation/feeder config from Supabase
-  // start in feeder mode by default — load first feeder dataset
+  await loadConfig();
+  await loadFeederConfig();
   renderSubstationTabs();
   renderFeederTabs();
   renderFeederTypeTabs();
   await loadFeederDataset();
   hideLoading();
-  // also pre-load device mode data in background
   await loadDataset(currentKey());
   renderAll();
-  // default to feeder mode UI
   switchMode('feeder');
 })();
 
-// ── History & Backup ─────────────────────────────────────────────────────────
-// History is stored in Supabase as special rows with dataset_key = __history__<key>
-// Each entry contains: { label, timestamp, trigger, rows[] }
-// Max 30 history entries per dataset to avoid bloat
-
+// ── History & Backup ──────────────────────────────────────────────────────────
 const MAX_HISTORY = 30;
 
-// Save a history point for the current dataset
-// trigger: 'auto' (on change) or 'manual' (user clicked)
 async function saveHistoryPoint(trigger='auto'){
   const d = ds();
   const key = currentKey();
@@ -1058,35 +1047,28 @@ async function saveHistoryPoint(trigger='auto'){
     trigger,
     timestamp: new Date().toISOString(),
     rowCount: d.rows.length,
-    rows: JSON.parse(JSON.stringify(d.rows)) // deep copy
+    rows: JSON.parse(JSON.stringify(d.rows))
   };
 
   try {
-    // fetch existing history for this dataset
     const existing = await sbFetch('GET', TABLE + '?dataset_key=eq.' + encodeURIComponent(histKey) + '&order=row_index.desc');
     const entries = existing.map(r => r.data);
-
-    // prepend new entry, trim to MAX_HISTORY
     entries.unshift(entry);
     if(entries.length > MAX_HISTORY) entries.splice(MAX_HISTORY);
-
-    // delete and re-save
     await sbFetch('DELETE', TABLE + '?dataset_key=eq.' + encodeURIComponent(histKey));
     if(entries.length){
       const inserts = entries.map((e,i) => ({dataset_key: histKey, row_index: i, data: e}));
       await sbFetch('POST', TABLE, inserts);
     }
-
     if(trigger === 'manual'){
       setSyncStatus('synced', 'history saved ✓');
-      renderHistList(); // refresh the list if modal is open
+      renderHistList();
     }
   } catch(e){
     console.error('History save error:', e);
   }
 }
 
-// Open history modal for current dataset
 async function openHistory(){
   const key = currentKey();
   document.getElementById('histSubLabel').textContent =
@@ -1096,7 +1078,6 @@ async function openHistory(){
   await renderHistList();
 }
 
-// Render history list inside modal
 async function renderHistList(){
   const histKey = '__history__' + currentKey();
   try {
@@ -1116,9 +1097,7 @@ async function renderHistList(){
       const isManual = e.trigger === 'manual';
       return `<div class="hist-item">
         <div class="hist-meta">
-          <div class="hist-label">
-            ${isManual ? '📌 ' : '🔄 '}${e.label}
-          </div>
+          <div class="hist-label">${isManual ? '📌 ' : '🔄 '}${e.label}</div>
           <div class="hist-time">${dateStr} at ${timeStr}</div>
           <div class="hist-rows">${e.rowCount ?? (e.rows ? e.rows.length : '?')} rows</div>
         </div>
@@ -1129,7 +1108,6 @@ async function renderHistList(){
       </div>`;
     }).join('');
 
-    // store entries on window for preview/restore
     window._histEntries = entries;
   } catch(e){
     document.getElementById('histList').innerHTML = '<div class="hist-empty">Could not load history.</div>';
@@ -1137,7 +1115,6 @@ async function renderHistList(){
   }
 }
 
-// Preview a history entry — renders a mini table inside a modal
 function previewHistory(idx){
   const e = window._histEntries[idx];
   if(!e) return;
@@ -1162,7 +1139,6 @@ function previewHistory(idx){
   document.getElementById('previewModal').classList.add('open');
 }
 
-// Confirm restore
 function confirmRestore(idx){
   const e = window._histEntries[idx];
   if(!e) return;
@@ -1174,14 +1150,11 @@ function confirmRestore(idx){
   document.getElementById('restoreModal').classList.add('open');
 }
 
-// Perform restore
 async function doRestore(idx){
   const e = window._histEntries[idx];
   if(!e) return;
   const d = ds(); const c = cols();
-  // save current state to history before restoring
   await saveHistoryPoint('auto');
-  // restore
   d.rows = (e.rows||[]).map(r=>{const o={};c.forEach(col=>o[col]=r[col]??'');return o;});
   d.manuallyAdded = new Set();
   d.dupInfo = {}; d.checked = false;
@@ -1195,7 +1168,6 @@ async function doRestore(idx){
   setSyncStatus('synced','restored ✓');
 }
 
-// Clear all history for current dataset
 function confirmClearHistory(){
   document.getElementById('confirmMsg').textContent =
     'Delete all history entries for ' + currentDevice + ' — ' + currentType + '? This cannot be undone.';
@@ -1212,7 +1184,7 @@ async function doClearHistory(){
   }catch(e){ console.error(e); }
 }
 
-// ── Schema templates for new subsets ─────────────────────────────────────────
+// ── Schema templates ──────────────────────────────────────────────────────────
 const SCHEMA_TEMPLATES = {
   status: ["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
   control: ["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
@@ -1226,7 +1198,6 @@ const SCHEMA_TYPE_MAP = {
 // ── Persist device/subset config to Supabase ──────────────────────────────────
 async function saveConfig(){
   try{
-    // store config as a special row in feeder_data
     await sbFetch('DELETE', TABLE+'?dataset_key=eq.__config__');
     await sbFetch('POST', TABLE, [{
       dataset_key:'__config__',
@@ -1244,11 +1215,8 @@ async function loadConfig(){
     const data=await sbFetch('GET', TABLE+'?dataset_key=eq.__config__&limit=1');
     if(data&&data.length){
       const cfg=data[0].data;
-      // restore groups
       Object.keys(cfg.groups).forEach(dev=>{
-        if(!GROUPS[dev]){
-          GROUPS[dev]={};
-        }
+        if(!GROUPS[dev]) GROUPS[dev]={};
         Object.entries(cfg.groups[dev]).forEach(([type,key])=>{
           if(!GROUPS[dev][type]) GROUPS[dev][type]=key;
           if(!DEFAULT_COLUMNS[key]) DEFAULT_COLUMNS[key]=cfg.columns[key]||SCHEMA_TEMPLATES.status;
@@ -1339,11 +1307,7 @@ async function saveNewSubset(){
   renderAll();
 }
 
-// ── Substation / Feeder Mode ─────────────────────────────────────────────────
-// Separate from device mode — Substation > Feeder > Subset (no device level)
-// Data stored in Supabase with key: __feeder__<substation>__<feeder>__<subset>
-
-// Hardcoded initial substation + feeders
+// ── Substation / Feeder Mode ──────────────────────────────────────────────────
 const FEEDER_STRUCTURE = {
   "BR & A Half": {
     feeders: ["SSMN","TP_01_MAIN_01","TP_01_MAIN_02","LINE_01_MAIN_01","LINE_01_MAIN_02","CENTER_01","BUS_ZONE_01_MAIN_01","BUS_ZONE_01_MAIN_02","BUS_ZONE_02_MAIN_01","BUS_ZONE_02_MAIN_02","RCC_01"]
@@ -1365,26 +1329,21 @@ const FEEDER_STRUCTURE = {
   }
 };
 
-// Feeder subsets — same schema as device subsets
 const FEEDER_SUBSETS = ["Status Point","Control Output","Analog Point"];
 
-// Schema map for feeder subsets
 const FEEDER_SCHEMA_MAP = {
   "Status Point":  "status",
   "Control Output":"control",
   "Analog Point":  "analog"
 };
 
-// Current feeder mode state
-let currentMode      = 'feeder'; // 'feeder' or 'device'
+let currentMode      = 'feeder';
 let currentSubstation= Object.keys(FEEDER_STRUCTURE)[0];
 let currentFeeder    = FEEDER_STRUCTURE[currentSubstation].feeders[0];
 let currentFeederType= FEEDER_SUBSETS[0];
 
-// In-memory cache for feeder datasets
 const FEEDER_DATASETS = {};
 
-// Build dataset key for feeder data
 function feederKey(sub, feed, type){
   return '__feeder__' + sub + '__' + feed + '__' + type;
 }
@@ -1397,7 +1356,6 @@ function feederCols(){
   return SCHEMA_TEMPLATES[FEEDER_SCHEMA_MAP[currentFeederType]];
 }
 
-// Get or init feeder dataset
 function fds(){
   const k = currentFeederKey();
   if(!FEEDER_DATASETS[k]){
@@ -1414,13 +1372,10 @@ function fds(){
 // ── Mode switcher ─────────────────────────────────────────────────────────────
 function switchMode(mode){
   currentMode = mode;
-  // toggle sections
   document.getElementById('feederSection').style.display  = mode==='feeder'?'block':'none';
   document.getElementById('deviceSection').style.display  = mode==='device'?'block':'none';
-  // toggle mode tab styles
   document.getElementById('modeTabFeeder').classList.toggle('active', mode==='feeder');
   document.getElementById('modeTabDevice').classList.toggle('active', mode==='device');
-  // reset selection and alerts
   selected = new Set();
   hideDupAlert();
   document.getElementById('searchBox').value='';
@@ -1438,7 +1393,7 @@ function switchMode(mode){
 function renderSubstationTabs(){
   document.getElementById('substationTabs').innerHTML =
     Object.keys(FEEDER_STRUCTURE).map(s=>
-      `<button class="feeder-tab${s===currentSubstation?' active':''}" onclick="switchSubstation('${s.replace(/'/g,"\'")}')">
+      `<button class="feeder-tab${s===currentSubstation?' active':''}" onclick="switchSubstation('${s.replace(/'/g,"\\'")}')">
         ${s}
       </button>`
     ).join('');
@@ -1459,7 +1414,7 @@ async function switchSubstation(s){
 function renderFeederTabs(){
   document.getElementById('feederTabs').innerHTML =
     FEEDER_STRUCTURE[currentSubstation].feeders.map(f=>
-      `<button class="feeder-tab${f===currentFeeder?' active':''}" onclick="switchFeeder('${f.replace(/'/g,"\'")}')">
+      `<button class="feeder-tab${f===currentFeeder?' active':''}" onclick="switchFeeder('${f.replace(/'/g,"\\'")}')">
         ${f}
       </button>`
     ).join('');
@@ -1474,7 +1429,7 @@ async function switchFeeder(f){
   await loadFeederDataset();
 }
 
-// ── Feeder type tabs (Status Point / Control Output / Analog Point) ───────────
+// ── Feeder type tabs ──────────────────────────────────────────────────────────
 function renderFeederTypeTabs(){
   document.getElementById('feederTypeTabs').innerHTML =
     FEEDER_SUBSETS.map(t=>
@@ -1491,7 +1446,7 @@ async function switchFeederType(t){
   await loadFeederDataset();
 }
 
-// ── Load feeder dataset from Supabase ─────────────────────────────────────────
+// ── Load feeder dataset ───────────────────────────────────────────────────────
 async function loadFeederDataset(){
   const k = currentFeederKey();
   try{
@@ -1572,7 +1527,7 @@ function renderFeederTable(){
       :st==='orig'?`<span class="badge orig">original</span>`
       :isM?`<span class="badge new">added</span>`:'';
     const cells=c.map((col,ci)=>
-      `<td contenteditable="true" onblur="editFeederCell(${i},'${col.replace(/'/g,"\'")}',this)"
+      `<td contenteditable="true" onblur="editFeederCell(${i},'${col.replace(/'/g,"\\'")}',this)"
         spellcheck="false"${ci===0?' class="fl"':''}>${String(r[col]??'').replace(/</g,'&lt;')}</td>`
     ).join('');
     return `<tr class="${rc}${isSel?' sel':''}">
@@ -1606,7 +1561,7 @@ function renderFeederStats(){
 function renderFeederKeyChips(){
   const d=fds();
   document.getElementById('keyChips').innerHTML=feederCols().map(c=>
-    `<button class="chip${d.keyColumns.has(c)?' on':''}" onclick="toggleFeederKey('${c.replace(/'/g,"\'")}')">
+    `<button class="chip${d.keyColumns.has(c)?' on':''}" onclick="toggleFeederKey('${c.replace(/'/g,"\\'")}')">
       ${c}
     </button>`
   ).join('');
@@ -1677,7 +1632,7 @@ async function saveFeederNewRow(){
   showLoading('Saving…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();
 }
 
-// ── Feeder history (reuse same pattern as device history) ─────────────────────
+// ── Feeder history ────────────────────────────────────────────────────────────
 async function saveFeederHistoryPoint(trigger='auto'){
   const d=fds();const k=currentFeederKey();
   const histKey='__history__'+k;
@@ -1777,7 +1732,7 @@ async function saveNewFeeder(){
   await loadFeederDataset();
 }
 
-// ── Save/load feeder config to Supabase ───────────────────────────────────────
+// ── Save/load feeder config ───────────────────────────────────────────────────
 async function saveFeederConfig(){
   try{
     await sbFetch('DELETE',TABLE+'?dataset_key=eq.__feeder_config__');
@@ -1822,7 +1777,6 @@ function exportFeederCSV(){
 const CMP={A:null,B:null,colsA:[],colsB:[],keyColumns:new Set(),result:null};
 
 function openCompare(){
-  // reset
   CMP.A=null;CMP.B=null;CMP.colsA=[];CMP.colsB=[];CMP.keyColumns=new Set();CMP.result=null;
   document.getElementById('lblB').textContent='Drop or click to upload File B';
   document.getElementById('dzB').style.borderColor='';
@@ -1833,7 +1787,6 @@ function openCompare(){
   document.getElementById('cmpTable').innerHTML='';
   document.getElementById('compareModal').classList.add('open');
 
-  // auto-load File A from current dataset
   const d=ds();const c=cols();
   if(d.rows.length===0){
     document.getElementById('lblA').textContent='No data in current dataset';
@@ -1866,11 +1819,8 @@ function loadCompareFile(side,inp){
       else CMP.colsB=fileCols;
       document.getElementById('lbl'+side).textContent=f.name+' ('+data.length+' rows)';
       document.getElementById('dz'+side).style.borderColor='var(--green-bdr)';
-      // update key chips when both loaded
       if(CMP.A&&CMP.B){
-        // union of columns from both files
         const allCols=[...new Set([...CMP.colsA,...CMP.colsB])];
-        // default key = first col of file A
         CMP.keyColumns=new Set([CMP.colsA[0]]);
         renderCmpKeyChips(allCols);
         document.getElementById('cmpKeyBar').style.display='flex';
@@ -1883,7 +1833,7 @@ function loadCompareFile(side,inp){
 
 function renderCmpKeyChips(allCols){
   document.getElementById('cmpKeyChips').innerHTML=allCols.map(c=>
-    `<button class="chip${CMP.keyColumns.has(c)?' on':''}" onclick="toggleCmpKey('${c.replace(/'/g,"\'")}')">${c}</button>`
+    `<button class="chip${CMP.keyColumns.has(c)?' on':''}" onclick="toggleCmpKey('${c.replace(/'/g,"\\'")}'">${c}</button>`
   ).join('');
 }
 
@@ -1912,7 +1862,6 @@ function runCompare(){
     if(ra&&!rb)status='only-a';
     else if(!ra&&rb)status='only-b';
     else{
-      // check if any col differs
       if(allCols.some(c=>String(ra[c]??'')!==String(rb[c]??'')))status='diff';
     }
     return{key:k,ra,rb,status,cols:allCols};
@@ -1924,7 +1873,6 @@ function runCompare(){
   const onlyB=rows.filter(r=>r.status==='only-b').length;
   const diff=rows.filter(r=>r.status==='diff').length;
 
-  // summary
   const sum=document.getElementById('cmpSummary');
   sum.style.display='flex';
   sum.innerHTML=`
@@ -1933,10 +1881,8 @@ function runCompare(){
     <span class="stat-pill pill-b">B only: ${onlyB}</span>
     <span class="stat-pill pill-diff">⚠ ${diff} different</span>`;
 
-  // legend
   document.getElementById('cmpLegend').style.display='flex';
 
-  // table
   const thead=`<tr>
     <th>#</th>
     <th>status</th>
@@ -1983,7 +1929,6 @@ async function applyMerged(){
   if(!CMP.A||!CMP.B){alert('Both files must be loaded.');return;}
   const d=ds();const c=cols();
   const mapA=new Map();CMP.A.forEach(r=>mapA.set(getRowKey(r),r));
-  // start with all A rows, add B rows not in A
   const merged=[...CMP.A];
   CMP.B.forEach(r=>{if(!mapA.has(getRowKey(r)))merged.push(r);});
   d.rows=merged.map(r=>{const o={};c.forEach(col=>o[col]=r[col]??'');return o;});
