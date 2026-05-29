@@ -1139,16 +1139,14 @@ function exportExcel(){
 }
 function exportAllExcel(){
   const wb=XLSX.utils.book_new();
-  Object.keys(GROUPS).forEach(dev=>{
-    Object.entries(GROUPS[dev]).forEach(([type,key])=>{
-      const d=DATASETS[key];const c=DEFAULT_COLUMNS[key];
-      const out=d.rows.length?d.rows.map(r=>{const o={};c.forEach(col=>o[col]=r[col]??'');return o;}):[Object.fromEntries(c.map(col=>[col,'']))];
-      const ws=XLSX.utils.json_to_sheet(out);
-      const sn=(dev+'_'+type).replace(/[\\/*?:[\]()]/g,'').replace(/\s+/g,'_').substring(0,31);
-      XLSX.utils.book_append_sheet(wb,ws,sn);
-    });
+  Object.entries(GROUPS[currentDevice]).forEach(([type,key])=>{
+    const d=DATASETS[key];const c=DEFAULT_COLUMNS[key];
+    const out=d.rows.length?d.rows.map(r=>{const o={};c.forEach(col=>o[col]=r[col]??'');return o;}):[Object.fromEntries(c.map(col=>[col,'']))];
+    const ws=XLSX.utils.json_to_sheet(out);
+    const sn=type.replace(/[\\/*?:[\]()]/g,'').replace(/\s+/g,'_').substring(0,31);
+    XLSX.utils.book_append_sheet(wb,ws,sn);
   });
-  XLSX.writeFile(wb,'FeederDevice_all_datasets.xlsx');
+  XLSX.writeFile(wb,currentDevice+'_all_subsets.xlsx');
 }
 function exportCSV(){
   const d=ds();const c=cols();
