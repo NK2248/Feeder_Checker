@@ -661,18 +661,20 @@ tr.origin-row td.locked-cell:focus{
   <div class="modal" style="width:420px">
     <h3>Import File</h3>
     <p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:16px">
-      This dataset already has <strong id="importExistingCount">0</strong> rows.<br>
-      How would you like to import the new file?
+      How would you like to import this file?
     </p>
     <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:4px">
-      <button class="btn primary" onclick="doImport('replace')" style="justify-content:flex-start;padding:12px 16px;height:auto;flex-direction:column;align-items:flex-start;gap:3px">
-        <span style="font-weight:600;font-size:13px">🔄 Replace — use new file as origin</span>
-        <span style="font-size:11px;opacity:.8;font-weight:400">Clears all existing rows. New file becomes the locked origin.</span>
+      <button class="btn primary" onclick="doImport('origin')" style="justify-content:flex-start;padding:12px 16px;height:auto;flex-direction:column;align-items:flex-start;gap:3px">
+        <span style="font-weight:600;font-size:13px">🔒 Import as Origin</span>
+        <span style="font-size:11px;opacity:.8;font-weight:400">Rows are locked — only DNP3.0_ADDRESS can be edited. Cannot be deleted.</span>
       </button>
-      <button class="btn" onclick="doImport('append')" style="justify-content:flex-start;padding:12px 16px;height:auto;flex-direction:column;align-items:flex-start;gap:3px;border-color:var(--blue-bdr);background:var(--blue-bg);color:var(--blue)">
-        <span style="font-weight:600;font-size:13px">➕ Append — continue from last index</span>
-        <span style="font-size:11px;opacity:.8;font-weight:400">Adds new rows after existing data. Original rows stay locked.</span>
+      <button class="btn" onclick="doImport('addon')" style="justify-content:flex-start;padding:12px 16px;height:auto;flex-direction:column;align-items:flex-start;gap:3px;border-color:var(--blue-bdr);background:var(--blue-bg);color:var(--blue)">
+        <span style="font-weight:600;font-size:13px">✏️ Import as Add-on</span>
+        <span style="font-size:11px;opacity:.8;font-weight:400">Rows are fully editable and deletable. Added after existing data.</span>
       </button>
+    </div>
+    <div class="mfooter">
+      <button class="btn" onclick="closeModal('importChoiceModal');pendingImportData=null;">Cancel</button>
     </div>
     <div class="mfooter">
       <button class="btn" onclick="closeModal('importChoiceModal');pendingImportData=null;">Cancel</button>
@@ -838,16 +840,9 @@ function processFile(f){
       const ws=wb.Sheets[wb.SheetNames[0]];
       const data=XLSX.utils.sheet_to_json(ws,{defval:''});
       if(!data.length){alert('File appears empty.');return;}
-      const existingCount = currentMode==='feeder' ? fds().rows.length : ds().rows.length;
-      if(existingCount > 0){
-        // Ask user: replace or append
-        pendingImportData = data;
-        document.getElementById('importExistingCount').textContent = existingCount;
-        document.getElementById('importChoiceModal').classList.add('open');
-      } else {
-        // No existing data — import directly as origin
-        await doImport('replace', data);
-      }
+      // Always ask: origin (locked) or add-on (fully editable)
+      pendingImportData = data;
+      document.getElementById('importChoiceModal').classList.add('open');
     }catch(err){hideLoading();alert('Could not read file: '+err.message);}
   };
   reader.readAsArrayBuffer(f);
@@ -860,21 +855,19 @@ async function doImport(mode, data){
   if(!importData) return;
 
   if(currentMode==='feeder'){
-    const d=fds();const c=feederCols();
-    if(mode==='replace'){
-      // Clear everything, import as fresh origin
-      d.rows=[];d.manuallyAdded=new Set();d.originCount=0;
-    }
-    const startIdx = d.rows.length;
+    const d=fds(); const c=feederCols();
     importData.forEach(r=>{
       const row={};c.forEach(col=>row[col]=r[col]!==undefined?r[col]:'');
       d.rows.push(row);
-      if(mode==='append') d.manuallyAdded.add(d.rows.length-1);
+      // addon rows go into manuallyAdded so they show as editable/deletable
+      if(mode==='addon') d.manuallyAdded.add(d.rows.length-1);
     });
-    if(mode==='replace'){
-      d.originCount=d.rows.length; // all new rows become origin
-      d.manuallyAdded=new Set();   // none are manually added
+    if(mode==='origin'){
+      // Everything up to current length is now locked origin
+      d.originCount = d.rows.length;
+      d.manuallyAdded = new Set(); // origin rows are never in manuallyAdded
     }
+    // addon: originCount stays unchanged — new rows sit after it, fully editable
     d.dupInfo={};d.checked=false;selected=new Set();hideDupAlert();
     renderFeederTable();renderFeederStats();
     showLoading('Saving to cloud…');
@@ -882,18 +875,15 @@ async function doImport(mode, data){
     await saveFeederHistoryPoint('auto');
     hideLoading();
   } else {
-    const d=ds();const c=cols();
-    if(mode==='replace'){
-      d.rows=[];d.manuallyAdded=new Set();d.originCount=0;
-    }
+    const d=ds(); const c=cols();
     importData.forEach(r=>{
       const row={};c.forEach(col=>row[col]=r[col]!==undefined?r[col]:'');
       d.rows.push(row);
-      if(mode==='append') d.manuallyAdded.add(d.rows.length-1);
+      if(mode==='addon') d.manuallyAdded.add(d.rows.length-1);
     });
-    if(mode==='replace'){
-      d.originCount=d.rows.length;
-      d.manuallyAdded=new Set();
+    if(mode==='origin'){
+      d.originCount = d.rows.length;
+      d.manuallyAdded = new Set();
     }
     d.dupInfo={};d.checked=false;selected=new Set();hideDupAlert();
     renderAll();
