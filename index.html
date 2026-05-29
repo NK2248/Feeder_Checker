@@ -686,7 +686,7 @@ async function sbFetch(method, path, body){
       'Content-Type':'application/json',
       'apikey': SUPABASE_KEY,
       'Authorization':'Bearer '+SUPABASE_KEY,
-      'Prefer': method==='POST'?'return=representation':'return=representation'
+      'Prefer': 'return=representation'
     },
     body: body ? JSON.stringify(body) : undefined
   });
@@ -1489,7 +1489,14 @@ async function saveNewSubset(){
 // Hardcoded initial substation + feeders
 const FEEDER_STRUCTURE = {
   "BR & A Half": {
-    feeders: ["SSMN","TP_01","LINE_01","CENTER_01","BUS_ZONE_01","RCC_01"]
+    feeders: {
+      "SSMN":      {"mains":["MAIN_01"]},
+      "TP_01":     {"mains":["MAIN_01"]},
+      "LINE_01":   {"mains":["MAIN_01"]},
+      "CENTER_01": {"mains":["MAIN_01"]},
+      "BUS_ZONE_01":{"mains":["MAIN_01"]},
+      "RCC_01":    {"mains":["MAIN_01"]}
+    }
   }
 };
 
@@ -1515,7 +1522,8 @@ const FEEDER_SCHEMA_MAP = {
 // Current feeder mode state
 let currentMode      = 'feeder'; // 'feeder' or 'device'
 let currentSubstation= Object.keys(FEEDER_STRUCTURE)[0];
-let currentFeeder    = FEEDER_STRUCTURE[currentSubstation].feeders[0];
+let currentFeeder    = Object.keys(FEEDER_STRUCTURE[currentSubstation].feeders)[0];
+let currentMain      = 'MAIN_01';
 let currentFeederType= FEEDER_SUBSETS[0];
 
 // In-memory cache for feeder datasets
@@ -1978,7 +1986,7 @@ function openAddFeeder(){
 async function saveNewFeeder(){
   const name=document.getElementById('newFeederName').value.trim();
   if(!name){alert('Enter a feeder name.');return;}
-  if(FEEDER_STRUCTURE[currentSubstation].feeders.includes(name)){alert('Feeder "'+name+'" already exists.');return;}
+  if(Object.keys(FEEDER_STRUCTURE[currentSubstation].feeders).includes(name)){alert('Feeder "'+name+'" already exists.');return;}
   FEEDER_STRUCTURE[currentSubstation].feeders[name]={mains:["MAIN_01"]};
   currentFeeder=name;currentMain="MAIN_01";currentFeederType=FEEDER_SUBSETS[0];
   closeModal('addFeederModal');
