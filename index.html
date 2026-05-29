@@ -771,8 +771,7 @@ async function loadDataset(key){
     d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
     // preserve originCount if already set; first load sets it
     const savedOriginD = data.length ? (data[0].origin_count || data[0].data?.__originCount || 0) : 0;
-    if(savedOriginD > 0) d.originCount = savedOriginD;
-    else if(prevOrigin===0 && d.rows.length>0) d.originCount = d.rows.length;
+    d.originCount = savedOriginD;
     d.rows = d.rows.map(r=>{ const {__originCount,...rest}=r; return rest; });
     setSyncStatus('synced','synced');
   }catch(e){
@@ -796,7 +795,7 @@ async function saveDataset(key){
     await sbFetch('DELETE', TABLE+'?dataset_key=eq.'+encodeURIComponent(key));
     if(d.rows.length){
       // Store originCount in first row metadata for persistence
-      const inserts=d.rows.map((row,i)=>({dataset_key:key,row_index:i,data:{...row,__originCount:d.originCount||0},origin_count:d.originCount||0}));
+      const inserts=d.rows.map((row,i)=>({dataset_key:key,row_index:i,data:row,origin_count:d.originCount||0}));
       const result=await sbFetch('POST', TABLE, inserts);
       d.dbIds=result.map(r=>r.id);
     } else {
@@ -1777,8 +1776,7 @@ async function loadFeederDataset(){
     const savedOrigin = data.length
       ? (data[0].origin_count || data[0].data?.__originCount || 0)
       : 0;
-    if(savedOrigin > 0) d.originCount = savedOrigin;
-    else if(prevOriginF===0 && d.rows.length>0) d.originCount = d.rows.length;
+    d.originCount = savedOrigin;
     // Strip __originCount from displayed rows
     d.rows = d.rows.map(r=>{ const {__originCount,...rest}=r; return rest; });
     setSyncStatus('synced','synced');
@@ -1799,7 +1797,7 @@ async function saveFeederDataset(){
     setSyncStatus('syncing','saving…');
     await sbFetch('DELETE', TABLE+'?dataset_key=eq.'+encodeURIComponent(k));
     if(d.rows.length){
-      const ins = d.rows.map((row,i)=>({dataset_key:k,row_index:i,data:{...row,__originCount:d.originCount||0},origin_count:d.originCount||0}));
+      const ins = d.rows.map((row,i)=>({dataset_key:k,row_index:i,data:row,origin_count:d.originCount||0}));
       const res = await sbFetch('POST', TABLE, ins);
       d.dbIds = res.map(r=>r.id);
     } else { d.dbIds=[]; }
