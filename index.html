@@ -130,6 +130,16 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
 .spinner{width:32px;height:32px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading-text{font-size:13px;color:var(--text2);font-family:var(--mono)}
+/* ── Origin rows (locked) ────────────────── */
+/* Origin rows imported first — all cols locked except DNP3.0_ADDRESS */
+tr.origin-row td { background: #f8f6ff !important; }
+tr.origin-row td.fl { border-left: 3px solid #9b7fe8 !important; padding-left:7px; }
+tr.origin-row td[contenteditable="true"] { cursor: not-allowed; color: var(--text3); }
+tr.origin-row td[contenteditable="true"]:focus { background: #f8f6ff !important; box-shadow: none; }
+tr.origin-row td.editable-addr { cursor: text; color: var(--text); }
+tr.origin-row td.editable-addr:focus { background: #e8f0f8 !important; box-shadow: inset 0 0 0 1px var(--blue-bdr); }
+.badge.origin { background: #f0ebff; color: #5a2d8a; border: 1px solid #c8a8e8; }
+.leg-origin { display:flex;align-items:center;gap:4px }
 /* ── History panel ───────────────────────── */
 .hist-modal{width:520px}
 .hist-list{display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto;margin-bottom:12px}
@@ -153,12 +163,45 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
 .feeder-tab{padding:5px 14px;border-radius:var(--r);border:none;background:transparent;cursor:pointer;font-size:13px;font-family:var(--font);font-weight:500;color:var(--text2);transition:all .15s;white-space:nowrap}
 .feeder-tab:hover{background:var(--surface2)}
 .feeder-tab.active{background:var(--accent-light);color:var(--accent-text);border:1px solid var(--blue-bdr)}
+/* ── Main level tabs (MAIN_01, MAIN_02...) ── */
+.main-bar{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:12px;padding:4px 8px;background:var(--accent-light);border:1px solid var(--blue-bdr);border-radius:var(--rlg)}
+.main-tab{padding:4px 12px;border-radius:var(--r);border:none;background:transparent;cursor:pointer;font-size:12px;font-family:var(--mono);font-weight:500;color:var(--blue);transition:all .15s;white-space:nowrap}
+.main-tab:hover{background:rgba(26,74,122,.1)}
+.main-tab.active{background:var(--accent);color:#fff}
 /* ── Device Management ──────────────────── */
 .dev-tab-wrap{display:flex;align-items:center;gap:4px;flex-wrap:wrap;flex:1}
 .btn-icon{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:var(--r);border:1px dashed var(--border2);background:transparent;cursor:pointer;color:var(--text3);transition:all .15s;flex-shrink:0}
 .btn-icon:hover{background:var(--accent-light);color:var(--accent);border-color:var(--accent)}
 .btn-icon svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
 .type-tab-wrap{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+/* ── Origin row lock styles ─────────────── */
+/* Origin rows are locked — all cells grey except DNP3.0_ADDRESS */
+tr.origin-row td{background:#f8f8fa!important}
+tr.origin-row td.locked-cell{
+  color:var(--text3);
+  background:#f0f1f4!important;
+  cursor:not-allowed;
+  user-select:none;
+  font-style:italic;
+}
+tr.origin-row td.editable-cell{
+  background:#fff!important;
+  cursor:text;
+  color:var(--text);
+  font-style:normal;
+  border-left:2px solid var(--green-bdr);
+}
+tr.origin-row td.locked-cell:focus{
+  background:#f0f1f4!important;
+  box-shadow:none;
+  outline:none;
+}
+.origin-badge{
+  display:inline-block;font-size:10px;padding:2px 7px;
+  border-radius:20px;font-weight:500;white-space:nowrap;
+  font-family:var(--mono);
+  background:#ede8f8;color:#5a3d8a;border:1px solid #c8a8e8;
+}
 /* ── Compare ─────────────────────────────── */
 .cmp-tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--rlg);max-height:420px;overflow-y:auto}
 .cmp-tbl-wrap table{width:100%;border-collapse:collapse;font-size:11px}
@@ -222,6 +265,13 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
     <div class="feeder-bar" id="feederTabs" style="flex:1;margin-bottom:0"></div>
     <button class="btn-icon" onclick="openAddFeeder()" title="Add new feeder to current substation">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+  </div>
+  <!-- Main tabs (MAIN_01, MAIN_02...) — only shown when feeder has multiple mains -->
+  <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap" id="mainBarWrap">
+    <div class="main-bar" id="mainTabs" style="flex:1;margin-bottom:0"></div>
+    <button class="btn-icon" onclick="openAddMain()" title="Add new main to current feeder">
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </button>
   </div>
@@ -323,10 +373,10 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
       <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       export Excel
     </button>
-    <!-- Export all sheets — device mode only -->
-    <button class="btn success" onclick="currentMode==='feeder'?alert('Switch to Device mode to export all sheets'):exportAllExcel()">
+    <!-- Export all subsets for current feeder (feeder mode) or all device sheets (device mode) -->
+    <button class="btn success" onclick="currentMode==='feeder'?exportFeederAllSubsets():exportAllExcel()">
       <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      export all sheets
+      export all subsets
     </button>
     <!-- Export CSV — routes to feeder or device mode -->
     <button class="btn" onclick="currentMode==='feeder'?exportFeederCSV():exportCSV()">
@@ -338,6 +388,7 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
     <div class="leg"><div class="leg-dot" style="background:var(--amber-bdr)"></div><span>duplicate</span></div>
     <div class="leg"><div class="leg-dot" style="background:var(--green-bdr)"></div><span>original</span></div>
     <div class="leg"><div class="leg-dot" style="background:var(--blue-bdr)"></div><span>added</span></div>
+    <div class="leg"><div class="leg-dot" style="background:#c8a8e8"></div><span>origin (locked)</span></div>
   </div>
 </div>
 
@@ -430,6 +481,23 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
     <div class="mfooter">
       <button class="btn" onclick="closeModal('restoreModal')">Cancel</button>
       <button class="btn primary" id="restoreOkBtn">Restore</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Main Modal -->
+<div class="overlay" id="addMainModal">
+  <div class="modal" style="width:380px">
+    <h3>Add Main to <span id="addMainFeederName"></span></h3>
+    <div class="fgrid">
+      <div class="frow">
+        <label>Main Name</label>
+        <input type="text" id="newMainName" placeholder="e.g. MAIN_03">
+      </div>
+    </div>
+    <div class="mfooter">
+      <button class="btn" onclick="closeModal('addMainModal')">Cancel</button>
+      <button class="btn primary" onclick="saveNewMain()">Add Main</button>
     </div>
   </div>
 </div>
@@ -636,30 +704,30 @@ const GROUPS = {
   "SCB":{"Status Point":"SCB_Status_point","Control Output":"SCB_Control_Output","Analog Point":"SCB_Analog_point"}
 };
 const DEFAULT_COLUMNS = {
-  "AVR_Status_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "AVR_Control_Output":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "AVR_Analog_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "LBS_Status_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "LBS_Control_Output":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "LBS_Analog_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "RCS(SF6)_Status_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "RCS(SF6)_Control_Output":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "RCS(SF6)_Analog_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "RCS(Solid Dielectric)_Status_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "RCS(Solid Dielectric)_Control_Output":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "RCS(Solid Dielectric)_Analog_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "REC_Status_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "REC_Control_Output":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "REC_Analog_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "SCB_Status_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "SCB_Control_Output":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],  
-  "SCB_Analog_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"]
+  "AVR_Status_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "AVR_Control_Output":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "AVR_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "LBS_Status_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "LBS_Control_Output":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "LBS_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "RCS(SF6)_Status_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "RCS(SF6)_Control_Output":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "RCS(SF6)_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "RCS(Solid Dielectric)_Status_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "RCS(Solid Dielectric)_Control_Output":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "RCS(Solid Dielectric)_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "REC_Status_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "REC_Control_Output":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "REC_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "SCB_Status_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "SCB_Control_Output":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "SCB_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"]
 };
 
 // ── State ─────────────────────────────────────────────────────────────────────
 const DATASETS = {};
 Object.values(GROUPS).forEach(types=>Object.values(types).forEach(key=>{
-  DATASETS[key]={rows:[],dbIds:[],manuallyAdded:new Set(),dupInfo:{},keyColumns:new Set(['SPECIFICATION_POINT_NAME','DNP3.0_ADDRESS'].filter(k=>DEFAULT_COLUMNS[key].includes(k))),checked:false};
+  DATASETS[key]={rows:[],dbIds:[],manuallyAdded:new Set(),originCount:0,dupInfo:{},keyColumns:new Set(['SPECIFICATION_POINT_NAME','DNP3.0_ADDRESS'].filter(k=>DEFAULT_COLUMNS[key].includes(k))),checked:false};
 }));
 
 let currentDevice=Object.keys(GROUPS)[0];
@@ -684,9 +752,12 @@ async function loadDataset(key){
     setSyncStatus('syncing','loading…');
     const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(key)+'&order=row_index.asc','');
     const d=DATASETS[key];
+    const prevOrigin=d.originCount||0;
     d.rows=data.map(r=>r.data);
     d.dbIds=data.map(r=>r.id);
     d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
+    // preserve originCount if already set; first load sets it
+    if(prevOrigin===0&&d.rows.length>0) d.originCount=d.rows.length;
     setSyncStatus('synced','synced');
   }catch(e){
     setSyncStatus('error','sync error');
@@ -706,11 +777,10 @@ async function saveDataset(key){
   try{
     setSyncStatus('syncing','saving…');
     const d=DATASETS[key];
-    // delete all existing rows for this dataset
     await sbFetch('DELETE', TABLE+'?dataset_key=eq.'+encodeURIComponent(key));
-    // re-insert all rows
     if(d.rows.length){
-      const inserts=d.rows.map((row,i)=>({dataset_key:key,row_index:i,data:row}));
+      // Store originCount in first row metadata for persistence
+      const inserts=d.rows.map((row,i)=>({dataset_key:key,row_index:i,data:row,origin_count:d.originCount||0}));
       const result=await sbFetch('POST', TABLE, inserts);
       d.dbIds=result.map(r=>r.id);
     } else {
@@ -822,7 +892,9 @@ function toggleKey(col){
 // ── Duplicate check ───────────────────────────────────────────────────────────
 function runDupCheck(){
   const d=ds();if(!d.rows.length){alert('No rows to check.');return;}
-  // OR logic: flag row as duplicate if ANY selected key column value matches another row
+  // For origin rows: only DNP3.0_ADDRESS is checked regardless of keyColumns
+  // For new rows: OR logic across all selected key columns
+  const originEnd=d.originCount||0;
   const colMaps=new Map(); // col -> value -> [indices]
   [...d.keyColumns].forEach(col=>{
     const vm=new Map();
@@ -936,9 +1008,16 @@ async function doDeleteOne(i){
 
 // ── Edit cell ─────────────────────────────────────────────────────────────────
 function editCell(idx,col,el){
-  ds().rows[idx][col]=el.innerText.trim();
-  ds().dupInfo={};ds().checked=false;hideDupAlert();
-  document.getElementById('sTotal').textContent=ds().rows.length;
+  const d=ds();
+  const isOrigin=idx<(d.originCount||0);
+  // Block edits on origin rows except DNP3.0_ADDRESS
+  if(isOrigin && col!=='DNP3.0_ADDRESS'){
+    el.innerText=d.rows[idx][col]??''; // revert
+    return;
+  }
+  d.rows[idx][col]=el.innerText.trim();
+  d.dupInfo={};d.checked=false;hideDupAlert();
+  document.getElementById('sTotal').textContent=d.rows.length;
   debounceSave();
 }
 
@@ -1072,6 +1151,7 @@ function renderAll(){
   // start in feeder mode by default — load first feeder dataset
   renderSubstationTabs();
   renderFeederTabs();
+  renderMainTabs();
   renderFeederTypeTabs();
   await loadFeederDataset();
   hideLoading();
@@ -1267,16 +1347,16 @@ async function doClearHistory(){
 // ── Schema templates for new subsets ─────────────────────────────────────────
 // ── Device mode column schemas (no feeder-specific columns) ──────────────────
 const SCHEMA_TEMPLATES = {
-  status:  ["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  control: ["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  analog:  ["SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"]
+  status:  ["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  control: ["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  analog:  ["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"]
 };
 
 // ── Feeder mode column schemas (includes FEEDER_NAME, BAY_NAME, extra columns) ─
 const FEEDER_SCHEMA_TEMPLATES = {
-  status:  ["FEEDER_NAME","BAY_NAME","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","REMARK","NOTE","BAY_PROT.&BCU_NAME","IEC61850_PROT.&BCU_REFERENCE","BRCB/URCB"],
-  control: ["FEEDER_NAME","BAY_NAME","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","REMARK","NOTE","BAY_PROT.&BCU_NAME","IEC61850_PROT.&BCU_REFERENCE","BRCB/URCB"],
-  analog:  ["FEEDER_NAME","BAY_NAME","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","REMARK","NOTE","BAY_PROT.&BCU_NAME","IEC61850_PROT.&BCU_REFERENCE","BRCB/URCB"]
+  status:  ["ITEM","FEEDER_NAME","BAY_NAME","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","REMARK","NOTE","BAY_PROT.&BCU_NAME","IEC61850_PROT.&BCU_REFERENCE","BRCB/URCB"],
+  control: ["ITEM","FEEDER_NAME","BAY_NAME","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","REMARK","NOTE","BAY_PROT.&BCU_NAME","IEC61850_PROT.&BCU_REFERENCE","BRCB/URCB"],
+  analog:  ["ITEM","FEEDER_NAME","BAY_NAME","SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","REMARK","NOTE","BAY_PROT.&BCU_NAME","IEC61850_PROT.&BCU_REFERENCE","BRCB/URCB"]
 };
 
 // Default key columns for feeder mode — meaningful unique identifiers
@@ -1361,7 +1441,7 @@ async function saveNewDevice(){
     const key=name+'_Analog_point';
     subsets['Analog Point']=key;
     DEFAULT_COLUMNS[key]=[...SCHEMA_TEMPLATES.analog];
-    DATASETS[key]={rows:[],dbIds:[],manuallyAdded:new Set(),dupInfo:{},keyColumns:new Set(['SPECIFICATION_POINT_NAME','DNP3.0_ADDRESS'].filter(k=>DEFAULT_COLUMNS[key].includes(k))),checked:false};
+    DATASETS[key]={rows:[],dbIds:[],manuallyAdded:new Set(),originCount:0,dupInfo:{},keyColumns:new Set(['SPECIFICATION_POINT_NAME','DNP3.0_ADDRESS'].filter(k=>DEFAULT_COLUMNS[key].includes(k))),checked:false};
   }
 
   GROUPS[name]=subsets;
@@ -1391,7 +1471,7 @@ async function saveNewSubset(){
   const schema=document.getElementById('newSubsetSchema').value;
   const key=currentDevice+'_'+name.replace(/\s+/g,'_');
   DEFAULT_COLUMNS[key]=[...SCHEMA_TEMPLATES[schema]];
-  DATASETS[key]={rows:[],dbIds:[],manuallyAdded:new Set(),dupInfo:{},keyColumns:new Set(['SPECIFICATION_POINT_NAME','DNP3.0_ADDRESS'].filter(k=>DEFAULT_COLUMNS[key].includes(k))),checked:false};
+  DATASETS[key]={rows:[],dbIds:[],manuallyAdded:new Set(),originCount:0,dupInfo:{},keyColumns:new Set(['SPECIFICATION_POINT_NAME','DNP3.0_ADDRESS'].filter(k=>DEFAULT_COLUMNS[key].includes(k))),checked:false};
   GROUPS[currentDevice][name]=key;
   currentType=name;
   selected=new Set();hideDupAlert();
@@ -1409,27 +1489,21 @@ async function saveNewSubset(){
 // Hardcoded initial substation + feeders
 const FEEDER_STRUCTURE = {
   "BR & A Half": {
-    feeders: ["SSMN","TP_01_MAIN_01","TP_01_MAIN_02","LINE_01_MAIN_01","LINE_01_MAIN_02","CENTER_01","BUS_ZONE_01_MAIN_01","BUS_ZONE_01_MAIN_02","BUS_ZONE_02_MAIN_01","BUS_ZONE_02_MAIN_02","RCC_01"]
-  },
-  "DBSB": {
     feeders: ["SSMN","TP_01","LINE_01","CENTER_01","BUS_ZONE_01","RCC_01"]
-  },
-  "H Scheme": {
-    feeders: ["SSMN","TP_01","LINE_01","CENTER_01","BUS_ZONE_01","RCC_01"]
-  },
-  "Main & Transfer": {
-    feeders: ["SSMN","TP_01","LINE_01","CENTER_01","BUS_ZONE_01","RCC_01"]
-  },
-  "AIS Substation": {
-    feeders: ["SSMN","TP_01","LINE_01","CENTER_01","BUS_ZONE_01","RCC_01"]
-  },
-  "GIS Substation": {
-    feeders: ["SSMN","TP_01","LINE_01","CENTER_01","BUS_ZONE_01","RCC_01"]
-  },
+  }
 };
 
 // Feeder subsets — same schema as device subsets
 const FEEDER_SUBSETS = ["Status Point","Control Output","Analog Point"];
+
+// ── Helper: get feeders list for current substation ───────────────────────────
+// FEEDER_STRUCTURE feeders is now an object {feederName: {mains:[...]}}
+function getFeederNames(sub){
+  return Object.keys(FEEDER_STRUCTURE[sub]?.feeders || {});
+}
+function getMainNames(sub, feed){
+  return FEEDER_STRUCTURE[sub]?.feeders[feed]?.mains || ["MAIN_01"];
+}
 
 // Schema map for feeder subsets
 const FEEDER_SCHEMA_MAP = {
@@ -1448,12 +1522,13 @@ let currentFeederType= FEEDER_SUBSETS[0];
 const FEEDER_DATASETS = {};
 
 // Build dataset key for feeder data
-function feederKey(sub, feed, type){
-  return '__feeder__' + sub + '__' + feed + '__' + type;
+// Dataset key now includes main level: substation__feeder__main__type
+function feederKey(sub, feed, main, type){
+  return '__feeder__' + sub + '__' + feed + '__' + main + '__' + type;
 }
 
 function currentFeederKey(){
-  return feederKey(currentSubstation, currentFeeder, currentFeederType);
+  return feederKey(currentSubstation, currentFeeder, currentMain, currentFeederType);
 }
 
 function feederCols(){
@@ -1469,6 +1544,7 @@ function fds(){
     // These are feeder-specific identifiers, different from device mode defaults
     FEEDER_DATASETS[k] = {
       rows:[], dbIds:[], manuallyAdded:new Set(),
+      originCount:0,  // rows[0..originCount-1] are origin (locked except DNP3.0_ADDRESS)
       dupInfo:{}, keyColumns:new Set(
         FEEDER_DEFAULT_KEYS.filter(c=>feederCols().includes(c))
       ),
@@ -1494,6 +1570,7 @@ function switchMode(mode){
   if(mode==='feeder'){
     renderSubstationTabs();
     renderFeederTabs();
+    renderMainTabs();
     renderFeederTypeTabs();
     loadFeederDataset();
   } else {
@@ -1513,11 +1590,13 @@ function renderSubstationTabs(){
 
 async function switchSubstation(s){
   currentSubstation = s;
-  currentFeeder     = FEEDER_STRUCTURE[s].feeders[0];
+  currentFeeder     = getFeederNames(s)[0];
+  currentMain       = getMainNames(s, currentFeeder)[0];
   currentFeederType = FEEDER_SUBSETS[0];
   selected=new Set();hideDupAlert();
   renderSubstationTabs();
   renderFeederTabs();
+  renderMainTabs();
   renderFeederTypeTabs();
   await loadFeederDataset();
 }
@@ -1525,7 +1604,7 @@ async function switchSubstation(s){
 // ── Feeder tabs ───────────────────────────────────────────────────────────────
 function renderFeederTabs(){
   document.getElementById('feederTabs').innerHTML =
-    FEEDER_STRUCTURE[currentSubstation].feeders.map(f=>
+    getFeederNames(currentSubstation).map(f=>
       `<button class="feeder-tab${f===currentFeeder?' active':''}" onclick="switchFeeder('${f.replace(/'/g,"\'")}')">
         ${f}
       </button>`
@@ -1534,10 +1613,57 @@ function renderFeederTabs(){
 
 async function switchFeeder(f){
   currentFeeder     = f;
+  currentMain       = getMainNames(currentSubstation, f)[0];
   currentFeederType = FEEDER_SUBSETS[0];
   selected=new Set();hideDupAlert();
   renderFeederTabs();
+  renderMainTabs();
   renderFeederTypeTabs();
+  await loadFeederDataset();
+}
+
+// ── Main tabs (MAIN_01, MAIN_02...) ──────────────────────────────────────────
+function renderMainTabs(){
+  const mains = getMainNames(currentSubstation, currentFeeder);
+  const wrap  = document.getElementById('mainBarWrap');
+  // Hide main bar if only one main — no need to show it
+  if(mains.length <= 1){
+    wrap.style.display='none';
+    return;
+  }
+  wrap.style.display='flex';
+  document.getElementById('mainTabs').innerHTML = mains.map(m=>
+    `<button class="main-tab${m===currentMain?' active':''}" onclick="switchMain('${m}')">
+      ${m}
+    </button>`
+  ).join('');
+}
+
+async function switchMain(m){
+  currentMain       = m;
+  currentFeederType = FEEDER_SUBSETS[0];
+  selected=new Set();hideDupAlert();
+  renderMainTabs();
+  renderFeederTypeTabs();
+  await loadFeederDataset();
+}
+
+// ── Add Main ──────────────────────────────────────────────────────────────────
+function openAddMain(){
+  document.getElementById('addMainFeederName').textContent=currentFeeder;
+  document.getElementById('newMainName').value='';
+  document.getElementById('addMainModal').classList.add('open');
+}
+async function saveNewMain(){
+  const name=document.getElementById('newMainName').value.trim().toUpperCase();
+  if(!name){alert('Enter a main name.');return;}
+  const mains=getMainNames(currentSubstation,currentFeeder);
+  if(mains.includes(name)){alert('"'+name+'" already exists in '+currentFeeder+'.');return;}
+  FEEDER_STRUCTURE[currentSubstation].feeders[currentFeeder].mains.push(name);
+  currentMain=name;
+  closeModal('addMainModal');
+  await saveFeederConfig();
+  renderMainTabs();renderFeederTypeTabs();
   await loadFeederDataset();
 }
 
@@ -1558,6 +1684,8 @@ async function switchFeederType(t){
   await loadFeederDataset();
 }
 
+// ── Feeder type tabs ──────────────────────────────────────────────────────────
+
 // ── Load feeder dataset from Supabase ─────────────────────────────────────────
 async function loadFeederDataset(){
   const k = currentFeederKey();
@@ -1565,9 +1693,12 @@ async function loadFeederDataset(){
     setSyncStatus('syncing','loading…');
     const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(k)+'&order=row_index.asc');
     const d = fds();
+    const prevOriginF=d.originCount||0;
     d.rows  = data.map(r=>r.data);
     d.dbIds = data.map(r=>r.id);
     d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
+    // first load sets originCount — rows loaded from DB on first open are origin
+    if(prevOriginF===0&&d.rows.length>0) d.originCount=d.rows.length;
     setSyncStatus('synced','synced');
   }catch(e){
     setSyncStatus('error','sync error');
@@ -1638,19 +1769,23 @@ function renderFeederTable(){
     const badge=st==='dup'?`<span class="badge dup">duplicate</span>`
       :st==='orig'?`<span class="badge orig">original</span>`
       :isM?`<span class="badge new">added</span>`:'';
-    const cells=c.map((col,ci)=>
-      `<td contenteditable="true" onblur="editFeederCell(${i},'${col.replace(/'/g,"\'")}',this)"
-        spellcheck="false"${ci===0?' class="fl"':''}>${String(r[col]??'').replace(/</g,'&lt;')}</td>`
-    ).join('');
-    return `<tr class="${rc}${isSel?' sel':''}">
+    const isFOrigin=i<(d.originCount||0);
+    const fcells=c.map((col,ci)=>{
+      const isAddr=col==='DNP3.0_ADDRESS';
+      const locked=isFOrigin&&!isAddr;
+      const cls=(ci===0?'fl ':'')+((isFOrigin&&isAddr)?'editable-addr':'');
+      return `<td contenteditable="${!locked}" onblur="${locked?'':'editFeederCell('+i+',\''+col.replace(/'/g,"\'")+'\''+',this)'}" spellcheck="false"${cls?' class="'+cls+'"':''}${locked?' title="Origin row — locked"':''}>${String(r[col]??'').replace(/</g,'&lt;')}</td>`;
+    }).join('');
+    const fobadge=isFOrigin?`<span class="badge origin">origin</span>`:badge;
+    return `<tr class="${rc}${isSel?' sel':''}${isFOrigin?' origin-row':''}">
       <td style="text-align:center;width:32px">
-        <input type="checkbox" ${isSel?'checked':''} onchange="toggleFeederSelect(${i},this.checked)" style="cursor:pointer">
-      </td>
+        <input type="checkbox" ${isSel?'checked':''} onchange="toggleFeederSelect(${i},this.checked)" style="cursor:pointer"${isFOrigin?' disabled title="Cannot select origin rows"':''}></td>
       <td class="rn">${i+1}</td>
-      ${cells}
-      <td>${badge}</td>
+      ${fcells}
+      <td>${fobadge}</td>
       <td class="act">
-        <button class="rbtn" title="remove row" onclick="confirmDeleteFeederRow(${i})">${trash}</button>
+        <button class="rbtn" title="${isFOrigin?'Cannot delete origin rows':'remove row'}" onclick="${isFOrigin?'alert(\'Origin rows cannot be deleted\')':'confirmDeleteFeederRow('+i+')'}" style="${isFOrigin?'opacity:.3;cursor:not-allowed':''}">
+          ${trash}</button>
       </td>
     </tr>`;
   }).join('');
@@ -1690,9 +1825,16 @@ function toggleFeederKey(col){
 // ── Feeder edit cell ──────────────────────────────────────────────────────────
 let feederSyncTimer=null;
 function editFeederCell(idx,col,el){
-  fds().rows[idx][col]=el.innerText.trim();
-  fds().dupInfo={};fds().checked=false;hideDupAlert();
-  document.getElementById('sTotal').textContent=fds().rows.length;
+  const d=fds();
+  const isOrigin=idx<(d.originCount||0);
+  // Block edits on origin rows except DNP3.0_ADDRESS
+  if(isOrigin && col!=='DNP3.0_ADDRESS'){
+    el.innerText=d.rows[idx][col]??''; // revert
+    return;
+  }
+  d.rows[idx][col]=el.innerText.trim();
+  d.dupInfo={};d.checked=false;hideDupAlert();
+  document.getElementById('sTotal').textContent=d.rows.length;
   clearTimeout(feederSyncTimer);
   feederSyncTimer=setTimeout(()=>saveFeederDataset(),800);
 }
@@ -1817,9 +1959,10 @@ async function saveNewSubstation(){
   const name=document.getElementById('newSubstationName').value.trim();
   if(!name){alert('Enter a substation name.');return;}
   if(FEEDER_STRUCTURE[name]){alert('Substation "'+name+'" already exists.');return;}
-  FEEDER_STRUCTURE[name]={feeders:[]};
+  FEEDER_STRUCTURE[name]={feeders:{}};
   currentSubstation=name;
   currentFeeder=null;
+  currentMain=null;
   closeModal('addSubstationModal');
   await saveFeederConfig();
   renderSubstationTabs();renderFeederTabs();renderFeederTypeTabs();
@@ -1836,11 +1979,11 @@ async function saveNewFeeder(){
   const name=document.getElementById('newFeederName').value.trim();
   if(!name){alert('Enter a feeder name.');return;}
   if(FEEDER_STRUCTURE[currentSubstation].feeders.includes(name)){alert('Feeder "'+name+'" already exists.');return;}
-  FEEDER_STRUCTURE[currentSubstation].feeders.push(name);
-  currentFeeder=name;currentFeederType=FEEDER_SUBSETS[0];
+  FEEDER_STRUCTURE[currentSubstation].feeders[name]={mains:["MAIN_01"]};
+  currentFeeder=name;currentMain="MAIN_01";currentFeederType=FEEDER_SUBSETS[0];
   closeModal('addFeederModal');
   await saveFeederConfig();
-  renderFeederTabs();renderFeederTypeTabs();
+  renderFeederTabs();renderMainTabs();renderFeederTypeTabs();
   await loadFeederDataset();
 }
 
@@ -1857,8 +2000,19 @@ async function loadFeederConfig(){
     if(data&&data.length){
       const s=data[0].data.structure;
       Object.entries(s).forEach(([sub,val])=>{
-        if(!FEEDER_STRUCTURE[sub])FEEDER_STRUCTURE[sub]={feeders:[]};
-        val.feeders.forEach(f=>{if(!FEEDER_STRUCTURE[sub].feeders.includes(f))FEEDER_STRUCTURE[sub].feeders.push(f);});
+        if(!FEEDER_STRUCTURE[sub])FEEDER_STRUCTURE[sub]={feeders:{}};
+        // Handle both old array format and new object format
+        if(Array.isArray(val.feeders)){
+          val.feeders.forEach(f=>{
+            if(!FEEDER_STRUCTURE[sub].feeders[f])
+              FEEDER_STRUCTURE[sub].feeders[f]={mains:["MAIN_01"]};
+          });
+        } else {
+          Object.entries(val.feeders||{}).forEach(([f,fval])=>{
+            if(!FEEDER_STRUCTURE[sub].feeders[f])
+              FEEDER_STRUCTURE[sub].feeders[f]={mains:fval.mains||["MAIN_01"]};
+          });
+        }
       });
     }
   }catch(e){console.error('Feeder config load error:',e);}
@@ -1875,6 +2029,27 @@ function exportFeederExcel(){
   XLSX.utils.book_append_sheet(wb,ws,sn);
   XLSX.writeFile(wb,sn+'_export.xlsx');
 }
+// Export all 3 subsets (Status Point, Control Output, Analog Point)
+// for the current substation + feeder + main as separate sheets in one Excel
+function exportFeederAllSubsets(){
+  const wb=XLSX.utils.book_new();
+  FEEDER_SUBSETS.forEach(subset=>{
+    const k=currentMode==='feeder'
+      ? feederKey(currentSubstation,currentFeeder,currentMain||'MAIN_01',subset)
+      : feederKey(currentSubstation,currentFeeder,'MAIN_01',subset);
+    const d=FEEDER_DATASETS[k];
+    const c=FEEDER_SCHEMA_TEMPLATES[FEEDER_SCHEMA_MAP[subset]];
+    const out=(d&&d.rows.length)
+      ? d.rows.map(r=>{const o={};c.forEach(col=>o[col]=r[col]??'');return o;})
+      : [Object.fromEntries(c.map(col=>[col,'']))];
+    const ws=XLSX.utils.json_to_sheet(out);
+    const sn=subset.replace(/\s+/g,'_').substring(0,31);
+    XLSX.utils.book_append_sheet(wb,ws,sn);
+  });
+  const fname=(currentSubstation+'_'+currentFeeder+'_all_subsets').replace(/[\/*?:[\]&\s]/g,'_').substring(0,50);
+  XLSX.writeFile(wb,fname+'.xlsx');
+}
+
 function exportFeederCSV(){
   const d=fds();const c=feederCols();
   if(!d.rows.length){alert('No data to export.');return;}
