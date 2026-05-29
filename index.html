@@ -310,17 +310,7 @@ tr.origin-row td.locked-cell:focus{
   <div class="stat"><div class="stat-lbl">dup rows</div><div class="stat-val red" id="sDupR">—</div></div>
 </div>
 
-<div class="key-bar" id="keyBar">
-  <div class="key-lbl">
-    <svg viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-    key columns:
-  </div>
-  <div class="chips" id="keyChips"></div>
-  <button class="btn warn" onclick="currentMode==='feeder'?runFeederDupCheck():runDupCheck()" style="padding:4px 10px;font-size:11px">
-    <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
-    re-check
-  </button>
-</div>
+<div id="keyBar" style="display:none"></div>
 
 <div id="dupAlert" style="display:none"></div>
 
@@ -666,6 +656,29 @@ tr.origin-row td.locked-cell:focus{
     </div>
   </div>
 </div>
+<!-- Import Choice Modal -->
+<div class="overlay" id="importChoiceModal">
+  <div class="modal" style="width:420px">
+    <h3>Import File</h3>
+    <p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:16px">
+      This dataset already has <strong id="importExistingCount">0</strong> rows.<br>
+      How would you like to import the new file?
+    </p>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:4px">
+      <button class="btn primary" onclick="doImport('replace')" style="justify-content:flex-start;padding:12px 16px;height:auto;flex-direction:column;align-items:flex-start;gap:3px">
+        <span style="font-weight:600;font-size:13px">🔄 Replace — use new file as origin</span>
+        <span style="font-size:11px;opacity:.8;font-weight:400">Clears all existing rows. New file becomes the locked origin.</span>
+      </button>
+      <button class="btn" onclick="doImport('append')" style="justify-content:flex-start;padding:12px 16px;height:auto;flex-direction:column;align-items:flex-start;gap:3px;border-color:var(--blue-bdr);background:var(--blue-bg);color:var(--blue)">
+        <span style="font-weight:600;font-size:13px">➕ Append — continue from last index</span>
+        <span style="font-size:11px;opacity:.8;font-weight:400">Adds new rows after existing data. Original rows stay locked.</span>
+      </button>
+    </div>
+    <div class="mfooter">
+      <button class="btn" onclick="closeModal('importChoiceModal');pendingImportData=null;">Cancel</button>
+    </div>
+  </div>
+</div>
 
 <!-- Loading overlay -->
 <div class="loading-overlay" id="loadingOverlay">
@@ -813,6 +826,8 @@ function onDragLeave(){document.getElementById('dropZone').classList.remove('dra
 function onDrop(e){e.preventDefault();document.getElementById('dropZone').classList.remove('drag');const f=e.dataTransfer.files[0];if(f)processFile(f);}
 function handleUpload(inp){const f=inp.files[0];if(f)processFile(f);inp.value='';}
 
+let pendingImportData = null;
+
 function processFile(f){
   const reader=new FileReader();
   reader.onload=async e=>{
@@ -821,38 +836,70 @@ function processFile(f){
       const ws=wb.Sheets[wb.SheetNames[0]];
       const data=XLSX.utils.sheet_to_json(ws,{defval:''});
       if(!data.length){alert('File appears empty.');return;}
-
-      // Route to feeder or device mode based on currentMode
-      if(currentMode==='feeder'){
-        const d=fds();const c=feederCols();
-        // Set originCount on very first import; subsequent imports are non-origin
-        const wasEmpty = d.rows.length === 0;
-        data.forEach(r=>{
-          const row={};c.forEach(col=>row[col]=r[col]!==undefined?r[col]:'');
-          d.rows.push(row);d.manuallyAdded.add(d.rows.length-1);
-        });
-        if(wasEmpty) { d.originCount = d.rows.length; d.manuallyAdded = new Set(); }
-        d.dupInfo={};d.checked=false;selected=new Set();hideDupAlert();
-        renderFeederTable();renderFeederStats();renderFeederKeyChips();
-        showLoading('Saving to cloud…');
-        await saveFeederDataset();
-        await saveFeederHistoryPoint('auto');
-        hideLoading();
+      const existingCount = currentMode==='feeder' ? fds().rows.length : ds().rows.length;
+      if(existingCount > 0){
+        // Ask user: replace or append
+        pendingImportData = data;
+        document.getElementById('importExistingCount').textContent = existingCount;
+        document.getElementById('importChoiceModal').classList.add('open');
       } else {
-        const d=ds();const c=cols();
-        data.forEach(r=>{
-          const row={};c.forEach(col=>row[col]=r[col]!==undefined?r[col]:'');
-          d.rows.push(row);d.manuallyAdded.add(d.rows.length-1);
-        });
-        d.dupInfo={};d.checked=false;selected=new Set();hideDupAlert();
-        renderAll();
-        showLoading('Saving to cloud…');
-        await saveDataset(currentKey());
-        hideLoading();
+        // No existing data — import directly as origin
+        await doImport('replace', data);
       }
     }catch(err){hideLoading();alert('Could not read file: '+err.message);}
   };
   reader.readAsArrayBuffer(f);
+}
+
+async function doImport(mode, data){
+  closeModal('importChoiceModal');
+  const importData = data || pendingImportData;
+  pendingImportData = null;
+  if(!importData) return;
+
+  if(currentMode==='feeder'){
+    const d=fds();const c=feederCols();
+    if(mode==='replace'){
+      // Clear everything, import as fresh origin
+      d.rows=[];d.manuallyAdded=new Set();d.originCount=0;
+    }
+    const startIdx = d.rows.length;
+    importData.forEach(r=>{
+      const row={};c.forEach(col=>row[col]=r[col]!==undefined?r[col]:'');
+      d.rows.push(row);
+      if(mode==='append') d.manuallyAdded.add(d.rows.length-1);
+    });
+    if(mode==='replace'){
+      d.originCount=d.rows.length; // all new rows become origin
+      d.manuallyAdded=new Set();   // none are manually added
+    }
+    d.dupInfo={};d.checked=false;selected=new Set();hideDupAlert();
+    renderFeederTable();renderFeederStats();
+    showLoading('Saving to cloud…');
+    await saveFeederDataset();
+    await saveFeederHistoryPoint('auto');
+    hideLoading();
+  } else {
+    const d=ds();const c=cols();
+    if(mode==='replace'){
+      d.rows=[];d.manuallyAdded=new Set();d.originCount=0;
+    }
+    importData.forEach(r=>{
+      const row={};c.forEach(col=>row[col]=r[col]!==undefined?r[col]:'');
+      d.rows.push(row);
+      if(mode==='append') d.manuallyAdded.add(d.rows.length-1);
+    });
+    if(mode==='replace'){
+      d.originCount=d.rows.length;
+      d.manuallyAdded=new Set();
+    }
+    d.dupInfo={};d.checked=false;selected=new Set();hideDupAlert();
+    renderAll();
+    showLoading('Saving to cloud…');
+    await saveDataset(currentKey());
+    await saveHistoryPoint('auto');
+    hideLoading();
+  }
 }
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
@@ -895,47 +942,36 @@ function toggleKey(col){
 // ── Duplicate check ───────────────────────────────────────────────────────────
 function runDupCheck(){
   const d=ds();if(!d.rows.length){alert('No rows to check.');return;}
-  // For origin rows: only DNP3.0_ADDRESS is checked regardless of keyColumns
-  // For new rows: OR logic across all selected key columns
-  const originEnd=d.originCount||0;
-  const colMaps=new Map(); // col -> value -> [indices]
-  [...d.keyColumns].forEach(col=>{
-    const vm=new Map();
-    d.rows.forEach((r,i)=>{
-      const val=String(r[col]||'').toLowerCase().trim();
-      if(!val)return;
-      if(!vm.has(val))vm.set(val,[]);
-      vm.get(val).push(i);
-    });
-    colMaps.set(col,vm);
+  const col='DNP3.0_ADDRESS';
+  const vm=new Map();
+  d.rows.forEach((r,i)=>{
+    const val=String(r[col]||'').toLowerCase().trim();
+    if(!val)return;
+    if(!vm.has(val))vm.set(val,[]);
+    vm.get(val).push(i);
   });
-  const dupSet=new Set(); // indices that are duplicates on at least one column
-  let dg=0;
-  colMaps.forEach(vm=>{
-    vm.forEach(idxs=>{
-      if(idxs.length>1){dg++;idxs.slice(1).forEach(i=>dupSet.add(i));}
-    });
-  });
+  const dupSet=new Set();let dg=0;
+  vm.forEach(idxs=>{if(idxs.length>1){dg++;idxs.slice(1).forEach(i=>dupSet.add(i));}});
   d.dupInfo={};let dr=0;
   d.rows.forEach((_,i)=>{
     if(dupSet.has(i)){d.dupInfo[i]='dup';dr++;}
-    else if([...d.keyColumns].some(col=>{
+    else{
       const val=String(d.rows[i][col]||'').toLowerCase().trim();
-      const vm=colMaps.get(col);
-      return vm&&vm.has(val)&&vm.get(val).length>1&&vm.get(val)[0]===i;
-    })){d.dupInfo[i]='orig';}
+      if(vm.has(val)&&vm.get(val).length>1&&vm.get(val)[0]===i) d.dupInfo[i]='orig';
+    }
   });
   d.checked=true;
   document.getElementById('sDupG').textContent=dg;
   document.getElementById('sDupR').textContent=dr;
   const el=document.getElementById('dupAlert');el.style.display='block';
   if(dr===0){
-    el.innerHTML=`<div class="alert ok"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>No duplicates on: <strong>${[...d.keyColumns].join(', ')}</strong>.</span></div>`;
+    el.innerHTML=`<div class="alert ok"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>No duplicates found on <strong>DNP3.0_ADDRESS</strong>.</span></div>`;
   }else{
-    el.innerHTML=`<div class="alert warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div><strong>${dr} duplicate(s)</strong> in <strong>${dg} group(s)</strong> on: <strong>${[...d.keyColumns].join(', ')}</strong>.<br><span style="font-size:11px;margin-top:3px;display:block;opacity:.8">Green = original. Amber = duplicate. Select and remove as needed.</span></div></div>`;
+    el.innerHTML=`<div class="alert warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div><strong>${dr} duplicate(s)</strong> in <strong>${dg} group(s)</strong> on <strong>DNP3.0_ADDRESS</strong>.<br><span style="font-size:11px;margin-top:3px;display:block;opacity:.8">Green = original. Amber = duplicate. Select and remove as needed.</span></div></div>`;
   }
   renderTable();
 }
+
 function hideDupAlert(){
   document.getElementById('dupAlert').style.display='none';
   document.getElementById('sDupG').textContent='—';document.getElementById('sDupR').textContent='—';
@@ -1929,38 +1965,32 @@ async function saveFeederHistoryPoint(trigger='auto'){
 function runFeederDupCheck(){
   const d=fds();
   if(!d.rows.length){alert('No rows to check.');return;}
-  const colMaps=new Map();
-  [...d.keyColumns].forEach(col=>{
-    const vm=new Map();
-    d.rows.forEach((r,i)=>{
-      const val=String(r[col]||'').toLowerCase().trim();
-      if(!val)return;
-      if(!vm.has(val))vm.set(val,[]);
-      vm.get(val).push(i);
-    });
-    colMaps.set(col,vm);
+  const col='DNP3.0_ADDRESS';
+  const vm=new Map();
+  d.rows.forEach((r,i)=>{
+    const val=String(r[col]||'').toLowerCase().trim();
+    if(!val)return;
+    if(!vm.has(val))vm.set(val,[]);
+    vm.get(val).push(i);
   });
   const dupSet=new Set();let dg=0;
-  colMaps.forEach(vm=>{
-    vm.forEach(idxs=>{if(idxs.length>1){dg++;idxs.slice(1).forEach(i=>dupSet.add(i));}});
-  });
+  vm.forEach(idxs=>{if(idxs.length>1){dg++;idxs.slice(1).forEach(i=>dupSet.add(i));}});
   d.dupInfo={};let dr=0;
   d.rows.forEach((_,i)=>{
     if(dupSet.has(i)){d.dupInfo[i]='dup';dr++;}
-    else if([...d.keyColumns].some(col=>{
+    else{
       const val=String(d.rows[i][col]||'').toLowerCase().trim();
-      const vm=colMaps.get(col);
-      return vm&&vm.has(val)&&vm.get(val).length>1&&vm.get(val)[0]===i;
-    })){d.dupInfo[i]='orig';}
+      if(vm.has(val)&&vm.get(val).length>1&&vm.get(val)[0]===i) d.dupInfo[i]='orig';
+    }
   });
   d.checked=true;
   document.getElementById('sDupG').textContent=dg;
   document.getElementById('sDupR').textContent=dr;
   const el=document.getElementById('dupAlert');el.style.display='block';
   if(dr===0){
-    el.innerHTML=`<div class="alert ok"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>No duplicates on: <strong>${[...d.keyColumns].join(', ')}</strong>.</span></div>`;
+    el.innerHTML=`<div class="alert ok"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>No duplicates found on <strong>DNP3.0_ADDRESS</strong>.</span></div>`;
   }else{
-    el.innerHTML=`<div class="alert warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div><strong>${dr} duplicate(s)</strong> in <strong>${dg} group(s)</strong> on: <strong>${[...d.keyColumns].join(', ')}</strong>.</div></div>`;
+    el.innerHTML=`<div class="alert warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div><strong>${dr} duplicate(s)</strong> in <strong>${dg} group(s)</strong> on <strong>DNP3.0_ADDRESS</strong>.<br><span style="font-size:11px;margin-top:3px;display:block;opacity:.8">Green = original. Amber = duplicate. Select and remove as needed.</span></div></div>`;
   }
   renderFeederTable();
 }
