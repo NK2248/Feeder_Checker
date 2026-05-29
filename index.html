@@ -704,24 +704,24 @@ const GROUPS = {
   "SCB":{"Status Point":"SCB_Status_point","Control Output":"SCB_Control_Output","Analog Point":"SCB_Analog_point"}
 };
 const DEFAULT_COLUMNS = {
-  "AVR_Status_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "AVR_Control_Output":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "AVR_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "LBS_Status_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "LBS_Control_Output":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "LBS_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "RCS(SF6)_Status_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "RCS(SF6)_Control_Output":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "RCS(SF6)_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "RCS(Solid Dielectric)_Status_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "RCS(Solid Dielectric)_Control_Output":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "RCS(Solid Dielectric)_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "REC_Status_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "REC_Control_Output":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "REC_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "SCB_Status_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "SCB_Control_Output":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "SCB_Analog_point":["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"]
+  "AVR_Status_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "AVR_Control_Output":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "AVR_Analog_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "LBS_Status_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "LBS_Control_Output":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "LBS_Analog_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "RCS(SF6)_Status_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "RCS(SF6)_Control_Output":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "RCS(SF6)_Analog_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "RCS(Solid Dielectric)_Status_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "RCS(Solid Dielectric)_Control_Output":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "RCS(Solid Dielectric)_Analog_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "REC_Status_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "REC_Control_Output":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "REC_Analog_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "SCB_Status_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "SCB_Control_Output":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  "SCB_Analog_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"]
 };
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -825,10 +825,13 @@ function processFile(f){
       // Route to feeder or device mode based on currentMode
       if(currentMode==='feeder'){
         const d=fds();const c=feederCols();
+        // Set originCount on very first import; subsequent imports are non-origin
+        const wasEmpty = d.rows.length === 0;
         data.forEach(r=>{
           const row={};c.forEach(col=>row[col]=r[col]!==undefined?r[col]:'');
           d.rows.push(row);d.manuallyAdded.add(d.rows.length-1);
         });
+        if(wasEmpty) { d.originCount = d.rows.length; d.manuallyAdded = new Set(); }
         d.dupInfo={};d.checked=false;selected=new Set();hideDupAlert();
         renderFeederTable();renderFeederStats();renderFeederKeyChips();
         showLoading('Saving to cloud…');
@@ -1347,16 +1350,16 @@ async function doClearHistory(){
 // ── Schema templates for new subsets ─────────────────────────────────────────
 // ── Device mode column schemas (no feeder-specific columns) ──────────────────
 const SCHEMA_TEMPLATES = {
-  status:  ["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  control: ["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  analog:  ["ITEM","SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"]
+  status:  ["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  control: ["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
+  analog:  ["SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"]
 };
 
 // ── Feeder mode column schemas (includes FEEDER_NAME, BAY_NAME, extra columns) ─
 const FEEDER_SCHEMA_TEMPLATES = {
-  status:  ["ITEM","FEEDER_NAME","BAY_NAME","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","REMARK","NOTE","BAY_PROT.&BCU_NAME","IEC61850_PROT.&BCU_REFERENCE","BRCB/URCB"],
-  control: ["ITEM","FEEDER_NAME","BAY_NAME","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","REMARK","NOTE","BAY_PROT.&BCU_NAME","IEC61850_PROT.&BCU_REFERENCE","BRCB/URCB"],
-  analog:  ["ITEM","FEEDER_NAME","BAY_NAME","SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","REMARK","NOTE","BAY_PROT.&BCU_NAME","IEC61850_PROT.&BCU_REFERENCE","BRCB/URCB"]
+  status:  ["FEEDER_NAME","BAY_NAME","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","REMARK","NOTE","BAY_PROT.&BCU_NAME","IEC61850_PROT.&BCU_REFERENCE","BRCB/URCB"],
+  control: ["FEEDER_NAME","BAY_NAME","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","REMARK","NOTE","BAY_PROT.&BCU_NAME","IEC61850_PROT.&BCU_REFERENCE","BRCB/URCB"],
+  analog:  ["FEEDER_NAME","BAY_NAME","SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","REMARK","NOTE","BAY_PROT.&BCU_NAME","IEC61850_PROT.&BCU_REFERENCE","BRCB/URCB"]
 };
 
 // Default key columns for feeder mode — meaningful unique identifiers
@@ -1705,8 +1708,10 @@ async function loadFeederDataset(){
     d.rows  = data.map(r=>r.data);
     d.dbIds = data.map(r=>r.id);
     d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
-    // first load sets originCount — rows loaded from DB on first open are origin
-    if(prevOriginF===0&&d.rows.length>0) d.originCount=d.rows.length;
+    // restore originCount from DB if saved, otherwise set on first load
+    const savedOrigin = data.length ? (data[0].origin_count ?? 0) : 0;
+    if(savedOrigin > 0) d.originCount = savedOrigin;
+    else if(prevOriginF===0 && d.rows.length>0) d.originCount = d.rows.length;
     setSyncStatus('synced','synced');
   }catch(e){
     setSyncStatus('error','sync error');
@@ -1725,7 +1730,7 @@ async function saveFeederDataset(){
     setSyncStatus('syncing','saving…');
     await sbFetch('DELETE', TABLE+'?dataset_key=eq.'+encodeURIComponent(k));
     if(d.rows.length){
-      const ins = d.rows.map((row,i)=>({dataset_key:k,row_index:i,data:row}));
+      const ins = d.rows.map((row,i)=>({dataset_key:k,row_index:i,data:row,origin_count:d.originCount||0}));
       const res = await sbFetch('POST', TABLE, ins);
       d.dbIds = res.map(r=>r.id);
     } else { d.dbIds=[]; }
@@ -1781,8 +1786,10 @@ function renderFeederTable(){
     const fcells=c.map((col,ci)=>{
       const isAddr=col==='DNP3.0_ADDRESS';
       const locked=isFOrigin&&!isAddr;
-      const cls=(ci===0?'fl ':'')+((isFOrigin&&isAddr)?'editable-addr':'');
-      return `<td contenteditable="${!locked}" onblur="${locked?'':'editFeederCell('+i+',\''+col.replace(/'/g,"\'")+'\''+',this)'}" spellcheck="false"${cls?' class="'+cls+'"':''}${locked?' title="Origin row — locked"':''}>${String(r[col]??'').replace(/</g,'&lt;')}</td>`;
+      let cls='';
+      if(ci===0) cls+='fl ';
+      if(isFOrigin) cls+= isAddr ? 'editable-cell' : 'locked-cell';
+      return `<td contenteditable="${!locked}" onblur="${locked?'':'editFeederCell('+i+',\''+col.replace(/'/g,"\'")+'\''+',this)'}" spellcheck="false" class="${cls.trim()}"${locked?' title="Origin row — locked"':''}>${String(r[col]??'').replace(/</g,'&lt;')}</td>`;
     }).join('');
     const fobadge=isFOrigin?`<span class="badge origin">origin</span>`:badge;
     return `<tr class="${rc}${isSel?' sel':''}${isFOrigin?' origin-row':''}">
