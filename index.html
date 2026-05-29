@@ -291,11 +291,7 @@ tr.origin-row td.locked-cell:focus{
   </div>
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
     <div class="type-tabs" id="typeTabs" style="margin-bottom:0"></div>
-    <button class="btn-icon" onclick="openAddSubset()" title="Add new subset to current device">
-      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    </button>
-  </div>
-</div><!-- /deviceSection -->
+  </div><!-- /deviceSection -->
 
 <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileIn').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
   <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -557,30 +553,7 @@ tr.origin-row td.locked-cell:focus{
   </div>
 </div>
 
-<!-- Add Subset Modal -->
-<div class="overlay" id="addSubsetModal">
-  <div class="modal" style="width:380px">
-    <h3>Add Subset to <span id="addSubsetDeviceName"></span></h3>
-    <div class="fgrid">
-      <div class="frow">
-        <label>Subset Name</label>
-        <input type="text" id="newSubsetName" placeholder="e.g. Protection Point">
-      </div>
-      <div class="frow">
-        <label>Column Schema (based on type)</label>
-        <select id="newSubsetSchema" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);outline:none;width:100%">
-          <option value="status">Status Point schema</option>
-          <option value="control">Control Output schema</option>
-          <option value="analog">Analog Point schema</option>
-        </select>
-      </div>
-    </div>
-    <div class="mfooter">
-      <button class="btn" onclick="closeModal('addSubsetModal')">Cancel</button>
-      <button class="btn primary" onclick="saveNewSubset()">Add Subset</button>
-    </div>
-  </div>
-</div>
+<!-- Add Subset Modal removed -->
 
 <!-- Compare Modal -->
 <div class="overlay" id="compareModal">
