@@ -975,7 +975,9 @@ function hideDupAlert(){
 function toggleSelect(i,chk){if(chk)selected.add(i);else selected.delete(i);updateSelBar();renderTable();}
 function toggleAll(chk){
   const q=(document.getElementById('searchBox').value||'').toLowerCase();
-  ds().rows.forEach((r,i)=>{
+  const d=ds();
+  d.rows.forEach((r,i)=>{
+    if(i<(d.originCount||0)) return; // skip origin rows
     const vis=!q||cols().some(c=>String(r[c]||'').toLowerCase().includes(q));
     if(vis){if(chk)selected.add(i);else selected.delete(i);}
   });
@@ -1000,7 +1002,8 @@ function confirmDeleteSelected(){
 // Bulk delete for feeder mode
 async function doDeleteFeederSelected(){
   const d=fds();
-  const idxs=[...selected].sort((a,b)=>b-a);
+  const idxs=[...selected].filter(i=>i>=(d.originCount||0)).sort((a,b)=>b-a);
+  if(!idxs.length){closeModal('confirmModal');return;}
   idxs.forEach(i=>{
     d.rows.splice(i,1);
     d.manuallyAdded=new Set([...d.manuallyAdded].filter(x=>x!==i).map(x=>x>i?x-1:x));
@@ -1016,7 +1019,8 @@ function confirmDeleteOne(i){
 }
 async function doDeleteSelected(){
   const d=ds();
-  const idxs=[...selected].sort((a,b)=>b-a);
+  const idxs=[...selected].filter(i=>i>=(d.originCount||0)).sort((a,b)=>b-a);
+  if(!idxs.length){closeModal('confirmModal');return;}
   idxs.forEach(i=>{
     d.rows.splice(i,1);
     d.manuallyAdded=new Set([...d.manuallyAdded].filter(x=>x!==i).map(x=>x>i?x-1:x));
@@ -1026,11 +1030,15 @@ async function doDeleteSelected(){
   showLoading('Saving…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
 }
 async function doDeleteOne(i){
-  // Route delete to feeder or device mode
   if(currentMode==='feeder'){
     await doDeleteFeederOne(i); return;
   }
   const d=ds();
+  if(i<(d.originCount||0)){
+    closeModal('confirmModal');
+    alert('Origin rows cannot be deleted.');
+    return;
+  }
   d.rows.splice(i,1);
   selected.delete(i);const ns=new Set();selected.forEach(x=>ns.add(x>i?x-1:x));selected=ns;
   d.manuallyAdded=new Set([...d.manuallyAdded].filter(x=>x!==i).map(x=>x>i?x-1:x));
@@ -1082,15 +1090,22 @@ function renderTable(){
   </tr>`;
   const tbody=filtered.map(({r,i})=>{
     const st=d.dupInfo[i];const isM=d.manuallyAdded.has(i);const isSel=selected.has(i);
+    const isOrigin=i<(d.originCount||0);
     const rc=st==='dup'?'dup':st==='orig'?'orig':'';
-    const badge=st==='dup'?`<span class="badge dup">duplicate</span>`:st==='orig'?`<span class="badge orig">original</span>`:isM?`<span class="badge new">added</span>`:'';
-    const cells=c.map((col,ci)=>`<td contenteditable="true" onblur="editCell(${i},'${col.replace(/'/g,"\\'")}',this)" spellcheck="false"${ci===0?' class="fl"':''}>${String(r[col]??'').replace(/</g,'&lt;')}</td>`).join('');
-    return `<tr class="${rc}${isSel?' sel':''}">
-      <td style="text-align:center;width:32px"><input type="checkbox" ${isSel?'checked':''} onchange="toggleSelect(${i},this.checked)" style="cursor:pointer"></td>
+    const badge=isOrigin?`<span class="origin-badge">origin</span>`:st==='dup'?`<span class="badge dup">duplicate</span>`:st==='orig'?`<span class="badge orig">original</span>`:isM?`<span class="badge new">added</span>`:'';
+    const cells=c.map((col,ci)=>{
+      const isAddr=col==='DNP3.0_ADDRESS';
+      const locked=isOrigin&&!isAddr;
+      let cls=ci===0?'fl':'';
+      if(isOrigin) cls+=(cls?' ':'')+( isAddr?'editable-cell':'locked-cell');
+      return `<td contenteditable="${!locked}" onblur="${locked?'':'editCell('+i+',\''+col.replace(/'/g,"\\'")+'\',this)'}" spellcheck="false"${cls?' class="'+cls+'"':''}${locked?' title="Origin row — locked"':''}>${String(r[col]??'').replace(/</g,'&lt;')}</td>`;
+    }).join('');
+    return `<tr class="${rc}${isSel?' sel':''}${isOrigin?' origin-row':''}">
+      <td style="text-align:center;width:32px"><input type="checkbox" ${isSel?'checked':''} onchange="toggleSelect(${i},this.checked)" style="cursor:pointer"${isOrigin?' disabled title="Cannot select origin rows"':''}></td>
       <td class="rn">${i+1}</td>
       ${cells}
       <td>${badge}</td>
-      <td class="act"><button class="rbtn" title="remove row" onclick="confirmDeleteOne(${i})">${trash}</button></td>
+      <td class="act"><button class="rbtn" title="${isOrigin?'Cannot delete origin rows':'remove row'}" onclick="${isOrigin?'':'confirmDeleteOne('+i+')'}" style="${isOrigin?'opacity:.3;cursor:not-allowed':''}">${trash}</button></td>
     </tr>`;
   }).join('');
   area.innerHTML=`<div class="tbl-wrap"><table><thead>${thead}</thead><tbody>${tbody}</tbody></table></div>`;
@@ -1920,7 +1935,9 @@ function toggleFeederSelect(i,chk){
 }
 function toggleFeederAll(chk){
   const q=(document.getElementById('searchBox').value||'').toLowerCase();
-  fds().rows.forEach((r,i)=>{
+  const d=fds();
+  d.rows.forEach((r,i)=>{
+    if(i<(d.originCount||0)) return; // skip origin rows
     const vis=!q||feederCols().some(c=>String(r[c]||'').toLowerCase().includes(q));
     if(vis){if(chk)selected.add(i);else selected.delete(i);}
   });
