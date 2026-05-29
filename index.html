@@ -770,7 +770,10 @@ async function loadDataset(key){
     d.dbIds=data.map(r=>r.id);
     d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
     // preserve originCount if already set; first load sets it
-    if(prevOrigin===0&&d.rows.length>0) d.originCount=d.rows.length;
+    const savedOriginD = data.length ? (data[0].origin_count || data[0].data?.__originCount || 0) : 0;
+    if(savedOriginD > 0) d.originCount = savedOriginD;
+    else if(prevOrigin===0 && d.rows.length>0) d.originCount = d.rows.length;
+    d.rows = d.rows.map(r=>{ const {__originCount,...rest}=r; return rest; });
     setSyncStatus('synced','synced');
   }catch(e){
     setSyncStatus('error','sync error');
@@ -793,7 +796,7 @@ async function saveDataset(key){
     await sbFetch('DELETE', TABLE+'?dataset_key=eq.'+encodeURIComponent(key));
     if(d.rows.length){
       // Store originCount in first row metadata for persistence
-      const inserts=d.rows.map((row,i)=>({dataset_key:key,row_index:i,data:row,origin_count:d.originCount||0}));
+      const inserts=d.rows.map((row,i)=>({dataset_key:key,row_index:i,data:{...row,__originCount:d.originCount||0},origin_count:d.originCount||0}));
       const result=await sbFetch('POST', TABLE, inserts);
       d.dbIds=result.map(r=>r.id);
     } else {
@@ -1185,20 +1188,43 @@ function renderAll(){
 // ── Init ──────────────────────────────────────────────────────────────────────
 (async()=>{
   showLoading('Connecting to database…');
-  await loadConfig();        // restore custom device/subset config from Supabase
-  await loadFeederConfig();  // restore custom substation/feeder config from Supabase
-  // start in feeder mode by default — load first feeder dataset
-  renderSubstationTabs();
-  renderFeederTabs();
-  renderMainTabs();
-  renderFeederTypeTabs();
-  await loadFeederDataset();
-  hideLoading();
-  // also pre-load device mode data in background
-  await loadDataset(currentKey());
-  renderAll();
-  // default to feeder mode UI
-  switchMode('feeder');
+  try{
+    await loadConfig();
+    await loadFeederConfig();
+
+    // After loading config, re-resolve currentFeeder/currentMain in case
+    // Supabase had extra substations saved
+    const firstSub = Object.keys(FEEDER_STRUCTURE)[0];
+    if(firstSub){
+      currentSubstation = firstSub;
+      currentFeeder = getFeederNames(firstSub)[0] || null;
+      currentMain   = currentFeeder ? (getMainNames(firstSub, currentFeeder)[0] || 'MAIN_01') : 'MAIN_01';
+    }
+
+    renderSubstationTabs();
+    renderFeederTabs();
+    renderMainTabs();
+    renderFeederTypeTabs();
+
+    if(currentFeeder){
+      await loadFeederDataset();
+    }
+    hideLoading();
+
+    await loadDataset(currentKey());
+    renderAll();
+    switchMode('feeder');
+  } catch(err){
+    hideLoading();
+    setSyncStatus('error','connection failed');
+    document.getElementById('tableArea').innerHTML=`
+      <div class="empty">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <p>Could not connect to database</p>
+        <span>${err.message}</span>
+      </div>`;
+    console.error('Init error:', err);
+  }
 })();
 
 // ── History & Backup ─────────────────────────────────────────────────────────
@@ -1745,9 +1771,14 @@ async function loadFeederDataset(){
     d.dbIds = data.map(r=>r.id);
     d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
     // restore originCount from DB if saved, otherwise set on first load
-    const savedOrigin = data.length ? (data[0].origin_count ?? 0) : 0;
+    // Try column first, fall back to embedded __originCount in data JSON
+    const savedOrigin = data.length
+      ? (data[0].origin_count || data[0].data?.__originCount || 0)
+      : 0;
     if(savedOrigin > 0) d.originCount = savedOrigin;
     else if(prevOriginF===0 && d.rows.length>0) d.originCount = d.rows.length;
+    // Strip __originCount from displayed rows
+    d.rows = d.rows.map(r=>{ const {__originCount,...rest}=r; return rest; });
     setSyncStatus('synced','synced');
   }catch(e){
     setSyncStatus('error','sync error');
@@ -1766,7 +1797,7 @@ async function saveFeederDataset(){
     setSyncStatus('syncing','saving…');
     await sbFetch('DELETE', TABLE+'?dataset_key=eq.'+encodeURIComponent(k));
     if(d.rows.length){
-      const ins = d.rows.map((row,i)=>({dataset_key:k,row_index:i,data:row,origin_count:d.originCount||0}));
+      const ins = d.rows.map((row,i)=>({dataset_key:k,row_index:i,data:{...row,__originCount:d.originCount||0},origin_count:d.originCount||0}));
       const res = await sbFetch('POST', TABLE, ins);
       d.dbIds = res.map(r=>r.id);
     } else { d.dbIds=[]; }
