@@ -310,7 +310,7 @@ tr.origin-row td.locked-cell:focus{
   <div class="stat"><div class="stat-lbl">dup rows</div><div class="stat-val red" id="sDupR">—</div></div>
 </div>
 
-<div id="keyBar" style="display:none"></div>
+<div id="keyBar" style="display:none"><div id="keyChips"></div></div>
 
 <div id="dupAlert" style="display:none"></div>
 
@@ -930,8 +930,10 @@ async function switchType(t){
 
 // ── Key columns ───────────────────────────────────────────────────────────────
 function renderKeyChips(){
+  const el=document.getElementById('keyChips');
+  if(!el) return;
   const d=ds();
-  document.getElementById('keyChips').innerHTML=cols().map(c=>
+  el.innerHTML=cols().map(c=>
     `<button class="chip${d.keyColumns.has(c)?' on':''}" onclick="toggleKey('${c.replace(/'/g,"\\'")}')">${c}</button>`
   ).join('');
 }
@@ -1182,7 +1184,7 @@ function exportCSV(){
 
 // ── Render all ────────────────────────────────────────────────────────────────
 function renderAll(){
-  renderDevTabs();renderTypeTabs();renderKeyChips();renderStats();updateSelBar();renderTable();
+  renderDevTabs();renderTypeTabs();renderStats();updateSelBar();renderTable();
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -1888,8 +1890,10 @@ function renderFeederStats(){
 
 // ── Feeder key chips ──────────────────────────────────────────────────────────
 function renderFeederKeyChips(){
+  const el=document.getElementById('keyChips');
+  if(!el) return;
   const d=fds();
-  document.getElementById('keyChips').innerHTML=feederCols().map(c=>
+  el.innerHTML=feederCols().map(c=>
     `<button class="chip${d.keyColumns.has(c)?' on':''}" onclick="toggleFeederKey('${c.replace(/'/g,"\'")}')">
       ${c}
     </button>`
