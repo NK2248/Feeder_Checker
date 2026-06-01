@@ -291,7 +291,10 @@ tr.origin-row td.locked-cell:focus{
   </div>
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
     <div class="type-tabs" id="typeTabs" style="margin-bottom:0"></div>
-  </div><!-- /deviceSection -->
+  </div>
+</div><!-- /deviceSection -->
+
+<div class="drop-zone"
 
 <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileIn').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
   <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -649,9 +652,6 @@ tr.origin-row td.locked-cell:focus{
     <div class="mfooter">
       <button class="btn" onclick="closeModal('importChoiceModal');pendingImportData=null;">Cancel</button>
     </div>
-    <div class="mfooter">
-      <button class="btn" onclick="closeModal('importChoiceModal');pendingImportData=null;">Cancel</button>
-    </div>
   </div>
 </div>
 
@@ -829,18 +829,19 @@ async function doImport(mode, data){
 
   if(currentMode==='feeder'){
     const d=fds(); const c=feederCols();
+    if(mode==='origin'){
+      // Replace: discard ALL existing rows (origin + addon), start fresh
+      d.rows=[];d.manuallyAdded=new Set();d.originCount=0;
+    }
     importData.forEach(r=>{
       const row={};c.forEach(col=>row[col]=r[col]!==undefined?r[col]:'');
       d.rows.push(row);
-      // addon rows go into manuallyAdded so they show as editable/deletable
       if(mode==='addon') d.manuallyAdded.add(d.rows.length-1);
     });
     if(mode==='origin'){
-      // Everything up to current length is now locked origin
-      d.originCount = d.rows.length;
-      d.manuallyAdded = new Set(); // origin rows are never in manuallyAdded
+      d.originCount=d.rows.length; // new rows become the locked origin
+      d.manuallyAdded=new Set();
     }
-    // addon: originCount stays unchanged — new rows sit after it, fully editable
     d.dupInfo={};d.checked=false;selected=new Set();hideDupAlert();
     renderFeederTable();renderFeederStats();
     showLoading('Saving to cloud…');
@@ -849,14 +850,18 @@ async function doImport(mode, data){
     hideLoading();
   } else {
     const d=ds(); const c=cols();
+    if(mode==='origin'){
+      // Replace: discard ALL existing rows, start fresh
+      d.rows=[];d.manuallyAdded=new Set();d.originCount=0;
+    }
     importData.forEach(r=>{
       const row={};c.forEach(col=>row[col]=r[col]!==undefined?r[col]:'');
       d.rows.push(row);
       if(mode==='addon') d.manuallyAdded.add(d.rows.length-1);
     });
     if(mode==='origin'){
-      d.originCount = d.rows.length;
-      d.manuallyAdded = new Set();
+      d.originCount=d.rows.length;
+      d.manuallyAdded=new Set();
     }
     d.dupInfo={};d.checked=false;selected=new Set();hideDupAlert();
     renderAll();
