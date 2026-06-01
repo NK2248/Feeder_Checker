@@ -2257,17 +2257,25 @@ async function loadFeederConfig(){
         if(!FEEDER_STRUCTURE[sub])FEEDER_STRUCTURE[sub]={feeders:{}};
         // Handle both old array format and new object format
         if(Array.isArray(val.feeders)){
+          // Old format — array of feeder name strings, no mains/subsets stored
           val.feeders.forEach(f=>{
             if(!FEEDER_STRUCTURE[sub].feeders[f])
-              FEEDER_STRUCTURE[sub].feeders[f]={mains:["MAIN_01"]};
+              FEEDER_STRUCTURE[sub].feeders[f]={subsets:["MAIN_01"],mains:["MAIN_01"]};
           });
         } else {
           Object.entries(val.feeders||{}).forEach(([f,fval])=>{
-            if(!FEEDER_STRUCTURE[sub].feeders[f])
+            if(!FEEDER_STRUCTURE[sub].feeders[f]){
+              // New feeder from DB — create it
               FEEDER_STRUCTURE[sub].feeders[f]={
                 subsets: fval.subsets||["MAIN_01"],
                 mains:   fval.mains||["MAIN_01"]
               };
+            } else {
+              // Existing feeder — always sync mains and subsets from DB
+              // so newly added mains persist across page reloads
+              FEEDER_STRUCTURE[sub].feeders[f].mains   = fval.mains   || FEEDER_STRUCTURE[sub].feeders[f].mains   || ["MAIN_01"];
+              FEEDER_STRUCTURE[sub].feeders[f].subsets = fval.subsets || FEEDER_STRUCTURE[sub].feeders[f].subsets || ["MAIN_01"];
+            }
           });
         }
       });
