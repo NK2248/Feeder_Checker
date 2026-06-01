@@ -224,6 +224,9 @@ tr.origin-row td.locked-cell:focus{
 .pill-b{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bdr)}
 .pill-diff{background:var(--red-bg);color:var(--red);border:1px solid var(--red-bdr)}
 @media(max-width:600px){.stats{grid-template-columns:repeat(2,1fr)}.hdr{flex-direction:column;align-items:flex-start}}
+.meta-cell{font-size:10px;color:var(--text3);font-family:var(--mono);white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;cursor:default}
+.meta-cell span{display:block;line-height:1.5}
+.meta-cell .who{color:var(--accent);font-weight:500}
 </style>
 </head>
 <body>
@@ -245,6 +248,10 @@ tr.origin-row td.locked-cell:focus{
     <div class="sync-status synced" id="syncStatus">
       <div class="sync-dot"></div>
       <span id="syncText">connected</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);font-family:var(--mono);background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:4px 10px;cursor:pointer" onclick="resetUser();document.getElementById('userLabel').textContent=currentUser()" title="Click to change name">
+      <svg viewBox="0 0 24 24" style="width:11px;height:11px;stroke:var(--accent);fill:none;stroke-width:2;stroke-linecap:round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span id="userLabel">—</span>
     </div>
   </div>
 </header>
@@ -691,6 +698,30 @@ async function sbFetch(method, path, body){
   return res.status===204?null:res.json();
 }
 
+// ── User identity ─────────────────────────────────────────────────────────────
+// Stored in localStorage so it persists across sessions on the same browser
+function getUser(){
+  let u = localStorage.getItem('fdm_user');
+  if(!u){
+    u = prompt('Enter your name to identify your edits (e.g. "John"):','');
+    if(!u || !u.trim()) u = 'unknown';
+    localStorage.setItem('fdm_user', u.trim());
+  }
+  return u.trim();
+}
+function resetUser(){
+  const u = prompt('Enter your name:',localStorage.getItem('fdm_user')||'');
+  if(u && u.trim()) localStorage.setItem('fdm_user', u.trim());
+}
+function currentUser(){ return localStorage.getItem('fdm_user') || 'unknown'; }
+function nowISO(){ return new Date().toISOString(); }
+function fmtStamp(iso){
+  if(!iso) return '';
+  const d=new Date(iso);
+  return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})
+    +' '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+}
+
 // ── Schema ────────────────────────────────────────────────────────────────────
 const GROUPS = {
   "AVR":{"Status Point":"AVR_Status_point","Control Output":"AVR_Control_Output","Analog Point":"AVR_Analog_point"},
@@ -1044,6 +1075,8 @@ function editCell(idx,col,el){
     return;
   }
   d.rows[idx][col]=el.innerText.trim();
+  d.rows[idx].__edited_by=currentUser();
+  d.rows[idx].__edited_at=nowISO();
   d.dupInfo={};d.checked=false;hideDupAlert();
   document.getElementById('sTotal').textContent=d.rows.length;
   debounceSave();
@@ -1073,6 +1106,8 @@ function renderTable(){
     <th style="width:28px">#</th>
     ${c.map(col=>`<th>${col}</th>`).join('')}
     <th style="width:76px">status</th>
+    <th style="width:120px;font-family:var(--mono);font-size:10px">added</th>
+    <th style="width:120px;font-family:var(--mono);font-size:10px">edited</th>
     <th style="width:32px"></th>
   </tr>`;
   const tbody=filtered.map(({r,i})=>{
@@ -1091,11 +1126,14 @@ function renderTable(){
       }
       return `<td contenteditable="${!locked}" onblur="${locked?'':'editCell('+i+',\''+col.replace(/'/g,"\\'")+'\',this)'}" spellcheck="false"${cls?' class="'+cls+'"':''}${locked?' title="Origin row — locked"':''}>${String(r[col]??'').replace(/</g,'&lt;')}</td>`;
     }).join('');
+    const addedCell=`<td class="meta-cell"><span class="who">${r.__added_by||''}</span><span>${fmtStamp(r.__added_at)}</span></td>`;
+    const editedCell=`<td class="meta-cell"><span class="who">${r.__edited_by||''}</span><span>${fmtStamp(r.__edited_at)}</span></td>`;
     return `<tr class="${rc}${isSel?' sel':''}${isOrigin?' origin-row':''}">
       <td style="text-align:center;width:32px"><input type="checkbox" ${isSel?'checked':''} onchange="toggleSelect(${i},this.checked)" style="cursor:pointer"${isOrigin?' disabled title="Cannot select origin rows"':''}></td>
       <td class="rn">${i+1}</td>
       ${cells}
       <td>${badge}</td>
+      ${addedCell}${editedCell}
       <td class="act"><button class="rbtn" title="${isOrigin?'Cannot delete origin rows':'remove row'}" onclick="${isOrigin?'':'confirmDeleteOne('+i+')'}" style="${isOrigin?'opacity:.3;cursor:not-allowed':''}">${trash}</button></td>
     </tr>`;
   }).join('');
@@ -1140,10 +1178,11 @@ function openAddRow(){
 }
 
 async function saveNewRow(){
-  // if in feeder mode, delegate to feeder save
   if(currentMode==='feeder'){ await saveFeederNewRow(); return; }
   const d=ds();const c=cols();
   const row={};c.forEach(col=>{row[col]=(document.getElementById('nf_'+col.replace(/\W/g,'_'))||{value:''}).value||'';});
+  row.__added_by=currentUser(); row.__added_at=nowISO();
+  row.__edited_by=''; row.__edited_at='';
   d.rows.push(row);d.manuallyAdded.add(d.rows.length-1);
   d.dupInfo={};d.checked=false;hideDupAlert();
   closeModal('addModal');renderAll();
@@ -1214,6 +1253,9 @@ function renderAll(){
 // ── Init ──────────────────────────────────────────────────────────────────────
 (async()=>{
   showLoading('Connecting to database…');
+  // Init user identity
+  getUser();
+  document.getElementById('userLabel').textContent = currentUser();
   try{
     await loadConfig();
     await loadFeederConfig();
@@ -1936,6 +1978,8 @@ function renderFeederTable(){
     <th style="width:28px">#</th>
     ${c.map(col=>`<th>${col}</th>`).join('')}
     <th style="width:76px">status</th>
+    <th style="width:120px;font-family:var(--mono);font-size:10px">added</th>
+    <th style="width:120px;font-family:var(--mono);font-size:10px">edited</th>
     <th style="width:32px"></th>
   </tr>`;
 
@@ -1959,12 +2003,15 @@ function renderFeederTable(){
       return `<td contenteditable="${!locked}" onblur="${locked?'':'editFeederCell('+i+',\''+col.replace(/'/g,"\'")+'\''+',this)'}" spellcheck="false" class="${cls.trim()}"${locked?' title="Origin row — locked"':''}>${String(r[col]??'').replace(/</g,'&lt;')}</td>`;
     }).join('');
     const fobadge=isFOrigin?`<span class="badge origin">origin</span>`:badge;
+    const fAddedCell=`<td class="meta-cell"><span class="who">${r.__added_by||''}</span><span>${fmtStamp(r.__added_at)}</span></td>`;
+    const fEditedCell=`<td class="meta-cell"><span class="who">${r.__edited_by||''}</span><span>${fmtStamp(r.__edited_at)}</span></td>`;
     return `<tr class="${rc}${isSel?' sel':''}${isFOrigin?' origin-row':''}">
       <td style="text-align:center;width:32px">
         <input type="checkbox" ${isSel?'checked':''} onchange="toggleFeederSelect(${i},this.checked)" style="cursor:pointer"${isFOrigin?' disabled title="Cannot select origin rows"':''}></td>
       <td class="rn">${i+1}</td>
       ${fcells}
       <td>${fobadge}</td>
+      ${fAddedCell}${fEditedCell}
       <td class="act">
         <button class="rbtn" title="${isFOrigin?'Cannot delete origin rows':'remove row'}" onclick="${isFOrigin?'alert(\'Origin rows cannot be deleted\')':'confirmDeleteFeederRow('+i+')'}" style="${isFOrigin?'opacity:.3;cursor:not-allowed':''}">
           ${trash}</button>
@@ -2017,6 +2064,8 @@ function editFeederCell(idx,col,el){
     return;
   }
   d.rows[idx][col]=el.innerText.trim();
+  d.rows[idx].__edited_by=currentUser();
+  d.rows[idx].__edited_at=nowISO();
   d.dupInfo={};d.checked=false;hideDupAlert();
   document.getElementById('sTotal').textContent=d.rows.length;
   clearTimeout(feederSyncTimer);
@@ -2079,6 +2128,8 @@ function openFeederAddRow(){
 async function saveFeederNewRow(){
   const d=fds();const c=feederCols();
   const row={};c.forEach(col=>{row[col]=(document.getElementById('nf_'+col.replace(/\W/g,'_'))||{value:''}).value||'';});
+  row.__added_by=currentUser(); row.__added_at=nowISO();
+  row.__edited_by=''; row.__edited_at='';
   d.rows.push(row);d.manuallyAdded.add(d.rows.length-1);
   d.dupInfo={};d.checked=false;hideDupAlert();
   closeModal('addModal');renderFeederTable();renderFeederStats();
