@@ -305,8 +305,6 @@ tr.origin-row td.locked-cell:focus{
   </div>
 </div><!-- /deviceSection -->
 
-<div class="drop-zone"
-
 <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileIn').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
   <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
   <div><p>Drop a file or click to import into this dataset</p><span>Supports .csv, .xlsx, .xls — appends to current table</span></div>
@@ -1101,10 +1099,27 @@ function renderTable(){
 }
 
 // ── Add Row ───────────────────────────────────────────────────────────────────
+// Default values for device mode add row
+const DEVICE_ROW_DEFAULTS = {
+  'DNP3.0_QII':   '17,28 or 00,01',
+  'DNP3.0_CLASS': '1',
+  'DNP3.0_VAR':   '1',
+};
+// OBJ depends on subset type
+function getDefaultObj(){
+  if(currentType==='Control Output') return '41';
+  if(currentType==='Analog Point')   return '30';
+  return '2'; // Status Point
+}
+
 function openAddRow(){
   const c=cols();
-  document.getElementById('addFields').innerHTML=c.map(col=>`<div class="frow"><label>${col}</label><input type="text" id="nf_${col.replace(/\W/g,'_')}" placeholder="${col}"></div>`).join('');
+  document.getElementById('addFields').innerHTML=c.map(col=>{
+    const def = col==='DNP3.0_OBJ' ? getDefaultObj() : (DEVICE_ROW_DEFAULTS[col]||'');
+    return `<div class="frow"><label>${col}</label><input type="text" id="nf_${col.replace(/\W/g,'_')}" placeholder="${col}" value="${def}"></div>`;
+  }).join('');
   document.getElementById('addModal').classList.add('open');
+}
 }
 async function saveNewRow(){
   // if in feeder mode, delegate to feeder save
@@ -1190,8 +1205,9 @@ function renderAll(){
     const firstSub = Object.keys(FEEDER_STRUCTURE)[0];
     if(firstSub){
       currentSubstation = firstSub;
-      currentFeeder = getFeederNames(firstSub)[0] || null;
-      currentMain   = currentFeeder ? (getMainNames(firstSub, currentFeeder)[0] || 'MAIN_01') : 'MAIN_01';
+      currentFeeder     = getFeederNames(firstSub)[0] || null;
+      currentSubset     = currentFeeder ? (getSubsetNames(firstSub, currentFeeder)[0] || 'MAIN_01') : 'MAIN_01';
+      currentMain       = currentFeeder ? (getMainNames(firstSub, currentFeeder)[0] || 'MAIN_01') : 'MAIN_01';
     }
 
     renderSubstationTabs();
@@ -1757,8 +1773,8 @@ function openAddSubsetTab(){
 function renderMainTabs(){
   const mains = getMainNames(currentSubstation, currentFeeder);
   const wrap  = document.getElementById('mainBarWrap');
-  // Hide main bar if only one main — no need to show it
-  if(mains.length <= 1){
+  // Always show for numbered feeders (TP_01, LINE_01 etc), hide otherwise
+  if(!feederHasNumberSuffix(currentFeeder)){
     wrap.style.display='none';
     return;
   }
@@ -2014,10 +2030,18 @@ async function doDeleteFeederOne(i){
 // ── Feeder add row ────────────────────────────────────────────────────────────
 function openFeederAddRow(){
   const c=feederCols();
-  document.getElementById('addFields').innerHTML=c.map(col=>
-    `<div class="frow"><label>${col}</label>
-    <input type="text" id="nf_${col.replace(/\W/g,'_')}" placeholder="${col}"></div>`
-  ).join('');
+  // Same defaults apply in feeder mode
+  const feederDefaults = {
+    'DNP3.0_QII':   '17,28 or 00,01',
+    'DNP3.0_CLASS': '1',
+    'DNP3.0_VAR':   '1',
+    'DNP3.0_OBJ':   currentFeederType==='Control Output'?'41':currentFeederType==='Analog Point'?'30':'2',
+  };
+  document.getElementById('addFields').innerHTML=c.map(col=>{
+    const def=feederDefaults[col]||'';
+    return `<div class="frow"><label>${col}</label>
+    <input type="text" id="nf_${col.replace(/\W/g,'_')}" placeholder="${col}" value="${def}"></div>`;
+  }).join('');
   document.getElementById('addModal').classList.add('open');
 }
 async function saveFeederNewRow(){
@@ -2116,8 +2140,8 @@ async function saveNewFeeder(){
   const name=document.getElementById('newFeederName').value.trim();
   if(!name){alert('Enter a feeder name.');return;}
   if(Object.keys(FEEDER_STRUCTURE[currentSubstation].feeders).includes(name)){alert('Feeder "'+name+'" already exists.');return;}
-  FEEDER_STRUCTURE[currentSubstation].feeders[name]={mains:["MAIN_01"]};
-  currentFeeder=name;currentMain="MAIN_01";currentFeederType=FEEDER_SUBSETS[0];
+  FEEDER_STRUCTURE[currentSubstation].feeders[name]={subsets:["MAIN_01"],mains:["MAIN_01"]};
+  currentFeeder=name;currentSubset="MAIN_01";currentMain="MAIN_01";currentFeederType=FEEDER_SUBSETS[0];
   closeModal('addFeederModal');
   await saveFeederConfig();
   renderFeederTabs();renderMainTabs();renderFeederTypeTabs();
