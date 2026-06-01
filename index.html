@@ -1116,14 +1116,14 @@ const DEVICE_ROW_DEFAULTS = {
   'Control Output': {
     'DNP3.0_OBJ':   '41',
     'DNP3.0_VAR':   '1',
-    'DNP3.0_QII':   '00,01',
+    'DNP3.0_QII':   'echo of request',
     'DNP3.0_CLASS': '0',
-    'DNP3.0_TYPE':  'DO',
+    'DNP3.0_TYPE':  'SBO',
   },
   'Analog Point': {
     'DNP3.0_OBJ':   '30',
     'DNP3.0_VAR':   '1',
-    'DNP3.0_QII':   '00,01',
+    'DNP3.0_QII':   '17,28 or 00,01',
     'DNP3.0_CLASS': '1',
     'DNP3.0_TYPE':  'AI',
   },
@@ -2062,10 +2062,10 @@ function openFeederAddRow(){
       'DNP3.0_OBJ':'2','DNP3.0_VAR':'1','DNP3.0_QII':'17,28 or 00,01','DNP3.0_CLASS':'1','DNP3.0_TYPE':'DI',
     },
     'Control Output': {
-      'DNP3.0_OBJ':'41','DNP3.0_VAR':'1','DNP3.0_QII':'00,01','DNP3.0_CLASS':'0','DNP3.0_TYPE':'DO',
+      'DNP3.0_OBJ':'41','DNP3.0_VAR':'1','DNP3.0_QII':'echo of request','DNP3.0_CLASS':'0','DNP3.0_TYPE':'SBO',
     },
     'Analog Point': {
-      'DNP3.0_OBJ':'30','DNP3.0_VAR':'1','DNP3.0_QII':'00,01','DNP3.0_CLASS':'1','DNP3.0_TYPE':'AI',
+      'DNP3.0_OBJ':'30','DNP3.0_VAR':'1','DNP3.0_QII':'17,28 or 00,01','DNP3.0_CLASS':'1','DNP3.0_TYPE':'AI',
     },
   };
   const defaults=feederDefaultsMap[currentFeederType]||{};
