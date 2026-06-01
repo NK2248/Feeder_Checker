@@ -168,6 +168,10 @@ tr.origin-row td.editable-addr:focus { background: #e8f0f8 !important; box-shado
 .main-tab{padding:4px 12px;border-radius:var(--r);border:none;background:transparent;cursor:pointer;font-size:12px;font-family:var(--mono);font-weight:500;color:var(--blue);transition:all .15s;white-space:nowrap}
 .main-tab:hover{background:rgba(26,74,122,.1)}
 .main-tab.active{background:var(--accent);color:#fff}
+/* Subset tabs — between feeder and main */
+.subset-tab{padding:4px 12px;border-radius:var(--r);border:none;background:transparent;cursor:pointer;font-size:12px;font-family:var(--mono);font-weight:500;color:var(--text2);transition:all .15s;white-space:nowrap}
+.subset-tab:hover{background:var(--surface2)}
+.subset-tab.active{background:var(--accent-light);color:var(--accent-text);border:1px solid var(--blue-bdr);font-weight:600}
 /* ── Device Management ──────────────────── */
 .dev-tab-wrap{display:flex;align-items:center;gap:4px;flex-wrap:wrap;flex:1}
 .btn-icon{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:var(--r);border:1px dashed var(--border2);background:transparent;cursor:pointer;color:var(--text3);transition:all .15s;flex-shrink:0}
@@ -265,6 +269,13 @@ tr.origin-row td.locked-cell:focus{
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
     <div class="feeder-bar" id="feederTabs" style="flex:1;margin-bottom:0"></div>
     <button class="btn-icon" onclick="openAddFeeder()" title="Add new feeder to current substation">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+  </div>
+  <!-- Subset tabs — shown between Feeder and Main -->
+  <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap" id="subsetBarWrap">
+    <div class="main-bar" id="subsetTabs" style="flex:1;margin-bottom:0;background:var(--surface);border-color:var(--border)"></div>
+    <button class="btn-icon" onclick="openAddSubsetTab()" title="Add new subset to current feeder">
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </button>
   </div>
@@ -1185,6 +1196,7 @@ function renderAll(){
 
     renderSubstationTabs();
     renderFeederTabs();
+    renderSubsetTabs();
     renderMainTabs();
     renderFeederTypeTabs();
 
@@ -1537,12 +1549,12 @@ async function saveNewSubset(){
 const FEEDER_STRUCTURE = {
   "BR & A Half": {
     feeders: {
-      "SSMN":      {"mains":["MAIN_01"]},
-      "TP_01":     {"mains":["MAIN_01"]},
-      "LINE_01":   {"mains":["MAIN_01"]},
-      "CENTER_01": {"mains":["MAIN_01"]},
-      "BUS_ZONE_01":{"mains":["MAIN_01"]},
-      "RCC_01":    {"mains":["MAIN_01"]}
+      "SSMN":        {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
+      "TP_01":       {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
+      "LINE_01":     {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
+      "CENTER_01":   {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
+      "BUS_ZONE_01": {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
+      "RCC_01":      {"subsets":["MAIN_01"],"mains":["MAIN_01"]}
     }
   }
 };
@@ -1555,8 +1567,15 @@ const FEEDER_SUBSETS = ["Status Point","Control Output","Analog Point"];
 function getFeederNames(sub){
   return Object.keys(FEEDER_STRUCTURE[sub]?.feeders || {});
 }
+function getSubsetNames(sub, feed){
+  return FEEDER_STRUCTURE[sub]?.feeders[feed]?.subsets || ["MAIN_01"];
+}
 function getMainNames(sub, feed){
   return FEEDER_STRUCTURE[sub]?.feeders[feed]?.mains || ["MAIN_01"];
+}
+// Feeders with a trailing number (e.g. TP_01, LINE_01) default main to MAIN_01
+function feederHasNumberSuffix(feedName){
+  return /_\d+$/.test(feedName);
 }
 
 // Schema map for feeder subsets
@@ -1570,20 +1589,24 @@ const FEEDER_SCHEMA_MAP = {
 let currentMode      = 'feeder'; // 'feeder' or 'device'
 let currentSubstation= Object.keys(FEEDER_STRUCTURE)[0];
 let currentFeeder    = Object.keys(FEEDER_STRUCTURE[currentSubstation].feeders)[0];
+let currentSubset    = 'MAIN_01';
 let currentMain      = 'MAIN_01';
 let currentFeederType= FEEDER_SUBSETS[0];
+
+// Feeder subsets — shown between Feeder and Main tabs
+const FEEDER_SUBSET_LIST = ["MAIN_01"];
 
 // In-memory cache for feeder datasets
 const FEEDER_DATASETS = {};
 
 // Build dataset key for feeder data
 // Dataset key now includes main level: substation__feeder__main__type
-function feederKey(sub, feed, main, type){
-  return '__feeder__' + sub + '__' + feed + '__' + main + '__' + type;
+function feederKey(sub, feed, subset, main, type){
+  return '__feeder__' + sub + '__' + feed + '__' + subset + '__' + main + '__' + type;
 }
 
 function currentFeederKey(){
-  return feederKey(currentSubstation, currentFeeder, currentMain, currentFeederType);
+  return feederKey(currentSubstation, currentFeeder, currentSubset, currentMain, currentFeederType);
 }
 
 function feederCols(){
@@ -1625,6 +1648,7 @@ function switchMode(mode){
   if(mode==='feeder'){
     renderSubstationTabs();
     renderFeederTabs();
+    renderSubsetTabs();
     renderMainTabs();
     renderFeederTypeTabs();
     loadFeederDataset();
@@ -1646,16 +1670,19 @@ function renderSubstationTabs(){
 async function switchSubstation(s){
   currentSubstation = s;
   currentFeeder     = getFeederNames(s)[0];
-  currentMain       = getMainNames(s, currentFeeder)[0];
+  currentSubset     = getSubsetNames(s, currentFeeder)[0] || 'MAIN_01';
+  currentMain       = feederHasNumberSuffix(currentFeeder)
+    ? (getMainNames(s, currentFeeder)[0] || 'MAIN_01')
+    : 'MAIN_01';
   currentFeederType = FEEDER_SUBSETS[0];
   selected=new Set();hideDupAlert();
   renderSubstationTabs();
   renderFeederTabs();
+  renderSubsetTabs();
   renderMainTabs();
   renderFeederTypeTabs();
   await loadFeederDataset();
 }
-
 // ── Feeder tabs ───────────────────────────────────────────────────────────────
 function renderFeederTabs(){
   document.getElementById('feederTabs').innerHTML =
@@ -1668,13 +1695,62 @@ function renderFeederTabs(){
 
 async function switchFeeder(f){
   currentFeeder     = f;
-  currentMain       = getMainNames(currentSubstation, f)[0];
+  currentSubset     = getSubsetNames(currentSubstation, f)[0] || 'MAIN_01';
+  currentMain       = feederHasNumberSuffix(f)
+    ? (getMainNames(currentSubstation, f)[0] || 'MAIN_01')
+    : 'MAIN_01';
   currentFeederType = FEEDER_SUBSETS[0];
   selected=new Set();hideDupAlert();
   renderFeederTabs();
+  renderSubsetTabs();
   renderMainTabs();
   renderFeederTypeTabs();
   await loadFeederDataset();
+}
+
+// ── Subset tabs (between Feeder and Main) ─────────────────────────────────────
+function renderSubsetTabs(){
+  const subsets = getSubsetNames(currentSubstation, currentFeeder);
+  const wrap = document.getElementById('subsetBarWrap');
+  if(!wrap) return;
+  if(subsets.length <= 1){
+    wrap.style.display='none';
+    return;
+  }
+  wrap.style.display='flex';
+  document.getElementById('subsetTabs').innerHTML = subsets.map(s=>
+    `<button class="subset-tab${s===currentSubset?' active':''}" onclick="switchSubset('${s}')">
+      ${s}
+    </button>`
+  ).join('');
+}
+
+async function switchSubset(s){
+  currentSubset = s;
+  currentMain   = feederHasNumberSuffix(currentFeeder)
+    ? (getMainNames(currentSubstation, currentFeeder)[0] || 'MAIN_01')
+    : 'MAIN_01';
+  currentFeederType = FEEDER_SUBSETS[0];
+  selected=new Set();hideDupAlert();
+  renderSubsetTabs();
+  renderMainTabs();
+  renderFeederTypeTabs();
+  await loadFeederDataset();
+}
+
+// ── Add Subset Tab ────────────────────────────────────────────────────────────
+function openAddSubsetTab(){
+  const name = prompt('Enter subset name (e.g. MAIN_02, BACKUP_01):');
+  if(!name || !name.trim()) return;
+  const trimmed = name.trim().toUpperCase();
+  const existing = getSubsetNames(currentSubstation, currentFeeder);
+  if(existing.includes(trimmed)){alert('"'+trimmed+'" already exists.');return;}
+  FEEDER_STRUCTURE[currentSubstation].feeders[currentFeeder].subsets.push(trimmed);
+  currentSubset = trimmed;
+  saveFeederConfig();
+  renderSubsetTabs();
+  renderFeederTypeTabs();
+  loadFeederDataset();
 }
 
 // ── Main tabs (MAIN_01, MAIN_02...) ──────────────────────────────────────────
@@ -2071,7 +2147,10 @@ async function loadFeederConfig(){
         } else {
           Object.entries(val.feeders||{}).forEach(([f,fval])=>{
             if(!FEEDER_STRUCTURE[sub].feeders[f])
-              FEEDER_STRUCTURE[sub].feeders[f]={mains:fval.mains||["MAIN_01"]};
+              FEEDER_STRUCTURE[sub].feeders[f]={
+                subsets: fval.subsets||["MAIN_01"],
+                mains:   fval.mains||["MAIN_01"]
+              };
           });
         }
       });
@@ -2096,8 +2175,8 @@ function exportFeederAllSubsets(){
   const wb=XLSX.utils.book_new();
   FEEDER_SUBSETS.forEach(subset=>{
     const k=currentMode==='feeder'
-      ? feederKey(currentSubstation,currentFeeder,currentMain||'MAIN_01',subset)
-      : feederKey(currentSubstation,currentFeeder,'MAIN_01',subset);
+      ? feederKey(currentSubstation,currentFeeder,currentSubset||'MAIN_01',currentMain||'MAIN_01',subset)
+      : feederKey(currentSubstation,currentFeeder,'MAIN_01','MAIN_01',subset);
     const d=FEEDER_DATASETS[k];
     const c=FEEDER_SCHEMA_TEMPLATES[FEEDER_SCHEMA_MAP[subset]];
     const out=(d&&d.rows.length)
