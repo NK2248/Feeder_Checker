@@ -1833,8 +1833,8 @@ function openAddSubsetTab(){
 function renderMainTabs(){
   const mains = getMainNames(currentSubstation, currentFeeder);
   const wrap  = document.getElementById('mainBarWrap');
-  // Always show for numbered feeders (TP_01, LINE_01 etc), hide otherwise
-  if(!feederHasNumberSuffix(currentFeeder)){
+  // Show main tabs when feeder has multiple mains OR for numbered feeders
+  if(!feederHasNumberSuffix(currentFeeder) && mains.length <= 1){
     wrap.style.display='none';
     return;
   }
