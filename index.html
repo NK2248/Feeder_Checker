@@ -701,24 +701,24 @@ const GROUPS = {
   "SCB":{"Status Point":"SCB_Status_point","Control Output":"SCB_Control_Output","Analog Point":"SCB_Analog_point"}
 };
 const DEFAULT_COLUMNS = {
-  "AVR_Status_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "AVR_Control_Output":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "AVR_Analog_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "LBS_Status_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "LBS_Control_Output":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "LBS_Analog_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "RCS(SF6)_Status_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "RCS(SF6)_Control_Output":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "RCS(SF6)_Analog_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "RCS(Solid Dielectric)_Status_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "RCS(Solid Dielectric)_Control_Output":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "RCS(Solid Dielectric)_Analog_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "REC_Status_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "REC_Control_Output":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "REC_Analog_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "SCB_Status_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "SCB_Control_Output":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  "SCB_Analog_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"]
+  "AVR_Status_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"],
+  "AVR_Control_Output":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"],
+  "AVR_Analog_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"],
+  "LBS_Status_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"],
+  "LBS_Control_Output":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"],
+  "LBS_Analog_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"],
+  "RCS(SF6)_Status_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"],
+  "RCS(SF6)_Control_Output":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"],
+  "RCS(SF6)_Analog_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"],
+  "RCS(Solid Dielectric)_Status_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"],
+  "RCS(Solid Dielectric)_Control_Output":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"],
+  "RCS(Solid Dielectric)_Analog_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"],
+  "REC_Status_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"],
+  "REC_Control_Output":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"],
+  "REC_Analog_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"],
+  "SCB_Status_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"],
+  "SCB_Control_Output":["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"],
+  "SCB_Analog_point":["SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"]
 };
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -1038,8 +1038,8 @@ async function doDeleteOne(i){
 function editCell(idx,col,el){
   const d=ds();
   const isOrigin=idx<(d.originCount||0);
-  // Block edits on origin rows except DNP3.0_ADDRESS
-  if(isOrigin && col!=='DNP3.0_ADDRESS'){
+  const alwaysEditable=['DNP3.0_ADDRESS','NOTE'];
+  if(isOrigin && !alwaysEditable.includes(col)){
     el.innerText=d.rows[idx][col]??''; // revert
     return;
   }
@@ -1082,9 +1082,13 @@ function renderTable(){
     const badge=isOrigin?`<span class="origin-badge">origin</span>`:st==='dup'?`<span class="badge dup">duplicate</span>`:st==='orig'?`<span class="badge orig">original</span>`:isM?`<span class="badge new">added</span>`:'';
     const cells=c.map((col,ci)=>{
       const isAddr=col==='DNP3.0_ADDRESS';
-      const locked=isOrigin&&!isAddr;
+      const isNote=col==='NOTE';
+      const locked=isOrigin&&!isAddr&&!isNote;
       let cls=ci===0?'fl':'';
-      if(isOrigin) cls+=(cls?' ':'')+( isAddr?'editable-cell':'locked-cell');
+      if(isOrigin){
+        if(isAddr||isNote) cls+=(cls?' ':'')+'editable-cell';
+        else cls+=(cls?' ':'')+'locked-cell';
+      }
       return `<td contenteditable="${!locked}" onblur="${locked?'':'editCell('+i+',\''+col.replace(/'/g,"\\'")+'\',this)'}" spellcheck="false"${cls?' class="'+cls+'"':''}${locked?' title="Origin row — locked"':''}>${String(r[col]??'').replace(/</g,'&lt;')}</td>`;
     }).join('');
     return `<tr class="${rc}${isSel?' sel':''}${isOrigin?' origin-row':''}">
@@ -1100,22 +1104,36 @@ function renderTable(){
 
 // ── Add Row ───────────────────────────────────────────────────────────────────
 // Default values for device mode add row
+// Per-type defaults for device mode add row
 const DEVICE_ROW_DEFAULTS = {
-  'DNP3.0_QII':   '17,28 or 00,01',
-  'DNP3.0_CLASS': '1',
-  'DNP3.0_VAR':   '1',
+  'Status Point': {
+    'DNP3.0_OBJ':   '2',
+    'DNP3.0_VAR':   '1',
+    'DNP3.0_QII':   '17,28 or 00,01',
+    'DNP3.0_CLASS': '1',
+    'DNP3.0_TYPE':  'DI',
+  },
+  'Control Output': {
+    'DNP3.0_OBJ':   '41',
+    'DNP3.0_VAR':   '1',
+    'DNP3.0_QII':   '00,01',
+    'DNP3.0_CLASS': '0',
+    'DNP3.0_TYPE':  'DO',
+  },
+  'Analog Point': {
+    'DNP3.0_OBJ':   '30',
+    'DNP3.0_VAR':   '1',
+    'DNP3.0_QII':   '00,01',
+    'DNP3.0_CLASS': '1',
+    'DNP3.0_TYPE':  'AI',
+  },
 };
-// OBJ depends on subset type
-function getDefaultObj(){
-  if(currentType==='Control Output') return '41';
-  if(currentType==='Analog Point')   return '30';
-  return '2'; // Status Point
-}
 
 function openAddRow(){
   const c=cols();
+  const defaults=DEVICE_ROW_DEFAULTS[currentType]||{};
   document.getElementById('addFields').innerHTML=c.map(col=>{
-    const def = col==='DNP3.0_OBJ' ? getDefaultObj() : (DEVICE_ROW_DEFAULTS[col]||'');
+    const def=defaults[col]??'';
     return `<div class="frow"><label>${col}</label><input type="text" id="nf_${col.replace(/\W/g,'_')}" placeholder="${col}" value="${def}"></div>`;
   }).join('');
   document.getElementById('addModal').classList.add('open');
@@ -1422,9 +1440,9 @@ async function doClearHistory(){
 // ── Schema templates for new subsets ─────────────────────────────────────────
 // ── Device mode column schemas (no feeder-specific columns) ──────────────────
 const SCHEMA_TEMPLATES = {
-  status:  ["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  control: ["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"],
-  analog:  ["SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS"]
+  status:  ["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"],
+  control: ["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"],
+  analog:  ["SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"]
 };
 
 // ── Feeder mode column schemas (includes FEEDER_NAME, BAY_NAME, extra columns) ─
@@ -1798,7 +1816,12 @@ async function switchMain(m){
 // ── Add Main ──────────────────────────────────────────────────────────────────
 function openAddMain(){
   document.getElementById('addMainFeederName').textContent=currentFeeder;
-  document.getElementById('newMainName').value='';
+  // Auto-suggest next MAIN_XX number
+  const existing=getMainNames(currentSubstation,currentFeeder);
+  const nums=existing.map(m=>{const n=m.match(/_(\d+)$/);return n?parseInt(n[1]):0;});
+  const nextNum=Math.max(0,...nums)+1;
+  const nextName='MAIN_'+String(nextNum).padStart(2,'0');
+  document.getElementById('newMainName').value=nextName;
   document.getElementById('addMainModal').classList.add('open');
 }
 async function saveNewMain(){
@@ -1925,10 +1948,14 @@ function renderFeederTable(){
     const isFOrigin=i<(d.originCount||0);
     const fcells=c.map((col,ci)=>{
       const isAddr=col==='DNP3.0_ADDRESS';
-      const locked=isFOrigin&&!isAddr;
+      const isEditable=col==='NOTE'||col==='REMARK';
+      const locked=isFOrigin&&!isAddr&&!isEditable;
       let cls='';
       if(ci===0) cls+='fl ';
-      if(isFOrigin) cls+= isAddr ? 'editable-cell' : 'locked-cell';
+      if(isFOrigin){
+        if(isAddr||isEditable) cls+='editable-cell';
+        else cls+='locked-cell';
+      }
       return `<td contenteditable="${!locked}" onblur="${locked?'':'editFeederCell('+i+',\''+col.replace(/'/g,"\'")+'\''+',this)'}" spellcheck="false" class="${cls.trim()}"${locked?' title="Origin row — locked"':''}>${String(r[col]??'').replace(/</g,'&lt;')}</td>`;
     }).join('');
     const fobadge=isFOrigin?`<span class="badge origin">origin</span>`:badge;
@@ -1984,8 +2011,8 @@ let feederSyncTimer=null;
 function editFeederCell(idx,col,el){
   const d=fds();
   const isOrigin=idx<(d.originCount||0);
-  // Block edits on origin rows except DNP3.0_ADDRESS
-  if(isOrigin && col!=='DNP3.0_ADDRESS'){
+  const alwaysEditable=['DNP3.0_ADDRESS','NOTE','REMARK'];
+  if(isOrigin && !alwaysEditable.includes(col)){
     el.innerText=d.rows[idx][col]??''; // revert
     return;
   }
@@ -2030,15 +2057,20 @@ async function doDeleteFeederOne(i){
 // ── Feeder add row ────────────────────────────────────────────────────────────
 function openFeederAddRow(){
   const c=feederCols();
-  // Same defaults apply in feeder mode
-  const feederDefaults = {
-    'DNP3.0_QII':   '17,28 or 00,01',
-    'DNP3.0_CLASS': '1',
-    'DNP3.0_VAR':   '1',
-    'DNP3.0_OBJ':   currentFeederType==='Control Output'?'41':currentFeederType==='Analog Point'?'30':'2',
+  const feederDefaultsMap = {
+    'Status Point': {
+      'DNP3.0_OBJ':'2','DNP3.0_VAR':'1','DNP3.0_QII':'17,28 or 00,01','DNP3.0_CLASS':'1','DNP3.0_TYPE':'DI',
+    },
+    'Control Output': {
+      'DNP3.0_OBJ':'41','DNP3.0_VAR':'1','DNP3.0_QII':'00,01','DNP3.0_CLASS':'0','DNP3.0_TYPE':'DO',
+    },
+    'Analog Point': {
+      'DNP3.0_OBJ':'30','DNP3.0_VAR':'1','DNP3.0_QII':'00,01','DNP3.0_CLASS':'1','DNP3.0_TYPE':'AI',
+    },
   };
+  const defaults=feederDefaultsMap[currentFeederType]||{};
   document.getElementById('addFields').innerHTML=c.map(col=>{
-    const def=feederDefaults[col]||'';
+    const def=defaults[col]??'';
     return `<div class="frow"><label>${col}</label>
     <input type="text" id="nf_${col.replace(/\W/g,'_')}" placeholder="${col}" value="${def}"></div>`;
   }).join('');
