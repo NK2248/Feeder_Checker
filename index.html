@@ -2236,10 +2236,20 @@ async function saveFeederConfig(){
   try{
     await sbFetch('DELETE',TABLE+'?dataset_key=eq.__feeder_config__');
     await sbFetch('POST',TABLE,[{dataset_key:'__feeder_config__',row_index:0,data:{structure:FEEDER_STRUCTURE}}]);
+    try{ localStorage.setItem('fdm_feeder_structure', JSON.stringify(FEEDER_STRUCTURE)); }catch(e){}
   }catch(e){console.error('Feeder config save error:',e);}
 }
 async function loadFeederConfig(){
   try{
+    // Load local copy first (fast, offline-friendly). Supabase load will merge/override.
+    try{
+      const local = localStorage.getItem('fdm_feeder_structure');
+      if(local){
+        const parsed = JSON.parse(local);
+        // merge into existing FEEDER_STRUCTURE
+        Object.entries(parsed).forEach(([sub,val])=>{ FEEDER_STRUCTURE[sub]=val; });
+      }
+    }catch(e){/* ignore localStorage parse errors */}
     const data=await sbFetch('GET',TABLE+'?dataset_key=eq.__feeder_config__&limit=1');
     if(data&&data.length){
       const s=data[0].data.structure;
