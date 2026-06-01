@@ -1120,7 +1120,7 @@ function openAddRow(){
   }).join('');
   document.getElementById('addModal').classList.add('open');
 }
-}
+
 async function saveNewRow(){
   // if in feeder mode, delegate to feeder save
   if(currentMode==='feeder'){ await saveFeederNewRow(); return; }
