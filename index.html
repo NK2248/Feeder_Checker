@@ -1696,7 +1696,7 @@ function getMainNames(sub, feed){
 }
 // Feeders with a trailing number (e.g. TP_01, LINE_01) default main to MAIN_01
 function feederHasNumberSuffix(feedName){
-  return /_\d+$/.test(feedName);
+  return false;
 }
 
 // Schema map for feeder subsets
@@ -1879,7 +1879,7 @@ function renderMainTabs(){
   const mains = getMainNames(currentSubstation, currentFeeder);
   const wrap  = document.getElementById('mainBarWrap');
   // Show main tabs when feeder has multiple mains OR for numbered feeders
-  if(!feederHasNumberSuffix(currentFeeder) && mains.length <= 1){
+  if(mains.length <= 1){
     wrap.style.display='none';
     return;
   }
