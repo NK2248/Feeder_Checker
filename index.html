@@ -2297,43 +2297,21 @@ async function saveFeederConfig(){
 }
 async function loadFeederConfig(){
   try{
-    // Load local copy first (fast, offline-friendly). Supabase load will merge/override.
-    try{
-      const local = localStorage.getItem('fdm_feeder_structure');
-      if(local){
-        const parsed = JSON.parse(local);
-        // merge into existing FEEDER_STRUCTURE
-        Object.entries(parsed).forEach(([sub,val])=>{ FEEDER_STRUCTURE[sub]=val; });
-      }
-    }catch(e){/* ignore localStorage parse errors */}
     const data=await sbFetch('GET',TABLE+'?dataset_key=eq.__feeder_config__&limit=1');
     if(data&&data.length){
       const s=data[0].data.structure;
       Object.entries(s).forEach(([sub,val])=>{
-        if(!FEEDER_STRUCTURE[sub])FEEDER_STRUCTURE[sub]={feeders:{}};
-        // Handle both old array format and new object format
-        if(Array.isArray(val.feeders)){
-          // Old format — array of feeder name strings, no mains/subsets stored
-          val.feeders.forEach(f=>{
-            if(!FEEDER_STRUCTURE[sub].feeders[f])
-              FEEDER_STRUCTURE[sub].feeders[f]={subsets:["MAIN_01"],mains:["MAIN_01"]};
-          });
-        } else {
-          Object.entries(val.feeders||{}).forEach(([f,fval])=>{
-            if(!FEEDER_STRUCTURE[sub].feeders[f]){
-              // New feeder from DB — create it
-              FEEDER_STRUCTURE[sub].feeders[f]={
-                subsets: fval.subsets||["MAIN_01"],
-                mains:   fval.mains||["MAIN_01"]
-              };
-            } else {
-              // Existing feeder — always sync mains and subsets from DB
-              // so newly added mains persist across page reloads
-              FEEDER_STRUCTURE[sub].feeders[f].mains   = fval.mains   || FEEDER_STRUCTURE[sub].feeders[f].mains   || ["MAIN_01"];
-              FEEDER_STRUCTURE[sub].feeders[f].subsets = fval.subsets || FEEDER_STRUCTURE[sub].feeders[f].subsets || ["MAIN_01"];
-            }
-          });
-        }
+        // Only sync mains/subsets for feeders that EXIST in hardcode
+        // Never add or remove substations/feeders from DB
+        if(!FEEDER_STRUCTURE[sub]) return; // skip substations not in hardcode
+        Object.entries(val.feeders||{}).forEach(([f,fval])=>{
+          if(!FEEDER_STRUCTURE[sub].feeders[f]) return; // skip feeders not in hardcode
+          // Only sync mains and subsets (user-added via + button)
+          if(fval.mains && fval.mains.length > 1)
+            FEEDER_STRUCTURE[sub].feeders[f].mains = fval.mains;
+          if(fval.subsets && fval.subsets.length > 1)
+            FEEDER_STRUCTURE[sub].feeders[f].subsets = fval.subsets;
+        });
       });
     }
   }catch(e){console.error('Feeder config load error:',e);}
