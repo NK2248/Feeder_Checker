@@ -15,8 +15,8 @@ except ImportError:
     sys.exit(1)
 
 # ── Config ────────────────────────────────────────────────────────────────────
-SOURCE_FILE = r"C:\Users\YourName\Desktop\IO_Point_List.xlsx"
-OUTPUT_DIR  = r"C:\Users\YourName\Desktop\CSV_Output"
+SOURCE_FILE = r"C:\CU\EIC\Intern\Feeder_Checker\OG\Substation\[Standard-2025] IO Point Lists for 115 kV SCPS H Scheme.xlsx"
+OUTPUT_DIR  = r"C:\CU\EIC\Intern\Feeder_Checker\Substation_csv"
 # ─────────────────────────────────────────────────────────────────────────────
 
 SKIP_SHEETS = {"COVER", "PROJ_DESC", "IP_ADDRESS"}
