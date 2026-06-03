@@ -16,7 +16,7 @@ except ImportError:
     sys.exit(1)
 
 # ── Config ────────────────────────────────────────────────────────────────────
-SOURCE_FILE = r"C:\CU\EIC\Intern\Feeder_Checker\OG\Substation\[Standard-2025] IO Point Lists for 115 kV SCPS H Scheme.xlsx"
+SOURCE_FILE = r"C:\CU\EIC\Intern\Feeder_Checker\OG\Substation\[Standard-2025] IO Point Lists for 115 kV SCPS Main & Transfer.xlsx"
 OUTPUT_DIR  = r"C:\CU\EIC\Intern\Feeder_Checker\Substation_csv"
 # ─────────────────────────────────────────────────────────────────────────────
 
