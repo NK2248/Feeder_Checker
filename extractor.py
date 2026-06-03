@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# pip install openpyxl
 """
 IO Point Extractor - 115 kV SCPS H Scheme
 Output: 3 CSV files per source sheet (Status / Control / Analog).
