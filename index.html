@@ -3051,7 +3051,7 @@ const HEADER_NAME_MAP = {
   'ACTUAL':                   'SCALE_ACTUAL_DATA',
   'RAW DATA':                 'SCALE_RAW_DATA',
   'ADDRESS':                  'DNP3.0_ADDRESS',
-  'ADDR':                     'DNP3.0_ADDRESS',
+  'ADDR#':                     'DNP3.0_ADDRESS',
   'OBJ':                      'DNP3.0_OBJ',
   'VAR':                      'DNP3.0_VAR',
   'QII':                      'DNP3.0_QII',
@@ -3073,7 +3073,7 @@ const HEADER_NAME_MAP = {
 function parseMultiTableSheet(ws) {
   const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
   const rawRows = [];
-  for (let R = range.s.r+1; R <= range.e.r; R++) {
+  for (let R = range.s.r + 2; R <= range.e.r; R++) {
     const row = [];
     for (let C = range.s.c; C <= range.e.c; C++) {
       const cell = ws[XLSX.utils.encode_cell({r: R, c: C})];
