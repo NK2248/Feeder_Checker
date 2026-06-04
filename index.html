@@ -911,6 +911,15 @@ function parseFilenameForRouting(filename) {
 
 let pendingImportData = null;
 
+function detectTypeFromColumns(data) {
+  if (!data || !data.length) return null;
+  const headers = Object.keys(data[0]).map(h => h.toLowerCase().replace(/\s+/g,'_'));
+  if (headers.includes('state_0') || headers.includes('state_1'))       return 'Status Point';
+  if (headers.includes('state_close') || headers.includes('state_trip')) return 'Control Output';
+  if (headers.includes('scale_actual_data') || headers.includes('specification_unit')) return 'Analog Point';
+  return null;
+}
+
 function processFile(f) {
   const reader = new FileReader();
   reader.onload = async e => {
@@ -955,68 +964,86 @@ function processFile(f) {
 }
 
 function showManualRouteModal(filename, partialRoute) {
-  // Populate mode selector
   const modeVal = partialRoute?.mode || 'feeder';
 
-  // Build substation options
   const subOptions = Object.keys(FEEDER_STRUCTURE).map(s =>
     `<option value="${s}" ${partialRoute?.substation === s ? 'selected' : ''}>${s}</option>`
   ).join('');
 
-  // Build device options
   const devOptions = Object.keys(GROUPS).map(d =>
     `<option value="${d}" ${partialRoute?.device === d ? 'selected' : ''}>${d}</option>`
   ).join('');
 
-  // Type options
   const typeOptions = ['Status Point','Control Output','Analog Point'].map(t =>
     `<option value="${t}" ${partialRoute?.type === t ? 'selected' : ''}>${t}</option>`
   ).join('');
 
-  const confidenceNote = partialRoute
-    ? `<div style="background:var(--amber-bg);border:1px solid var(--amber-bdr);border-radius:var(--r);padding:8px 12px;font-size:12px;color:var(--amber);margin-bottom:14px;font-family:var(--mono)">
-        ⚠ Partial match — some fields pre-filled from filename "<strong>${filename}</strong>". Please confirm or adjust.
-       </div>`
-    : `<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);padding:8px 12px;font-size:12px;color:var(--text2);margin-bottom:14px;font-family:var(--mono)">
-        Could not determine destination from "<strong>${filename}</strong>". Please select manually.
-       </div>`;
+  // Build confidence banner
+  let note = '';
+  if (!partialRoute || partialRoute.confidence === 'none') {
+    note = `<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);padding:8px 12px;font-size:12px;color:var(--text2);margin-bottom:14px">
+      Could not determine destination from <strong style="font-family:var(--mono)">${filename}</strong>. Please select manually.
+    </div>`;
+  } else {
+    // Show what WAS detected vs what's still missing
+    const detected = [];
+    const missing  = [];
+    if (partialRoute.mode === 'device') {
+      if (partialRoute.device) detected.push('device: ' + partialRoute.device);
+      else missing.push('device');
+      if (partialRoute.type)   detected.push('type: '   + partialRoute.type);
+      else missing.push('type');
+    } else {
+      if (partialRoute.substation) detected.push('substation: ' + partialRoute.substation);
+      else missing.push('substation');
+      if (partialRoute.feeder)     detected.push('feeder: '     + partialRoute.feeder);
+      else missing.push('feeder');
+      if (partialRoute.type)       detected.push('type: '       + partialRoute.type);
+      else missing.push('type — please select below');
+    }
+    note = `<div style="background:var(--amber-bg);border:1px solid var(--amber-bdr);border-radius:var(--r);padding:10px 12px;font-size:12px;color:var(--amber);margin-bottom:14px">
+      <div style="font-weight:600;margin-bottom:6px">⚠ Partial match from "<span style="font-family:var(--mono)">${filename}</span>"</div>
+      ${detected.length ? `<div style="color:var(--green);font-family:var(--mono);margin-bottom:3px">✓ detected: ${detected.join(' · ')}</div>` : ''}
+      ${missing.length  ? `<div style="font-family:var(--mono)">? missing: ${missing.join(' · ')}</div>` : ''}
+    </div>`;
+  }
 
   document.getElementById('manualRouteFilename').textContent = filename;
-  document.getElementById('manualRouteNote').innerHTML = confidenceNote;
+  document.getElementById('manualRouteNote').innerHTML = note;
 
-  // Mode tabs
-  document.getElementById('mrModeFeeder').classList.toggle('active', modeVal === 'feeder');
-  document.getElementById('mrModeDevice').classList.toggle('active', modeVal === 'device');
-  document.getElementById('mrFeederPanel').style.display = modeVal === 'feeder' ? 'block' : 'none';
-  document.getElementById('mrDevicePanel').style.display = modeVal === 'device' ? 'block' : 'none';
+  // Set mode
+  mrSwitchMode(modeVal);
 
-  // Fill selects
+  // Populate selects FIRST then cascade
   document.getElementById('mrSubstation').innerHTML = subOptions;
   document.getElementById('mrDevice').innerHTML     = devOptions;
   document.getElementById('mrTypeFeeder').innerHTML = typeOptions;
   document.getElementById('mrTypeDevice').innerHTML = typeOptions;
 
-  // Pre-select type if known
+  // Pre-select values
+  if (partialRoute?.substation) document.getElementById('mrSubstation').value = partialRoute.substation;
+  if (partialRoute?.device)     document.getElementById('mrDevice').value     = partialRoute.device;
   if (partialRoute?.type) {
     document.getElementById('mrTypeFeeder').value = partialRoute.type;
     document.getElementById('mrTypeDevice').value = partialRoute.type;
   }
 
-  // Cascade feeder + main dropdowns from current substation selection
+  // Cascade feeders + mains
   mrUpdateFeeders();
-  mrUpdateMains();
 
-  // Pre-select feeder if known
+  // Pre-select feeder + main after cascade
   if (partialRoute?.feeder) {
     const sel = document.getElementById('mrFeeder');
     if ([...sel.options].some(o => o.value === partialRoute.feeder)) {
       sel.value = partialRoute.feeder;
-      mrUpdateMains();
     }
   }
+  mrUpdateMains();
   if (partialRoute?.main) {
     const sel = document.getElementById('mrMain');
-    if ([...sel.options].some(o => o.value === partialRoute.main)) sel.value = partialRoute.main;
+    if ([...sel.options].some(o => o.value === partialRoute.main)) {
+      sel.value = partialRoute.main;
+    }
   }
 
   document.getElementById('manualRouteModal').classList.add('open');
