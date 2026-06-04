@@ -8,13 +8,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
-  --bg:#f5f6f8;--surface:#fff;--surface2:#f0f1f4;--border:#e2e4ea;--border2:#c8cad4;
-  --text:#16181f;--text2:#5a5d6b;--text3:#9ea1af;
-  --accent:#1a3a6b;--accent-light:#e8edf5;--accent-text:#0f2448;
-  --amber:#8a5f00;--amber-bg:#fff8e8;--amber-bdr:#e8c84a;
-  --red:#8b1a1a;--red-bg:#fff0f0;--red-bdr:#e8a0a0;
-  --green:#1a5c30;--green-bg:#edf7f0;--green-bdr:#80c898;
-  --blue:#1a4a7a;--blue-bg:#e8f0f8;--blue-bdr:#90b8e0;
+  --bg:#0d0f17;--surface:#13161f;--surface2:#1c2030;--border:#252838;--border2:#323650;
+  --text:#dde2f0;--text2:#8a90aa;--text3:#4a5070;
+  --accent:#3a6fd8;--accent-light:#1a2440;--accent-text:#6a9ff0;
+  --amber:#c89030;--amber-bg:#1f1800;--amber-bdr:#806020;
+  --red:#c85050;--red-bg:#1f0a0a;--red-bdr:#803030;
+  --green:#40a870;--green-bg:#0a1f14;--green-bdr:#206040;
+  --blue:#3a6fd8;--blue-bg:#0e1828;--blue-bdr:#2a4878;
   --r:8px;--rlg:12px;--font:'Instrument Sans',sans-serif;--mono:'DM Mono',monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -253,26 +253,34 @@ tr.origin-row td.locked-cell:focus{background:#f0f1f4!important;box-shadow:none;
 <body>
 <div class="page">
 
-<header class="hdr">
-  <div class="hdr-left">
-    <div class="logo"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg></div>
-    <div>
-      <h1>Feeder Device Dataset Manager</h1>
-    </div>
+<header class="hdr" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid var(--border)">
+  <div class="logo" style="flex-shrink:0">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
   </div>
-  <div class="hdr-right">
-    <div class="privacy">
-      <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-      Synced across all browsers via Supabase
-    </div>
-    <div class="sync-status synced" id="syncStatus">
-      <div class="sync-dot"></div>
-      <span id="syncText">connected</span>
-    </div>
-    <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);font-family:var(--mono);background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:4px 10px;cursor:pointer" onclick="resetUser();document.getElementById('userLabel').textContent=currentUser()" title="Click to change name">
-      <svg viewBox="0 0 24 24" style="width:11px;height:11px;stroke:var(--accent);fill:none;stroke-width:2;stroke-linecap:round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      <span id="userLabel">—</span>
-    </div>
+  <span style="font-size:16px;font-weight:600;letter-spacing:-.02em;margin-right:4px">Feeder Device Dataset Manager</span>
+
+  <!-- Mode tabs inline -->
+  <div style="display:flex;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--rlg);padding:4px;gap:3px;margin-left:4px">
+    <button class="mode-tab active" id="modeTabFeeder" onclick="switchMode('feeder')"
+      style="padding:5px 16px;border-radius:var(--r);border:none;cursor:pointer;font-size:13px;font-family:var(--font);font-weight:500;transition:all .15s;white-space:nowrap;background:var(--accent);color:#fff">
+      Substation / Feeder
+    </button>
+    <button class="mode-tab" id="modeTabDevice" onclick="switchMode('device')"
+      style="padding:5px 16px;border-radius:var(--r);border:none;cursor:pointer;font-size:13px;font-family:var(--font);font-weight:500;transition:all .15s;white-space:nowrap;background:transparent;color:var(--text2)">
+      Device (AVR / LBS...)
+    </button>
+  </div>
+
+  <div style="flex:1"></div>
+
+  <!-- Sync + user -->
+  <div class="sync-status synced" id="syncStatus" style="font-size:11px;font-family:var(--mono);padding:4px 10px;border-radius:20px;display:flex;align-items:center;gap:5px;border:1px solid var(--border)">
+    <div class="sync-dot" style="width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0"></div>
+    <span id="syncText">connected</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);font-family:var(--mono);background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:4px 10px;cursor:pointer" onclick="resetUser();document.getElementById('userLabel').textContent=currentUser()" title="Click to change name">
+    <svg viewBox="0 0 24 24" style="width:11px;height:11px;stroke:var(--accent);fill:none;stroke-width:2;stroke-linecap:round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    <span id="userLabel">—</span>
   </div>
 </header>
 
@@ -285,34 +293,38 @@ tr.origin-row td.locked-cell:focus{background:#f0f1f4!important;box-shadow:none;
 
 <!-- Feeder mode -->
 <div id="feederSection">
-  <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap">
-    <div class="dev-tabs" id="substationTabs" style="flex:1;margin-bottom:0"></div>
-    <button class="btn-icon" onclick="openAddSubstation()" title="Add new substation">
+  <!-- Breadcrumb nav bar -->
+  <div style="display:flex;align-items:center;gap:0;background:var(--surface);border:1px solid var(--border2);border-radius:var(--rlg);padding:8px 14px;margin-bottom:12px;flex-wrap:wrap;gap:6px">
+    <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-right:4px">Substation</span>
+    <div id="substationTabs" style="display:flex;gap:3px;flex-wrap:wrap"></div>
+    <button class="btn-icon" onclick="openAddSubstation()" title="Add new substation" style="width:22px;height:22px">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+
+    <span style="color:var(--border2);margin:0 4px;font-size:16px">›</span>
+
+    <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-right:4px">Feeder</span>
+    <div id="feederTabs" style="display:flex;gap:3px;flex-wrap:wrap"></div>
+    <button class="btn-icon" onclick="openAddFeeder()" title="Add new feeder" style="width:22px;height:22px">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+
+    <span style="color:var(--border2);margin:0 4px;font-size:16px">›</span>
+
+    <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-right:4px">Main</span>
+    <div id="mainTabs" style="display:flex;gap:3px;flex-wrap:wrap" id="mainBarWrap"></div>
+    <button class="btn-icon" onclick="openAddMain()" title="Add new main" style="width:22px;height:22px">
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </button>
   </div>
-  <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
-    <div class="feeder-bar" id="feederTabs" style="flex:1;margin-bottom:0"></div>
-    <button class="btn-icon" onclick="openAddFeeder()" title="Add new feeder to current substation">
-      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    </button>
-  </div>
+
+  <!-- Subset bar (hidden when only 1 subset) -->
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap" id="subsetBarWrap">
     <div class="main-bar" id="subsetTabs" style="flex:1;margin-bottom:0;background:var(--surface);border-color:var(--border)"></div>
     <button class="btn-icon" onclick="openAddSubsetTab()" title="Add new subset to current feeder">
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </button>
   </div>
-  <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap" id="mainBarWrap">
-    <div class="main-bar" id="mainTabs" style="flex:1;margin-bottom:0"></div>
-    <button class="btn-icon" onclick="openAddMain()" title="Add new main to current feeder">
-      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    </button>
-  </div>
-  <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
-    <div class="type-tabs" id="feederTypeTabs" style="margin-bottom:0"></div>
-  </div>
-</div>
 
 <!-- Device mode -->
 <div id="deviceSection" style="display:none">
@@ -322,8 +334,8 @@ tr.origin-row td.locked-cell:focus{background:#f0f1f4!important;box-shadow:none;
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </button>
   </div>
-  <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
-    <div class="type-tabs" id="typeTabs" style="margin-bottom:0"></div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+    <div id="feederTypeTabs" style="display:contents"></div>
   </div>
 </div>
 
@@ -374,7 +386,12 @@ tr.origin-row td.locked-cell:focus{background:#f0f1f4!important;box-shadow:none;
 </div>
 
 <!-- ── FIX 3: Redesigned action bar — Option B stacked ────────────────── -->
-<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;margin-top:10px">
+<div style="margin-top:12px">
+  <div style="display:flex;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:6px">
+    <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Data Actions</span>
+    <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Export</span>
+  </div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;">
   <!-- Left: data actions -->
   <div class="action-bar" style="flex:1;min-width:0">
     <button class="abtn" onclick="currentMode==='feeder'?openFeederAddRow():openAddRow()">
@@ -416,6 +433,17 @@ tr.origin-row td.locked-cell:focus{background:#f0f1f4!important;box-shadow:none;
   </div>
 </div>
 </div><!-- end .page -->
+</div><!-- close margin-top wrapper -->
+
+<!-- Footer legend -->
+<div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:10px;padding:6px 2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+  <svg viewBox="0 0 24 24" style="width:11px;height:11px;stroke:var(--text3);fill:none;stroke-width:2;flex-shrink:0"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+  origin rows are locked — only DNP3.0_ADDRESS and NOTE can be edited
+  <span style="color:var(--border2)">·</span>
+  <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:2px;background:#c8a8e8;display:inline-block"></span> purple = locked origin</span>
+  <span style="color:var(--border2)">·</span>
+  <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:2px;background:var(--blue-bdr);display:inline-block"></span> blue = added</span>
+</div>
 
 <!-- Add Row Modal -->
 <div class="overlay" id="addModal">
@@ -1089,8 +1117,12 @@ function showManualRouteModal(filename, partialRoute) {
 }
 
 function mrSwitchMode(mode) {
-  document.getElementById('mrModeFeeder').classList.toggle('active', mode === 'feeder');
-  document.getElementById('mrModeDevice').classList.toggle('active', mode === 'device');
+  const tf=document.getElementById('modeTabFeeder');
+  const td=document.getElementById('modeTabDevice');
+  tf.style.background=mode==='feeder'?'var(--accent)':'transparent';
+  tf.style.color=mode==='feeder'?'#fff':'var(--text2)';
+  td.style.background=mode==='device'?'var(--accent)':'transparent';
+  td.style.color=mode==='device'?'#fff':'var(--text2)';
   document.getElementById('mrFeederPanel').style.display = mode === 'feeder' ? 'block' : 'none';
   document.getElementById('mrDevicePanel').style.display = mode === 'device' ? 'block' : 'none';
 }
@@ -2089,7 +2121,7 @@ function switchMode(mode){
 function renderSubstationTabs(){
   document.getElementById('substationTabs').innerHTML =
     Object.keys(FEEDER_STRUCTURE).map(s=>
-      `<button class="dev-tab${s===currentSubstation?' active':''}" onclick="switchSubstation('${s.replace(/'/g,"\\'")}')">${s}</button>`
+      `<button style="padding:4px 12px;border-radius:var(--r);border:1px solid ${s===currentSubstation?'var(--accent)':'var(--border2)'};background:${s===currentSubstation?'var(--accent)':'transparent'};color:${s===currentSubstation?'#fff':'var(--text2)'};cursor:pointer;font-size:12px;font-family:var(--font);font-weight:500;transition:all .15s;white-space:nowrap" onclick="switchSubstation('${s.replace(/'/g,"\\'")}')">${s}</button>`
     ).join('');
 }
 
@@ -2193,7 +2225,18 @@ async function saveNewMain(){
 function renderFeederTypeTabs(){
   document.getElementById('feederTypeTabs').innerHTML =
     FEEDER_SUBSETS.map(t=>
-      `<button class="type-tab${t===currentFeederType?' active':''}" onclick="switchFeederType('${t}')">${t}</button>`
+      `<button onclick="switchFeederType('${t}')"
+        style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+               padding:14px 10px;border-radius:var(--rlg);cursor:pointer;font-size:13px;
+               font-family:var(--font);font-weight:600;transition:all .15s;white-space:nowrap;
+               border:1px solid ${t===currentFeederType?'var(--accent)':'var(--border2)'};
+               background:${t===currentFeederType?'var(--accent-light)':'var(--surface)'};
+               color:${t===currentFeederType?'var(--accent-text)':'var(--text2)'}">
+          <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/>
+          </svg>
+          ${t}
+        </button>`
     ).join('');
 }
 
