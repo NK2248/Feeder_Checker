@@ -833,22 +833,231 @@ function onDragLeave(){document.getElementById('dropZone').classList.remove('dra
 function onDrop(e){e.preventDefault();document.getElementById('dropZone').classList.remove('drag');const f=e.dataTransfer.files[0];if(f)processFile(f);}
 function handleUpload(inp){const f=inp.files[0];if(f)processFile(f);inp.value='';}
 
+function parseFilenameForRouting(filename) {
+  const base = filename.replace(/\.(csv|xlsx|xls)$/i, '').replace(/[-_ ]+export$/i, '');
+
+  const TYPE_MAP = {
+    'status_point':   'Status Point',
+    'status':         'Status Point',
+    'control_output': 'Control Output',
+    'control':        'Control Output',
+    'analog_point':   'Analog Point',
+    'analog':         'Analog Point',
+  };
+
+  // Detect type suffix
+  let detectedType = null;
+  let prefix = base;
+  for (const [suffix, type] of Object.entries(TYPE_MAP)) {
+    const re = new RegExp('[-_ ]?' + suffix.replace(/_/g, '[_ ]') + '$', 'i');
+    if (re.test(base)) {
+      detectedType = type;
+      prefix = base.replace(re, '').replace(/[-_ ]+$/, '');
+      break;
+    }
+  }
+
+  // Detect embedded main
+  let mainMatch = 'MAIN_01';
+  let feederPrefix = prefix;
+  const mm = prefix.match(/^(.+?)__?(MAIN_\d+)__?/i);
+  if (mm) { feederPrefix = mm[1]; mainMatch = mm[2].toUpperCase(); }
+
+  const norm = s => s.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+
+  // Try full feeder match (prefix + type both known)
+  for (const sub of Object.keys(FEEDER_STRUCTURE)) {
+    for (const feed of getFeederNames(sub)) {
+      if (norm(feed) === norm(feederPrefix)) {
+        if (detectedType) {
+          return { confidence: 'full', mode: 'feeder', substation: sub, feeder: feed, main: mainMatch, subset: mainMatch, type: detectedType };
+        } else {
+          // Partial: feeder known, type unknown
+          return { confidence: 'partial', mode: 'feeder', substation: sub, feeder: feed, main: mainMatch, subset: mainMatch, type: null };
+        }
+      }
+    }
+  }
+
+  // Try substation name match (whole filename = substation)
+  for (const sub of Object.keys(FEEDER_STRUCTURE)) {
+    if (norm(sub) === norm(prefix) || norm(sub).includes(norm(prefix)) || norm(prefix).includes(norm(sub).substring(0,4))) {
+      return { confidence: 'partial', mode: 'feeder', substation: sub, feeder: null, main: 'MAIN_01', subset: 'MAIN_01', type: detectedType };
+    }
+  }
+
+  // Try full device match
+  for (const dev of Object.keys(GROUPS)) {
+    if (norm(dev) === norm(prefix)) {
+      if (detectedType) {
+        return { confidence: 'full', mode: 'device', device: dev, type: detectedType };
+      } else {
+        return { confidence: 'partial', mode: 'device', device: dev, type: null };
+      }
+    }
+  }
+
+  // No match at all
+  return { confidence: 'none', mode: null };
+}
+
 let pendingImportData = null;
 
-function processFile(f){
-  const reader=new FileReader();
-  reader.onload=async e=>{
-    try{
-      const wb=XLSX.read(e.target.result,{type:'array'});
-      const ws=wb.Sheets[wb.SheetNames[0]];
-      const data=XLSX.utils.sheet_to_json(ws,{defval:''});
-      if(!data.length){alert('File appears empty.');return;}
-      // Always ask: origin (locked) or add-on (fully editable)
+function processFile(f) {
+  const reader = new FileReader();
+  reader.onload = async e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+
+      if (wb.SheetNames.length > 1) {
+        pendingMultiSheetWb = wb;
+        pendingImportData = null;
+        pendingImportRoute = null;
+        showMultiSheetModal(f.name, wb);
+        return;
+      }
+
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      if (!data.length) { alert('File appears empty.'); return; }
+
       pendingImportData = data;
-      document.getElementById('importChoiceModal').classList.add('open');
-    }catch(err){hideLoading();alert('Could not read file: '+err.message);}
+      const route = parseFilenameForRouting(f.name);
+
+      if (route.confidence === 'full') {
+        pendingImportRoute = route;
+        showSmartImportModal(f.name, route);
+      } else if (route.confidence === 'partial') {
+        pendingImportRoute = route;
+        showManualRouteModal(f.name, route); // new — let user fill the gap
+      } else {
+        pendingImportRoute = null;
+        showManualRouteModal(f.name, null);  // completely unknown
+      }
+    } catch (err) {
+      alert('Could not read file: ' + err.message);
+    }
   };
   reader.readAsArrayBuffer(f);
+}
+
+function showManualRouteModal(filename, partialRoute) {
+  // Populate mode selector
+  const modeVal = partialRoute?.mode || 'feeder';
+
+  // Build substation options
+  const subOptions = Object.keys(FEEDER_STRUCTURE).map(s =>
+    `<option value="${s}" ${partialRoute?.substation === s ? 'selected' : ''}>${s}</option>`
+  ).join('');
+
+  // Build device options
+  const devOptions = Object.keys(GROUPS).map(d =>
+    `<option value="${d}" ${partialRoute?.device === d ? 'selected' : ''}>${d}</option>`
+  ).join('');
+
+  // Type options
+  const typeOptions = ['Status Point','Control Output','Analog Point'].map(t =>
+    `<option value="${t}" ${partialRoute?.type === t ? 'selected' : ''}>${t}</option>`
+  ).join('');
+
+  const confidenceNote = partialRoute
+    ? `<div style="background:var(--amber-bg);border:1px solid var(--amber-bdr);border-radius:var(--r);padding:8px 12px;font-size:12px;color:var(--amber);margin-bottom:14px;font-family:var(--mono)">
+        ⚠ Partial match — some fields pre-filled from filename "<strong>${filename}</strong>". Please confirm or adjust.
+       </div>`
+    : `<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);padding:8px 12px;font-size:12px;color:var(--text2);margin-bottom:14px;font-family:var(--mono)">
+        Could not determine destination from "<strong>${filename}</strong>". Please select manually.
+       </div>`;
+
+  document.getElementById('manualRouteFilename').textContent = filename;
+  document.getElementById('manualRouteNote').innerHTML = confidenceNote;
+
+  // Mode tabs
+  document.getElementById('mrModeFeeder').classList.toggle('active', modeVal === 'feeder');
+  document.getElementById('mrModeDevice').classList.toggle('active', modeVal === 'device');
+  document.getElementById('mrFeederPanel').style.display = modeVal === 'feeder' ? 'block' : 'none';
+  document.getElementById('mrDevicePanel').style.display = modeVal === 'device' ? 'block' : 'none';
+
+  // Fill selects
+  document.getElementById('mrSubstation').innerHTML = subOptions;
+  document.getElementById('mrDevice').innerHTML     = devOptions;
+  document.getElementById('mrTypeFeeder').innerHTML = typeOptions;
+  document.getElementById('mrTypeDevice').innerHTML = typeOptions;
+
+  // Pre-select type if known
+  if (partialRoute?.type) {
+    document.getElementById('mrTypeFeeder').value = partialRoute.type;
+    document.getElementById('mrTypeDevice').value = partialRoute.type;
+  }
+
+  // Cascade feeder + main dropdowns from current substation selection
+  mrUpdateFeeders();
+  mrUpdateMains();
+
+  // Pre-select feeder if known
+  if (partialRoute?.feeder) {
+    const sel = document.getElementById('mrFeeder');
+    if ([...sel.options].some(o => o.value === partialRoute.feeder)) {
+      sel.value = partialRoute.feeder;
+      mrUpdateMains();
+    }
+  }
+  if (partialRoute?.main) {
+    const sel = document.getElementById('mrMain');
+    if ([...sel.options].some(o => o.value === partialRoute.main)) sel.value = partialRoute.main;
+  }
+
+  document.getElementById('manualRouteModal').classList.add('open');
+}
+
+function mrSwitchMode(mode) {
+  document.getElementById('mrModeFeeder').classList.toggle('active', mode === 'feeder');
+  document.getElementById('mrModeDevice').classList.toggle('active', mode === 'device');
+  document.getElementById('mrFeederPanel').style.display = mode === 'feeder' ? 'block' : 'none';
+  document.getElementById('mrDevicePanel').style.display = mode === 'device' ? 'block' : 'none';
+}
+
+function mrUpdateFeeders() {
+  const sub = document.getElementById('mrSubstation').value;
+  const feeders = getFeederNames(sub);
+  document.getElementById('mrFeeder').innerHTML = feeders.map(f => `<option value="${f}">${f}</option>`).join('');
+  mrUpdateMains();
+}
+
+function mrUpdateMains() {
+  const sub  = document.getElementById('mrSubstation').value;
+  const feed = document.getElementById('mrFeeder').value;
+  const mains = getMainNames(sub, feed);
+  document.getElementById('mrMain').innerHTML = mains.map(m => `<option value="${m}">${m}</option>`).join('');
+}
+
+async function doManualRouteImport(importMode) {
+  const isFeeder = document.getElementById('mrFeederPanel').style.display !== 'none';
+  let route;
+
+  if (isFeeder) {
+    route = {
+      confidence: 'manual',
+      mode:        'feeder',
+      substation:  document.getElementById('mrSubstation').value,
+      feeder:      document.getElementById('mrFeeder').value,
+      main:        document.getElementById('mrMain').value,
+      subset:      document.getElementById('mrMain').value,
+      type:        document.getElementById('mrTypeFeeder').value,
+    };
+  } else {
+    route = {
+      confidence: 'manual',
+      mode:        'device',
+      device:      document.getElementById('mrDevice').value,
+      type:        document.getElementById('mrTypeDevice').value,
+    };
+  }
+
+  closeModal('manualRouteModal');
+  pendingImportRoute = route;
+
+  // Reuse doSmartImport since the route shape is identical
+  await doSmartImport(importMode);
 }
 
 async function doImport(mode, data){
@@ -2633,5 +2842,74 @@ async function applyMerged(){
   }
 }
 </script>
+<!-- Manual Route Modal -->
+<div class="overlay" id="manualRouteModal">
+  <div class="modal" style="width:460px">
+    <h3>Select import destination</h3>
+    <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:10px" id="manualRouteFilename"></div>
+    <div id="manualRouteNote"></div>
+
+    <!-- Mode switcher -->
+    <div style="display:flex;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:4px;margin-bottom:14px">
+      <button id="mrModeFeeder" class="type-tab active" style="flex:1;justify-content:center" onclick="mrSwitchMode('feeder')">Feeder / Substation</button>
+      <button id="mrModeDevice" class="type-tab" style="flex:1;justify-content:center" onclick="mrSwitchMode('device')">Device</button>
+    </div>
+
+    <!-- Feeder panel -->
+    <div id="mrFeederPanel">
+      <div class="fgrid">
+        <div class="frow">
+          <label>Substation</label>
+          <select id="mrSubstation" onchange="mrUpdateFeeders()" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select>
+        </div>
+        <div class="frow">
+          <label>Feeder</label>
+          <select id="mrFeeder" onchange="mrUpdateMains()" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select>
+        </div>
+        <div class="frow">
+          <label>Main</label>
+          <select id="mrMain" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select>
+        </div>
+        <div class="frow">
+          <label>Type</label>
+          <select id="mrTypeFeeder" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Device panel -->
+    <div id="mrDevicePanel" style="display:none">
+      <div class="fgrid">
+        <div class="frow">
+          <label>Device</label>
+          <select id="mrDevice" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select>
+        </div>
+        <div class="frow">
+          <label>Type</label>
+          <select id="mrTypeDevice" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Import mode -->
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;color:var(--text2);font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Import mode</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn primary" style="flex:1;justify-content:center" onclick="doManualRouteImport('origin')">
+          <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          Origin (locked)
+        </button>
+        <button class="btn" style="flex:1;justify-content:center;border-color:var(--blue-bdr);background:var(--blue-bg);color:var(--blue)" onclick="doManualRouteImport('addon')">
+          <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Add-on (editable)
+        </button>
+      </div>
+    </div>
+
+    <div class="mfooter">
+      <button class="btn" onclick="closeModal('manualRouteModal');pendingImportData=null;pendingImportRoute=null;">Cancel</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
