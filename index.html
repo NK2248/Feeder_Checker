@@ -913,10 +913,14 @@ let pendingImportData = null;
 
 function detectTypeFromColumns(data) {
   if (!data || !data.length) return null;
-  const headers = Object.keys(data[0]).map(h => h.toLowerCase().replace(/\s+/g,'_'));
-  if (headers.includes('state_0') || headers.includes('state_1'))       return 'Status Point';
-  if (headers.includes('state_close') || headers.includes('state_trip')) return 'Control Output';
-  if (headers.includes('scale_actual_data') || headers.includes('specification_unit')) return 'Analog Point';
+  return detectTypeFromHeaders(Object.keys(data[0]));
+}
+
+function detectTypeFromHeaders(headers) {
+  const h = headers.map(s => String(s).toUpperCase());
+  if (h.some(c => c.includes('STATE_0') || c.includes('STATE_1')))           return 'Status Point';
+  if (h.some(c => c.includes('STATE_CLOSE') || c.includes('STATE_TRIP')))    return 'Control Output';
+  if (h.some(c => c.includes('SCALE_ACTUAL') || c.includes('SPECIFICATION_UNIT') || c === 'UNIT')) return 'Analog Point';
   return null;
 }
 
@@ -926,40 +930,80 @@ function processFile(f) {
     try {
       const wb = XLSX.read(e.target.result, { type: 'array' });
 
+      // ── Multi-sheet file ──────────────────────────────────────────────────
       if (wb.SheetNames.length > 1) {
-        pendingMultiSheetWb = wb;
-        pendingImportData   = null;
-        pendingImportRoute  = null;
-        showMultiSheetModal(f.name, wb);
+        for (const sheetName of wb.SheetNames) {
+          const ws     = wb.Sheets[sheetName];
+          const tables = parseMultiTableSheet(ws);
+          const sheetRoute = parseSheetNameForRouting(sheetName);
+
+          for (const [idx, tbl] of tables.entries()) {
+            if (!tbl.rows.length) continue;
+
+            pendingImportData  = tbl.rows;
+            pendingImportRoute = {
+              confidence:  sheetRoute.feeder ? 'full' : 'partial',
+              mode:        'feeder',
+              substation:  sheetRoute.substation,
+              feeder:      sheetRoute.feeder,
+              main:        sheetRoute.main,
+              subset:      sheetRoute.main,
+              type:        tbl.type
+            };
+
+            const label = sheetName + ' — ' + (tbl.type || 'table ' + (idx + 1));
+            showManualRouteModal(label, pendingImportRoute);
+
+            // Wait for user to confirm before moving to next table/sheet
+            await new Promise(resolve => { window._manualRouteResolve = resolve; });
+          }
+        }
         return;
       }
 
-      const ws   = wb.Sheets[wb.SheetNames[0]];
-      const data = XLSX.utils.sheet_to_json(ws, { defval: '' });
-      if (!data.length) { alert('File appears empty.'); return; }
+      // ── Single-sheet file ─────────────────────────────────────────────────
+      const ws     = wb.Sheets[wb.SheetNames[0]];
+      const tables = parseMultiTableSheet(ws);
 
-      pendingImportData = data;
+      if (!tables.length) { alert('File appears empty.'); return; }
 
-      const route = parseFilenameForRouting(f.name);
-      console.log('[import] file:', f.name, '| route:', route); // debug
-
-      if (route.confidence === 'full') {
-        pendingImportRoute = route;
-        showSmartImportModal(f.name, route);
-      } else {
-        // partial OR none — always show manual modal so nothing silently fails
-        pendingImportRoute = route.confidence !== 'none' ? route : null;
-        showManualRouteModal(f.name, pendingImportRoute);
+      if (tables.length === 1) {
+        // Original single-table path
+        const data = tables[0].rows;
+        if (!data.length) { alert('Table has no data rows.'); return; }
+        pendingImportData = data;
+        const route = parseFilenameForRouting(f.name);
+        if (route.confidence === 'full') {
+          pendingImportRoute = route;
+          showManualRouteModal(f.name, pendingImportRoute);
+        } else {
+          pendingImportRoute = route.confidence !== 'none' ? route : null;
+          showManualRouteModal(f.name, pendingImportRoute);
+        }
+        return;
       }
+
+      // Multiple tables in a single sheet
+      const baseRoute = parseFilenameForRouting(f.name);
+      for (const [idx, tbl] of tables.entries()) {
+        if (!tbl.rows.length) continue;
+        pendingImportData  = tbl.rows;
+        pendingImportRoute = {
+          ...baseRoute,
+          type:       tbl.type || baseRoute.type || null,
+          confidence: (baseRoute.confidence !== 'none' && tbl.type) ? 'full' : 'partial'
+        };
+        const label = f.name + ' — ' + (tbl.type || 'table ' + (idx + 1));
+        showManualRouteModal(label, pendingImportRoute);
+        await new Promise(resolve => { window._manualRouteResolve = resolve; });
+      }
+
     } catch (err) {
       console.error('[import] error:', err);
       alert('Could not read file: ' + err.message);
     }
   };
-  reader.onerror = err => {
-    console.error('[import] reader error:', err);
-    alert('Could not read file.');
-  };
+  reader.onerror = () => alert('Could not read file.');
   reader.readAsArrayBuffer(f);
 }
 
@@ -1098,6 +1142,12 @@ async function doManualRouteImport(importMode) {
 
   // Reuse doSmartImport since the route shape is identical
   await doSmartImport(importMode);
+  // Resolve multi-table queue promise if active
+  if (typeof window._manualRouteResolve === 'function') {
+    const resolve = window._manualRouteResolve;
+    window._manualRouteResolve = null;
+    resolve();
+  }
 }
 
 async function doImport(mode, data){
@@ -2880,6 +2930,153 @@ async function applyMerged(){
     closeModal('compareModal');renderAll();
     showLoading('Saving merged data to cloud…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
   }
+}
+// ── HEADER_NAME_MAP ───────────────────────────────────────────────────────────
+const HEADER_NAME_MAP = {
+  'FEEDER NAME':              'FEEDER_NAME',
+  'BAY NAME':                 'BAY_NAME',
+  'POINT NAME':               'SPECIFICATION_POINT_NAME',
+  'SPECIFICATION POINT NAME': 'SPECIFICATION_POINT_NAME',
+  'DESCRIPTOR':               'SPECIFICATION_DESCRIPTOR',
+  'UNIT':                     'SPECIFICATION_UNIT',
+  'ACTUAL':                   'SCALE_ACTUAL_DATA',
+  'RAW DATA':                 'SCALE_RAW_DATA',
+  'ADDRESS':                  'DNP3.0_ADDRESS',
+  'ADDR':                     'DNP3.0_ADDRESS',
+  'OBJ':                      'DNP3.0_OBJ',
+  'VAR':                      'DNP3.0_VAR',
+  'TAR':                      'DNP3.0_QII',
+  'GH':                       'DNP3.0_QII',
+  'CLASS':                    'DNP3.0_CLASS',
+  'TYPE':                     'DNP3.0_TYPE',
+  '0':                        'STATE_0',
+  '1':                        'STATE_1',
+  '2':                        'STATE_2',
+  '3':                        'STATE_3',
+  '1(CLOSE)':                 'STATE_CLOSE',
+  '2(TRIP)':                  'STATE_TRIP',
+  'PROT.BCU NAME':            'BAY_PROT.&BCU_NAME',
+  'PROT.BCU REFERENCE':       'IEC61850_PROT.&BCU_REFERENCE',
+  'BRCB/URCB':                'BRCB/URCB',
+};
+
+// ── parseMultiTableSheet ──────────────────────────────────────────────────────
+function parseMultiTableSheet(ws) {
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+  const rawRows = [];
+  for (let R = range.s.r; R <= range.e.r; R++) {
+    const row = [];
+    for (let C = range.s.c; C <= range.e.c; C++) {
+      const cell = ws[XLSX.utils.encode_cell({r: R, c: C})];
+      row.push(cell ? String(cell.v ?? '').trim() : '');
+    }
+    while (row.length && row[row.length - 1] === '') row.pop();
+    rawRows.push(row);
+  }
+
+  const SECTION_LABELS = {
+    'STATUS POINTS':   'Status Point',
+    'STATUS_POINTS':   'Status Point',
+    'CONTROL OUTPUTS': 'Control Output',
+    'CONTROL_OUTPUTS': 'Control Output',
+    'ANALOG POINTS':   'Analog Point',
+    'ANALOG_POINTS':   'Analog Point',
+  };
+
+  const HEADER_KEYWORDS = [
+    'ITEM','FEEDER NAME','FEEDER_NAME','BAY NAME','BAY_NAME',
+    'SPECIFICATION POINT NAME','SPECIFICATION_POINT_NAME',
+    'POINT NAME','DNP3.0 SERVER','DNP3.0_ADDRESS','ADDRESS',
+    'DESCRIPTOR','OBJ','TAR','GH','CLASS','TYPE','REMARK'
+  ];
+
+  function norm(s) { return s.toUpperCase().replace(/[^A-Z0-9]/g, '_'); }
+
+  function isHeaderRow(cells) {
+    const hits = cells.filter(c =>
+      HEADER_KEYWORDS.some(kw => norm(c) === norm(kw) || norm(c).includes(norm(kw)))
+    );
+    return hits.length >= 2;
+  }
+
+  function getSectionLabel(cells) {
+    const nonEmpty = cells.filter(c => c !== '');
+    if (nonEmpty.length <= 3) {
+      const combined = nonEmpty.join(' ').toUpperCase().replace(/[^A-Z ]/g, ' ').trim();
+      for (const [key, type] of Object.entries(SECTION_LABELS)) {
+        if (combined.includes(key)) return type;
+      }
+    }
+    return null;
+  }
+
+  const tables = [];
+  let pendingType    = null;
+  let currentHeaders = null;
+  let currentRows    = [];
+  let currentType    = null;
+
+  for (const cells of rawRows) {
+    if (!cells.length) continue;
+
+    const sectionType = getSectionLabel(cells);
+    if (sectionType) {
+      if (currentHeaders && currentRows.length)
+        tables.push({ headers: currentHeaders, rows: currentRows, type: currentType });
+      currentHeaders = null; currentRows = []; currentType = null;
+      pendingType = sectionType;
+      continue;
+    }
+
+    if (isHeaderRow(cells)) {
+      if (currentHeaders && currentRows.length)
+        tables.push({ headers: currentHeaders, rows: currentRows, type: currentType });
+      currentHeaders = cells.map(h => HEADER_NAME_MAP[h.trim()] || h.trim());
+      currentRows    = [];
+      currentType    = pendingType || detectTypeFromHeaders(currentHeaders);
+      pendingType    = null;
+      continue;
+    }
+
+    if (currentHeaders) {
+      // Skip metadata lines like "SYSTEM VOLTAGE LEVEL : 115kV"
+      if (cells[0] && /:\s/.test(cells[0])) continue;
+      const obj = {};
+      currentHeaders.forEach((h, i) => { if (h) obj[h] = cells[i] ?? ''; });
+      if (Object.values(obj).every(v => String(v).trim() === '')) continue;
+      currentRows.push(obj);
+    }
+  }
+
+  if (currentHeaders && currentRows.length)
+    tables.push({ headers: currentHeaders, rows: currentRows, type: currentType });
+
+  return tables;
+}
+
+// ── parseSheetNameForRouting ──────────────────────────────────────────────────
+function parseSheetNameForRouting(sheetName) {
+  const n = sheetName.toUpperCase().replace(/\s+/g, '_');
+
+  // Extract MAIN number: "MAIN NO.1" → "MAIN_01"
+  const mainMatch = n.match(/MAIN[_\s]*NO[_\s\.]*(\d+)/i);
+  const main = mainMatch
+    ? 'MAIN_' + String(mainMatch[1]).padStart(2, '0')
+    : 'MAIN_01';
+
+  // Try to match a known feeder name inside the sheet name
+  for (const sub of Object.keys(FEEDER_STRUCTURE)) {
+    for (const feed of getFeederNames(sub)) {
+      const normFeed = feed.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+      if (n.includes(normFeed)) {
+        return { substation: sub, feeder: feed, main, subset: main };
+      }
+    }
+  }
+
+  // Fallback: strip voltage prefix, use remainder as feeder hint
+  const stripped = n.replace(/^\d+KV_?/, '').replace(/_MAIN.*$/, '');
+  return { substation: currentSubstation, feeder: stripped, main, subset: main };
 }
 </script>
 <!-- Manual Route Modal -->
