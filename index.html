@@ -383,6 +383,10 @@ tr.origin-row td.locked-cell:focus{
       <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       export all subsets
     </button>
+    <button class="btn success" onclick="currentMode==='feeder'?exportAllSubstation():exportAllExcel()">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      export all substation
+    </button>
     <!-- Export CSV — routes to feeder or device mode -->
     <button class="btn" onclick="currentMode==='feeder'?exportFeederCSV():exportCSV()">
       <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -2355,6 +2359,64 @@ function exportFeederCSV(){
   a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'}));
   a.download=currentSubstation+'_'+currentFeeder+'_'+currentFeederType+'.csv';
   a.click();
+}
+
+async function exportAllSubstation() {
+  const sub = currentSubstation;
+  const feeders = getFeederNames(sub);
+  if (!feeders.length) { alert('No feeders in this substation.'); return; }
+
+  showLoading('Loading all datasets for ' + sub + '…');
+
+  const wb = XLSX.utils.book_new();
+  let sheetCount = 0;
+
+  for (const feed of feeders) {
+    const mains   = getMainNames(sub, feed);
+    const subsets = getSubsetNames(sub, feed);
+
+    for (const main of mains) {
+      for (const subset of subsets) {
+        for (const type of FEEDER_SUBSETS) {
+          const k = feederKey(sub, feed, subset, main, type);
+          // Load from Supabase if not already cached
+          if (!FEEDER_DATASETS[k] || !FEEDER_DATASETS[k].rows.length) {
+            try {
+              const data = await sbFetch('GET', TABLE + '?dataset_key=eq.' + encodeURIComponent(k) + '&order=row_index.asc');
+              if (!FEEDER_DATASETS[k]) {
+                FEEDER_DATASETS[k] = { rows: [], dbIds: [], manuallyAdded: new Set(), originCount: 0, dupInfo: {}, keyColumns: new Set(), checked: false };
+              }
+              FEEDER_DATASETS[k].rows  = data.map(r => r.data);
+              FEEDER_DATASETS[k].dbIds = data.map(r => r.id);
+              FEEDER_DATASETS[k].originCount = data.length ? (data[0].origin_count || 0) : 0;
+            } catch(e) { console.error('Load error for ' + k, e); }
+          }
+
+          const d = FEEDER_DATASETS[k];
+          const c = FEEDER_SCHEMA_TEMPLATES[FEEDER_SCHEMA_MAP[type]];
+          const out = (d && d.rows.length)
+            ? d.rows.map(r => { const o = {}; c.forEach(col => o[col] = r[col] ?? ''); return o; })
+            : [Object.fromEntries(c.map(col => [col, '']))];
+
+          // Sheet name: FEEDER__MAIN__TYPE (max 31 chars)
+          const typeShort = { 'Status Point': 'SP', 'Control Output': 'CO', 'Analog Point': 'AP' }[type] || type;
+          const sheetName = (feed + '_' + main + '_' + typeShort)
+            .replace(/[\\/*?:[\]\s&()]/g, '_')
+            .substring(0, 31);
+
+          const ws = XLSX.utils.json_to_sheet(out);
+          XLSX.utils.book_append_sheet(wb, ws, sheetName);
+          sheetCount++;
+        }
+      }
+    }
+  }
+
+  hideLoading();
+  if (!sheetCount) { alert('No data found for ' + sub + '.'); return; }
+
+  const fname = sub.replace(/[\\/*?:[\]\s&()]/g, '_') + '_full_export';
+  XLSX.writeFile(wb, fname + '.xlsx');
 }
 
 // ── Compare ───────────────────────────────────────────────────────────────────
