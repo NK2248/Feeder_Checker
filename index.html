@@ -131,7 +131,6 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading-text{font-size:13px;color:var(--text2);font-family:var(--mono)}
 /* ── Origin rows (locked) ────────────────── */
-/* Origin rows imported first — all cols locked except DNP3.0_ADDRESS */
 tr.origin-row td { background: #f8f6ff !important; }
 tr.origin-row td.fl { border-left: 3px solid #9b7fe8 !important; padding-left:7px; }
 tr.origin-row td[contenteditable="true"] { cursor: not-allowed; color: var(--text3); }
@@ -152,34 +151,30 @@ tr.origin-row td.editable-addr:focus { background: #e8f0f8 !important; box-shado
 .hist-actions{display:flex;gap:6px}
 .hist-empty{text-align:center;padding:2rem;color:var(--text3);font-size:13px}
 /* ── Substation / Feeder level ───────────── */
-/* Top level switcher bar — shows Substation tabs */
 .mode-bar{display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;padding:6px;background:var(--accent);border-radius:var(--rlg)}
 .mode-tab{padding:5px 16px;border-radius:var(--r);border:none;background:transparent;cursor:pointer;font-size:13px;font-family:var(--font);font-weight:500;color:rgba(255,255,255,.7);transition:all .15s;white-space:nowrap}
 .mode-tab:hover{background:rgba(255,255,255,.15);color:#fff}
 .mode-tab.active{background:#fff;color:var(--accent);font-weight:600}
 .mode-label{font-size:11px;font-family:var(--mono);color:rgba(255,255,255,.5);padding:0 8px;white-space:nowrap}
-/* Feeder tabs — second level under substation */
 .feeder-bar{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:6px}
 .feeder-tab{padding:5px 14px;border-radius:var(--r);border:none;background:transparent;cursor:pointer;font-size:13px;font-family:var(--font);font-weight:500;color:var(--text2);transition:all .15s;white-space:nowrap}
 .feeder-tab:hover{background:var(--surface2)}
 .feeder-tab.active{background:var(--accent-light);color:var(--accent-text);border:1px solid var(--blue-bdr)}
-/* ── Main level tabs (MAIN_01, MAIN_02...) ── */
+/* ── Main level tabs ── */
 .main-bar{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:12px;padding:4px 8px;background:var(--accent-light);border:1px solid var(--blue-bdr);border-radius:var(--rlg)}
 .main-tab{padding:4px 12px;border-radius:var(--r);border:none;background:transparent;cursor:pointer;font-size:12px;font-family:var(--mono);font-weight:500;color:var(--blue);transition:all .15s;white-space:nowrap}
 .main-tab:hover{background:rgba(26,74,122,.1)}
 .main-tab.active{background:var(--accent);color:#fff}
-/* Subset tabs — between feeder and main */
 .subset-tab{padding:4px 12px;border-radius:var(--r);border:none;background:transparent;cursor:pointer;font-size:12px;font-family:var(--mono);font-weight:500;color:var(--text2);transition:all .15s;white-space:nowrap}
 .subset-tab:hover{background:var(--surface2)}
 .subset-tab.active{background:var(--accent-light);color:var(--accent-text);border:1px solid var(--blue-bdr);font-weight:600}
-/* ── Device Management ──────────────────── */
+/* ── Device Management ──────────────────────────────────────────────────────── */
 .dev-tab-wrap{display:flex;align-items:center;gap:4px;flex-wrap:wrap;flex:1}
 .btn-icon{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:var(--r);border:1px dashed var(--border2);background:transparent;cursor:pointer;color:var(--text3);transition:all .15s;flex-shrink:0}
 .btn-icon:hover{background:var(--accent-light);color:var(--accent);border-color:var(--accent)}
 .btn-icon svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
 .type-tab-wrap{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 /* ── Origin row lock styles ─────────────── */
-/* Origin rows are locked — all cells grey except DNP3.0_ADDRESS */
 tr.origin-row td{background:#f8f8fa!important}
 tr.origin-row td.locked-cell{
   color:var(--text3);
@@ -242,7 +237,6 @@ tr.origin-row td.locked-cell:focus{
     <div class="logo"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg></div>
     <div>
       <h1>Feeder Device Dataset Manager</h1>
-      
     </div>
   </div>
   <div class="hdr-right">
@@ -261,18 +255,18 @@ tr.origin-row td.locked-cell:focus{
   </div>
 </header>
 
-<!-- Mode bar: switches between Feeder mode and Device mode -->
+<!-- Mode bar -->
 <div class="mode-bar" id="modeBar">
   <span class="mode-label">mode:</span>
   <button class="mode-tab active" id="modeTabFeeder" onclick="switchMode('feeder')">Substation / Feeder</button>
   <button class="mode-tab" id="modeTabDevice" onclick="switchMode('device')">Device (AVR / LBS...)</button>
 </div>
 
-<!-- Feeder mode: Substation → Feeder → Subset -->
+<!-- Feeder mode -->
 <div id="feederSection">
-  <!-- Substation tabs -->
+  <!-- ── Substation tabs — now uses dev-tabs (bold active, same as device) ── -->
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap">
-    <div class="feeder-bar" id="substationTabs" style="flex:1;margin-bottom:0"></div>
+    <div class="dev-tabs" id="substationTabs" style="flex:1;margin-bottom:0"></div>
     <button class="btn-icon" onclick="openAddSubstation()" title="Add new substation">
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </button>
@@ -284,27 +278,27 @@ tr.origin-row td.locked-cell:focus{
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </button>
   </div>
-  <!-- Subset tabs — shown between Feeder and Main -->
+  <!-- Subset tabs -->
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap" id="subsetBarWrap">
     <div class="main-bar" id="subsetTabs" style="flex:1;margin-bottom:0;background:var(--surface);border-color:var(--border)"></div>
     <button class="btn-icon" onclick="openAddSubsetTab()" title="Add new subset to current feeder">
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </button>
   </div>
-  <!-- Main tabs (MAIN_01, MAIN_02...) — only shown when feeder has multiple mains -->
+  <!-- Main tabs -->
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap" id="mainBarWrap">
     <div class="main-bar" id="mainTabs" style="flex:1;margin-bottom:0"></div>
     <button class="btn-icon" onclick="openAddMain()" title="Add new main to current feeder">
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </button>
   </div>
-  <!-- Subset tabs (Status Point / Control Output / Analog Point) -->
+  <!-- Type tabs -->
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
     <div class="type-tabs" id="feederTypeTabs" style="margin-bottom:0"></div>
   </div>
 </div>
 
-<!-- Device mode: existing AVR/LBS/... tabs -->
+<!-- Device mode -->
 <div id="deviceSection" style="display:none">
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
     <div class="dev-tabs" id="devTabs" style="margin-bottom:0;flex:1"></div>
@@ -315,7 +309,7 @@ tr.origin-row td.locked-cell:focus{
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
     <div class="type-tabs" id="typeTabs" style="margin-bottom:0"></div>
   </div>
-</div><!-- /deviceSection -->
+</div>
 
 <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileIn').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
   <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -331,7 +325,6 @@ tr.origin-row td.locked-cell:focus{
 </div>
 
 <div id="keyBar" style="display:none"><div id="keyChips"></div></div>
-
 <div id="dupAlert" style="display:none"></div>
 
 <div class="sel-bar" id="selBar" style="display:none">
@@ -359,20 +352,12 @@ tr.origin-row td.locked-cell:focus{
     <div class="leg"><div class="leg-dot" style="background:#c8a8e8"></div><span>origin (locked)</span></div>
   </div>
 </div>
-  <div class="legend">
-    <div class="leg"><div class="leg-dot" style="background:var(--amber-bdr)"></div><span>duplicate</span></div>
-    <div class="leg"><div class="leg-dot" style="background:var(--green-bdr)"></div><span>original</span></div>
-    <div class="leg"><div class="leg-dot" style="background:var(--blue-bdr)"></div><span>added</span></div>
-    <div class="leg"><div class="leg-dot" style="background:#c8a8e8"></div><span>origin (locked)</span></div>
-  </div>
-</div>
 
 <div style="width:100%;overflow:hidden;">
   <div class="tbl-card" id="tableArea"></div>
-  <!-- action bar stays here, same width container -->
 </div>
 
-<!-- Action bar — below table -->
+<!-- Action bar -->
 <div style="display:flex;border:1px solid var(--border2);border-radius:var(--r);overflow:hidden;flex-shrink:0">
     <button class="btn" style="border:none;border-right:1px solid var(--border2);border-radius:0" onclick="currentMode==='feeder'?openFeederAddRow():openAddRow()">
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -435,7 +420,6 @@ tr.origin-row td.locked-cell:focus{
 <!-- History Modal -->
 <div class="overlay" id="historyModal">
   <div class="modal hist-modal">
-    <!-- Header -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
       <h3 style="margin:0">History</h3>
       <button class="btn" onclick="closeModal('historyModal')">
@@ -443,19 +427,12 @@ tr.origin-row td.locked-cell:focus{
         close
       </button>
     </div>
-    <!-- Sub info -->
     <div style="font-size:12px;color:var(--text3);font-family:var(--mono);margin-bottom:14px" id="histSubLabel"></div>
-
-    <!-- Save manual checkpoint button -->
     <button class="btn success" style="width:100%;justify-content:center;margin-bottom:14px" onclick="saveHistoryPoint('manual')">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       save history point now
     </button>
-
-    <!-- History list -->
     <div class="hist-list" id="histList"></div>
-
-    <!-- Clear history -->
     <div style="border-top:1px solid var(--border);padding-top:12px;display:flex;justify-content:flex-end">
       <button class="btn danger" onclick="confirmClearHistory()">
         <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
@@ -580,8 +557,6 @@ tr.origin-row td.locked-cell:focus{
   </div>
 </div>
 
-<!-- Add Subset Modal removed -->
-
 <!-- Compare Modal -->
 <div class="overlay" id="compareModal">
   <div class="modal" style="width:98vw;max-width:1100px;max-height:92vh;overflow-y:auto">
@@ -592,8 +567,6 @@ tr.origin-row td.locked-cell:focus{
         close
       </button>
     </div>
-
-    <!-- upload zone row -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
       <div>
         <div style="font-size:11px;font-family:var(--mono);color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">File A (Current Dataset — loaded automatically)</div>
@@ -613,9 +586,7 @@ tr.origin-row td.locked-cell:focus{
         </label>
       </div>
     </div>
-
-    <!-- key column selector for compare -->
-    <div id="cmpKeyBar" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;margin-bottom:10px;display:none;align-items:center;gap:8px;flex-wrap:wrap">
+    <div id="cmpKeyBar" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;margin-bottom:10px;align-items:center;gap:8px;flex-wrap:wrap">
       <span style="font-size:11px;font-family:var(--mono);color:var(--text2)">match rows by:</span>
       <div id="cmpKeyChips" style="display:flex;gap:5px;flex-wrap:wrap;flex:1"></div>
       <button class="btn warn" onclick="runCompare()" style="padding:4px 10px;font-size:11px">
@@ -623,23 +594,15 @@ tr.origin-row td.locked-cell:focus{
         compare
       </button>
     </div>
-
-    <!-- legend -->
     <div id="cmpLegend" style="display:none;gap:14px;font-size:11px;font-family:var(--mono);color:var(--text3);margin-bottom:8px;flex-wrap:wrap">
       <div class="leg"><div class="leg-dot" style="background:#90c8a0"></div><span>same in both</span></div>
       <div class="leg"><div class="leg-dot" style="background:#90b8e0"></div><span>only in File A</span></div>
       <div class="leg"><div class="leg-dot" style="background:#e8c84a"></div><span>only in File B</span></div>
       <div class="leg"><div class="leg-dot" style="background:#e8a0a0"></div><span>different value</span></div>
     </div>
-
-    <!-- summary bar -->
     <div id="cmpSummary" style="display:none;gap:8px;margin-bottom:10px;flex-wrap:wrap"></div>
-
-    <!-- side by side table -->
     <div id="cmpTable"></div>
-
-    <!-- action bar -->
-    <div id="cmpActions" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:none;gap:8px;flex-wrap:wrap;align-items:center">
+    <div id="cmpActions" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);gap:8px;flex-wrap:wrap;align-items:center">
       <span style="font-size:13px;color:var(--text2)">Apply to current dataset:</span>
       <button class="btn primary" onclick="applyFile('A')">
         <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
@@ -656,6 +619,7 @@ tr.origin-row td.locked-cell:focus{
     </div>
   </div>
 </div>
+
 <!-- Import Choice Modal -->
 <div class="overlay" id="importChoiceModal">
   <div class="modal" style="width:420px">
@@ -707,7 +671,6 @@ async function sbFetch(method, path, body){
 }
 
 // ── User identity ─────────────────────────────────────────────────────────────
-// Stored in localStorage so it persists across sessions on the same browser
 function getUser(){
   let u = localStorage.getItem('fdm_user');
   if(!u){
@@ -788,11 +751,9 @@ async function loadDataset(key){
     setSyncStatus('syncing','loading…');
     const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(key)+'&order=row_index.asc','');
     const d=DATASETS[key];
-    const prevOrigin=d.originCount||0;
     d.rows=data.map(r=>r.data);
     d.dbIds=data.map(r=>r.id);
     d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
-    // preserve originCount if already set; first load sets it
     const savedOriginD = data.length ? (data[0].origin_count || data[0].data?.__originCount || 0) : 0;
     d.originCount = savedOriginD;
     d.rows = d.rows.map(r=>{ const {__originCount,...rest}=r; return rest; });
@@ -817,7 +778,6 @@ async function saveDataset(key){
     const d=DATASETS[key];
     await sbFetch('DELETE', TABLE+'?dataset_key=eq.'+encodeURIComponent(key));
     if(d.rows.length){
-      // Store originCount in first row metadata for persistence
       const inserts=d.rows.map((row,i)=>({dataset_key:key,row_index:i,data:row,origin_count:d.originCount||0}));
       const result=await sbFetch('POST', TABLE, inserts);
       d.dbIds=result.map(r=>r.id);
@@ -856,13 +816,12 @@ function parseFilenameForRouting(filename) {
     .replace(/\.(csv|xlsx|xls)$/i, '')
     .replace(/[-_ ]+export$/i, '')
     .replace(/[-_ ]+copy$/i, '')
-    .replace(/\[\d+\]/g, '')   // strip [1], [2] etc (duplicate downloads)
+    .replace(/\[\d+\]/g, '')
     .trim();
 
   const norm  = s => s.replace(/[^a-z0-9]/gi, '_').toLowerCase();
   const normB = norm(base);
 
-  // ── Type keyword scan (anywhere in filename) ──────────────────
   const TYPE_KEYWORDS = [
     { keys: ['status_point', 'status point', 'statuspoint', '_sp_', '_sp'],         type: 'Status Point'   },
     { keys: ['control_output','control output','controloutput','_co_','_co'],        type: 'Control Output' },
@@ -876,10 +835,8 @@ function parseFilenameForRouting(filename) {
     }
   }
 
-  // ── Main keyword scan ─────────────────────────────────────────
   const mainMatch = (base.match(/MAIN_\d+/i) || [])[0]?.toUpperCase() || 'MAIN_01';
 
-  // ── Feeder scan — check if any feeder name appears in filename ─
   for (const sub of Object.keys(FEEDER_STRUCTURE)) {
     for (const feed of getFeederNames(sub)) {
       if (normB.includes(norm(feed))) {
@@ -896,7 +853,6 @@ function parseFilenameForRouting(filename) {
     }
   }
 
-  // ── Substation scan ───────────────────────────────────────────
   for (const sub of Object.keys(FEEDER_STRUCTURE)) {
     if (normB.includes(norm(sub))) {
       return {
@@ -911,7 +867,6 @@ function parseFilenameForRouting(filename) {
     }
   }
 
-  // ── Device scan ───────────────────────────────────────────────
   for (const dev of Object.keys(GROUPS)) {
     if (normB.includes(norm(dev))) {
       return {
@@ -923,11 +878,11 @@ function parseFilenameForRouting(filename) {
     }
   }
 
-  // ── Nothing found ─────────────────────────────────────────────
   return { confidence: 'none', mode: null };
 }
 
 let pendingImportData = null;
+let pendingImportRoute = null;
 
 function detectTypeFromColumns(data) {
   if (!data || !data.length) return null;
@@ -948,33 +903,22 @@ function processFile(f) {
     try {
       const wb = XLSX.read(e.target.result, { type: 'array' });
 
-      // ── Multi-sheet file ──────────────────────────────────────────────────
       if (wb.SheetNames.length > 1) {
         for (const sheetName of wb.SheetNames) {
           const ws     = wb.Sheets[sheetName];
           const tables = parseMultiTableSheet(ws);
-          showImportToast(
-            `<strong>Sheet: ${sheetName}</strong><br>` +
-            (tables.length
-              ? tables.map((t,i) => `&nbsp;${i+1}. ${t.type||'?'} — ${t.rows.length} rows`).join('<br>')
-              : '⚠ No tables found in this sheet')
-          );
-          // Show what was found
           if (!tables.length) {
-            showImportToast('⚠ No tables detected in this sheet. Check console for details.', true);
-            return;
+            showImportToast('⚠ No tables found in sheet: ' + sheetName, true);
+            continue;
           }
           showImportToast(
-            `<strong>Found ${tables.length} table(s):</strong><br>` +
-            tables.map((t,i) =>
-              `&nbsp;${i+1}. <b>${t.type || '?unknown type'}</b> — ${t.rows.length} rows`
-            ).join('<br>')
+            `<strong>Sheet: ${sheetName}</strong><br>` +
+            tables.map((t,i) => `&nbsp;${i+1}. ${t.type||'?'} — ${t.rows.length} rows`).join('<br>')
           );
           const sheetRoute = parseSheetNameForRouting(sheetName);
 
           for (const [idx, tbl] of tables.entries()) {
             if (!tbl.rows.length) continue;
-
             pendingImportData  = tbl.rows;
             pendingImportRoute = {
               confidence:  sheetRoute.feeder ? 'full' : 'partial',
@@ -985,40 +929,29 @@ function processFile(f) {
               subset:      sheetRoute.main,
               type:        tbl.type
             };
-
             const label = sheetName + ' — ' + (tbl.type || 'table ' + (idx + 1));
             showManualRouteModal(label, pendingImportRoute);
-
-            // Wait for user to confirm before moving to next table/sheet
             await new Promise(resolve => { window._manualRouteResolve = resolve; });
           }
         }
         return;
       }
 
-      // ── Single-sheet file ─────────────────────────────────────────────────
       const ws     = wb.Sheets[wb.SheetNames[0]];
       const tables = parseMultiTableSheet(ws);
 
       if (!tables.length) { alert('File appears empty.'); return; }
 
       if (tables.length === 1) {
-        // Original single-table path
         const data = tables[0].rows;
         if (!data.length) { alert('Table has no data rows.'); return; }
         pendingImportData = data;
         const route = parseFilenameForRouting(f.name);
-        if (route.confidence === 'full') {
-          pendingImportRoute = route;
-          showManualRouteModal(f.name, pendingImportRoute);
-        } else {
-          pendingImportRoute = route.confidence !== 'none' ? route : null;
-          showManualRouteModal(f.name, pendingImportRoute);
-        }
+        pendingImportRoute = route.confidence !== 'none' ? route : null;
+        showManualRouteModal(f.name, pendingImportRoute);
         return;
       }
 
-      // Multiple tables in a single sheet
       const baseRoute = parseFilenameForRouting(f.name);
       for (const [idx, tbl] of tables.entries()) {
         if (!tbl.rows.length) continue;
@@ -1043,7 +976,7 @@ function processFile(f) {
 }
 
 function showManualRouteModal(filename, partialRoute) {
-  const modeVal = partialRoute?.mode || 'feeder';
+  const modeVal = partialRoute?.mode || (currentMode === 'feeder' ? 'feeder' : 'device');
 
   const subOptions = Object.keys(FEEDER_STRUCTURE).map(s =>
     `<option value="${s}" ${partialRoute?.substation === s ? 'selected' : ''}>${s}</option>`
@@ -1057,14 +990,12 @@ function showManualRouteModal(filename, partialRoute) {
     `<option value="${t}" ${partialRoute?.type === t ? 'selected' : ''}>${t}</option>`
   ).join('');
 
-  // Build confidence banner
   let note = '';
   if (!partialRoute || partialRoute.confidence === 'none') {
     note = `<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);padding:8px 12px;font-size:12px;color:var(--text2);margin-bottom:14px">
       Could not determine destination from <strong style="font-family:var(--mono)">${filename}</strong>. Please select manually.
     </div>`;
   } else {
-    // Show what WAS detected vs what's still missing
     const detected = [];
     const missing  = [];
     if (partialRoute.mode === 'device') {
@@ -1090,16 +1021,13 @@ function showManualRouteModal(filename, partialRoute) {
   document.getElementById('manualRouteFilename').textContent = filename;
   document.getElementById('manualRouteNote').innerHTML = note;
 
-  // Set mode
   mrSwitchMode(modeVal);
 
-  // Populate selects FIRST then cascade
   document.getElementById('mrSubstation').innerHTML = subOptions;
   document.getElementById('mrDevice').innerHTML     = devOptions;
   document.getElementById('mrTypeFeeder').innerHTML = typeOptions;
   document.getElementById('mrTypeDevice').innerHTML = typeOptions;
 
-  // Pre-select values
   if (partialRoute?.substation) document.getElementById('mrSubstation').value = partialRoute.substation;
   if (partialRoute?.device)     document.getElementById('mrDevice').value     = partialRoute.device;
   if (partialRoute?.type) {
@@ -1107,10 +1035,8 @@ function showManualRouteModal(filename, partialRoute) {
     document.getElementById('mrTypeDevice').value = partialRoute.type;
   }
 
-  // Cascade feeders + mains
   mrUpdateFeeders();
 
-  // Pre-select feeder + main after cascade
   if (partialRoute?.feeder) {
     const sel = document.getElementById('mrFeeder');
     if ([...sel.options].some(o => o.value === partialRoute.feeder)) {
@@ -1135,18 +1061,24 @@ function mrSwitchMode(mode) {
   document.getElementById('mrDevicePanel').style.display = mode === 'device' ? 'block' : 'none';
 }
 
+// ── FIXED: mrUpdateFeeders handles empty feeder list gracefully ───────────────
 function mrUpdateFeeders() {
   const sub = document.getElementById('mrSubstation').value;
   const feeders = getFeederNames(sub);
-  document.getElementById('mrFeeder').innerHTML = feeders.map(f => `<option value="${f}">${f}</option>`).join('');
+  const feederSel = document.getElementById('mrFeeder');
+  feederSel.innerHTML = feeders.length
+    ? feeders.map(f => `<option value="${f}">${f}</option>`).join('')
+    : `<option value="">— no feeders yet —</option>`;
   mrUpdateMains();
 }
 
 function mrUpdateMains() {
   const sub  = document.getElementById('mrSubstation').value;
   const feed = document.getElementById('mrFeeder').value;
-  const mains = getMainNames(sub, feed);
-  document.getElementById('mrMain').innerHTML = mains.map(m => `<option value="${m}">${m}</option>`).join('');
+  const mains = feed ? getMainNames(sub, feed) : [];
+  document.getElementById('mrMain').innerHTML = mains.length
+    ? mains.map(m => `<option value="${m}">${m}</option>`).join('')
+    : `<option value="MAIN_01">MAIN_01</option>`;
 }
 
 async function doManualRouteImport(importMode) {
@@ -1177,7 +1109,6 @@ async function doManualRouteImport(importMode) {
   const importData = pendingImportData;
   pendingImportData = null;
   if (!importData || !importData.length) {
-    // Resolve queue if active
     if (typeof window._manualRouteResolve === 'function') {
       const res = window._manualRouteResolve;
       window._manualRouteResolve = null;
@@ -1187,7 +1118,6 @@ async function doManualRouteImport(importMode) {
   }
 
   if (route.mode === 'feeder') {
-    // Navigate to the correct substation / feeder / main / type
     currentSubstation = route.substation;
     currentFeeder     = route.feeder;
     currentMain       = route.main || 'MAIN_01';
@@ -1212,7 +1142,6 @@ async function doManualRouteImport(importMode) {
     d.dupInfo = {}; d.checked = false;
     selected = new Set(); hideDupAlert();
 
-    // Refresh UI to show the destination we just imported into
     renderSubstationTabs(); renderFeederTabs();
     renderSubsetTabs(); renderMainTabs(); renderFeederTypeTabs();
     renderFeederTable(); renderFeederStats();
@@ -1223,7 +1152,6 @@ async function doManualRouteImport(importMode) {
     hideLoading();
 
   } else {
-    // Device mode
     if (route.device && route.device !== currentDevice) {
       currentDevice = route.device;
       currentType   = route.type || Object.keys(GROUPS[currentDevice])[0];
@@ -1255,7 +1183,6 @@ async function doManualRouteImport(importMode) {
     hideLoading();
   }
 
-  // Resolve multi-table queue promise if active
   if (typeof window._manualRouteResolve === 'function') {
     const res = window._manualRouteResolve;
     window._manualRouteResolve = null;
@@ -1272,7 +1199,6 @@ async function doImport(mode, data){
   if(currentMode==='feeder'){
     const d=fds(); const c=feederCols();
     if(mode==='origin'){
-      // Replace: discard ALL existing rows (origin + addon), start fresh
       d.rows=[];d.manuallyAdded=new Set();d.originCount=0;
     }
     importData.forEach(r=>{
@@ -1281,7 +1207,7 @@ async function doImport(mode, data){
       if(mode==='addon') d.manuallyAdded.add(d.rows.length-1);
     });
     if(mode==='origin'){
-      d.originCount=d.rows.length; // new rows become the locked origin
+      d.originCount=d.rows.length;
       d.manuallyAdded=new Set();
     }
     d.dupInfo={};d.checked=false;selected=new Set();hideDupAlert();
@@ -1293,7 +1219,6 @@ async function doImport(mode, data){
   } else {
     const d=ds(); const c=cols();
     if(mode==='origin'){
-      // Replace: discard ALL existing rows, start fresh
       d.rows=[];d.manuallyAdded=new Set();d.originCount=0;
     }
     importData.forEach(r=>{
@@ -1397,7 +1322,7 @@ function toggleAll(chk){
   const q=(document.getElementById('searchBox').value||'').toLowerCase();
   const d=ds();
   d.rows.forEach((r,i)=>{
-    if(i<(d.originCount||0)) return; // skip origin rows
+    if(i<(d.originCount||0)) return;
     const vis=!q||cols().some(c=>String(r[c]||'').toLowerCase().includes(q));
     if(vis){if(chk)selected.add(i);else selected.delete(i);}
   });
@@ -1414,12 +1339,10 @@ function updateSelBar(){
 function confirmDeleteSelected(){
   if(!selected.size)return;
   document.getElementById('confirmMsg').textContent=`Remove ${selected.size} selected row${selected.size>1?'s':''}? This cannot be undone.`;
-  // Route delete to feeder or device mode
   document.getElementById('confirmOkBtn').onclick=currentMode==='feeder'?doDeleteFeederSelected:doDeleteSelected;
   document.getElementById('confirmModal').classList.add('open');
 }
 
-// Bulk delete for feeder mode
 async function doDeleteFeederSelected(){
   const d=fds();
   const idxs=[...selected].filter(i=>i>=(d.originCount||0)).sort((a,b)=>b-a);
@@ -1473,7 +1396,7 @@ function editCell(idx,col,el){
   const isOrigin=idx<(d.originCount||0);
   const alwaysEditable=['DNP3.0_ADDRESS','NOTE'];
   if(isOrigin && !alwaysEditable.includes(col)){
-    el.innerText=d.rows[idx][col]??''; // revert
+    el.innerText=d.rows[idx][col]??'';
     return;
   }
   d.rows[idx][col]=el.innerText.trim();
@@ -1543,8 +1466,6 @@ function renderTable(){
 }
 
 // ── Add Row ───────────────────────────────────────────────────────────────────
-// Default values for device mode add row
-// Per-type defaults for device mode add row
 const DEVICE_ROW_DEFAULTS = {
   'Status Point': {
     'DNP3.0_OBJ':   '2',
@@ -1591,7 +1512,6 @@ async function saveNewRow(){
   showLoading('Saving…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
 }
 function confirmClearAll(){
-  // Route to feeder or device mode
   const rowCount=currentMode==='feeder'?fds().rows.length:ds().rows.length;
   if(!rowCount){alert('No rows to clear.');return;}
   document.getElementById('confirmMsg').textContent=`Remove all ${rowCount} rows from this dataset? This cannot be undone.`;
@@ -1600,14 +1520,12 @@ function confirmClearAll(){
 }
 async function doClearAll(){
   if(currentMode==='feeder'){
-    // Clear feeder dataset
     const d=fds();
     d.rows=[];d.dbIds=[];d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
     selected=new Set();hideDupAlert();
     closeModal('confirmModal');renderFeederTable();renderFeederStats();
     showLoading('Clearing data…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();
   } else {
-    // Clear device dataset
     const d=ds();
     d.rows=[];d.dbIds=[];d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
     selected=new Set();hideDupAlert();
@@ -1618,15 +1536,6 @@ async function doClearAll(){
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 
 // ── Export ────────────────────────────────────────────────────────────────────
-function exportExcel(){
-  const d=ds();const c=cols();
-  if(!d.rows.length){alert('No data to export.');return;}
-  const out=d.rows.map((r,i)=>{const o={};c.forEach(col=>o[col]=r[col]??'');if(d.checked&&d.dupInfo[i])o['dup_status']=d.dupInfo[i];return o;});
-  const ws=XLSX.utils.json_to_sheet(out);
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,currentKey().replace(/[\\/*?:[\]]/g,'_').substring(0,31));
-  XLSX.writeFile(wb,currentKey()+'_export.xlsx');
-}
 function exportAllExcel(){
   const wb = XLSX.utils.book_new();
   const allRows = [];
@@ -1657,7 +1566,6 @@ function exportAllExcel(){
 function exportDeviceTCD(){
   const d = ds(); const c = cols();
   if(!d.rows.length){ alert('No data to export.'); return; }
-  // TCD is tab-delimited
   const lines = [
     c.join('\t'),
     ...d.rows.map(r => c.map(col => String(r[col] ?? '').replace(/\t/g,'')).join('\t'))
@@ -1676,15 +1584,12 @@ function renderAll(){
 // ── Init ──────────────────────────────────────────────────────────────────────
 (async()=>{
   showLoading('Connecting to database…');
-  // Init user identity
   getUser();
   document.getElementById('userLabel').textContent = currentUser();
   try{
     await loadConfig();
     await loadFeederConfig();
 
-    // After loading config, re-resolve currentFeeder/currentMain in case
-    // Supabase had extra substations saved
     const firstSub = Object.keys(FEEDER_STRUCTURE)[0];
     if(firstSub){
       currentSubstation = firstSub;
@@ -1720,15 +1625,9 @@ function renderAll(){
   }
 })();
 
-// ── History & Backup ─────────────────────────────────────────────────────────
-// History is stored in Supabase as special rows with dataset_key = __history__<key>
-// Each entry contains: { label, timestamp, trigger, rows[] }
-// Max 30 history entries per dataset to avoid bloat
-
+// ── History ───────────────────────────────────────────────────────────────────
 const MAX_HISTORY = 30;
 
-// Save a history point for the current dataset
-// trigger: 'auto' (on change) or 'manual' (user clicked)
 async function saveHistoryPoint(trigger='auto'){
   const d = ds();
   const key = currentKey();
@@ -1738,41 +1637,30 @@ async function saveHistoryPoint(trigger='auto'){
     : 'Auto — ' + currentDevice + ' / ' + currentType;
 
   const entry = {
-    label,
-    trigger,
+    label,trigger,
     timestamp: new Date().toISOString(),
     rowCount: d.rows.length,
-    rows: JSON.parse(JSON.stringify(d.rows)) // deep copy
+    rows: JSON.parse(JSON.stringify(d.rows))
   };
 
   try {
-    // fetch existing history for this dataset
     const existing = await sbFetch('GET', TABLE + '?dataset_key=eq.' + encodeURIComponent(histKey) + '&order=row_index.desc');
     const entries = existing.map(r => r.data);
-
-    // prepend new entry, trim to MAX_HISTORY
     entries.unshift(entry);
     if(entries.length > MAX_HISTORY) entries.splice(MAX_HISTORY);
-
-    // delete and re-save
     await sbFetch('DELETE', TABLE + '?dataset_key=eq.' + encodeURIComponent(histKey));
     if(entries.length){
       const inserts = entries.map((e,i) => ({dataset_key: histKey, row_index: i, data: e}));
       await sbFetch('POST', TABLE, inserts);
     }
-
     if(trigger === 'manual'){
       setSyncStatus('synced', 'history saved ✓');
-      renderHistList(); // refresh the list if modal is open
+      renderHistList();
     }
-  } catch(e){
-    console.error('History save error:', e);
-  }
+  } catch(e){ console.error('History save error:', e); }
 }
 
-// Open history modal for current dataset
 async function openHistory(){
-  // Show correct label based on mode
   const lbl = currentMode==='feeder'
     ? currentSubstation+' / '+currentFeeder+' / '+currentFeederType
     : currentDevice+' — '+currentType;
@@ -1782,9 +1670,7 @@ async function openHistory(){
   await renderHistList();
 }
 
-// Render history list inside modal
 async function renderHistList(){
-  // Use feeder or device key depending on current mode
   const histKey = '__history__' + (currentMode==='feeder' ? currentFeederKey() : currentKey());
   try {
     const existing = await sbFetch('GET', TABLE + '?dataset_key=eq.' + encodeURIComponent(histKey) + '&order=row_index.asc');
@@ -1803,9 +1689,7 @@ async function renderHistList(){
       const isManual = e.trigger === 'manual';
       return `<div class="hist-item">
         <div class="hist-meta">
-          <div class="hist-label">
-            ${isManual ? '📌 ' : '🔄 '}${e.label}
-          </div>
+          <div class="hist-label">${isManual ? '📌 ' : '🔄 '}${e.label}</div>
           <div class="hist-time">${dateStr} at ${timeStr}</div>
           <div class="hist-rows">${e.rowCount ?? (e.rows ? e.rows.length : '?')} rows</div>
         </div>
@@ -1816,7 +1700,6 @@ async function renderHistList(){
       </div>`;
     }).join('');
 
-    // store entries on window for preview/restore
     window._histEntries = entries;
   } catch(e){
     document.getElementById('histList').innerHTML = '<div class="hist-empty">Could not load history.</div>';
@@ -1824,7 +1707,6 @@ async function renderHistList(){
   }
 }
 
-// Preview a history entry — renders a mini table inside a modal
 function previewHistory(idx){
   const e = window._histEntries[idx];
   if(!e) return;
@@ -1849,7 +1731,6 @@ function previewHistory(idx){
   document.getElementById('previewModal').classList.add('open');
 }
 
-// Confirm restore
 function confirmRestore(idx){
   const e = window._histEntries[idx];
   if(!e) return;
@@ -1861,14 +1742,11 @@ function confirmRestore(idx){
   document.getElementById('restoreModal').classList.add('open');
 }
 
-// Perform restore
 async function doRestore(idx){
   const e = window._histEntries[idx];
   if(!e) return;
   const d = ds(); const c = cols();
-  // save current state to history before restoring
   await saveHistoryPoint('auto');
-  // restore
   d.rows = (e.rows||[]).map(r=>{const o={};c.forEach(col=>o[col]=r[col]??'');return o;});
   d.manuallyAdded = new Set();
   d.dupInfo = {}; d.checked = false;
@@ -1882,7 +1760,6 @@ async function doRestore(idx){
   setSyncStatus('synced','restored ✓');
 }
 
-// Clear all history for current dataset
 function confirmClearHistory(){
   const lbl = currentMode==='feeder'
     ? currentSubstation+' / '+currentFeeder+' / '+currentFeederType
@@ -1902,32 +1779,27 @@ async function doClearHistory(){
   }catch(e){ console.error(e); }
 }
 
-// ── Schema templates for new subsets ─────────────────────────────────────────
-// ── Device mode column schemas (no feeder-specific columns) ──────────────────
+// ── Schema templates ──────────────────────────────────────────────────────────
 const SCHEMA_TEMPLATES = {
   status:  ["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"],
   control: ["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"],
   analog:  ["SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"]
 };
 
-// ── Feeder mode column schemas (includes FEEDER_NAME, BAY_NAME, extra columns) ─
 const FEEDER_SCHEMA_TEMPLATES = {
   status:  ["FEEDER_NAME","BAY_NAME","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","REMARK","NOTE","BAY_PROT.&BCU_NAME","IEC61850_PROT.&BCU_REFERENCE","BRCB/URCB"],
   control: ["FEEDER_NAME","BAY_NAME","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","REMARK","NOTE","BAY_PROT.&BCU_NAME","IEC61850_PROT.&BCU_REFERENCE","BRCB/URCB"],
   analog:  ["FEEDER_NAME","BAY_NAME","SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","REMARK","NOTE","BAY_PROT.&BCU_NAME","IEC61850_PROT.&BCU_REFERENCE","BRCB/URCB"]
 };
 
-// Default key columns for feeder mode — meaningful unique identifiers
 const FEEDER_DEFAULT_KEYS = ["FEEDER_NAME","BAY_NAME","SPECIFICATION_POINT_NAME","DNP3.0_ADDRESS"];
-
 const SCHEMA_TYPE_MAP = {
   "Status Point":"status","Control Output":"control","Analog Point":"analog"
 };
 
-// ── Persist device/subset config to Supabase ──────────────────────────────────
+// ── Config persistence ────────────────────────────────────────────────────────
 async function saveConfig(){
   try{
-    // store config as a special row in feeder_data
     await sbFetch('DELETE', TABLE+'?dataset_key=eq.__config__');
     await sbFetch('POST', TABLE, [{
       dataset_key:'__config__',
@@ -1945,11 +1817,8 @@ async function loadConfig(){
     const data=await sbFetch('GET', TABLE+'?dataset_key=eq.__config__&limit=1');
     if(data&&data.length){
       const cfg=data[0].data;
-      // restore groups
       Object.keys(cfg.groups).forEach(dev=>{
-        if(!GROUPS[dev]){
-          GROUPS[dev]={};
-        }
+        if(!GROUPS[dev]) GROUPS[dev]={};
         Object.entries(cfg.groups[dev]).forEach(([type,key])=>{
           if(!GROUPS[dev][type]) GROUPS[dev][type]=key;
           if(!DEFAULT_COLUMNS[key]) DEFAULT_COLUMNS[key]=cfg.columns[key]||SCHEMA_TEMPLATES.status;
@@ -2013,38 +1882,7 @@ async function saveNewDevice(){
   renderAll();
 }
 
-// ── Add Subset ────────────────────────────────────────────────────────────────
-function openAddSubset(){
-  document.getElementById('addSubsetDeviceName').textContent=currentDevice;
-  document.getElementById('newSubsetName').value='';
-  document.getElementById('newSubsetSchema').value='status';
-  document.getElementById('addSubsetModal').classList.add('open');
-}
-
-async function saveNewSubset(){
-  const name=document.getElementById('newSubsetName').value.trim();
-  if(!name){alert('Enter a subset name.');return;}
-  if(GROUPS[currentDevice][name]){alert('Subset "'+name+'" already exists in '+currentDevice+'.');return;}
-
-  const schema=document.getElementById('newSubsetSchema').value;
-  const key=currentDevice+'_'+name.replace(/\s+/g,'_');
-  DEFAULT_COLUMNS[key]=[...SCHEMA_TEMPLATES[schema]];
-  DATASETS[key]={rows:[],dbIds:[],manuallyAdded:new Set(),originCount:0,dupInfo:{},keyColumns:new Set(['SPECIFICATION_POINT_NAME','DNP3.0_ADDRESS'].filter(k=>DEFAULT_COLUMNS[key].includes(k))),checked:false};
-  GROUPS[currentDevice][name]=key;
-  currentType=name;
-  selected=new Set();hideDupAlert();
-  closeModal('addSubsetModal');
-  showLoading('Saving subset config…');
-  await saveConfig();
-  hideLoading();
-  renderAll();
-}
-
 // ── Substation / Feeder Mode ─────────────────────────────────────────────────
-// Separate from device mode — Substation > Feeder > Subset (no device level)
-// Data stored in Supabase with key: __feeder__<substation>__<feeder>__<subset>
-
-// Hardcoded initial substation + feeders
 const FEEDER_STRUCTURE = {
   "BR & A Half": {
     feeders: {
@@ -2063,7 +1901,7 @@ const FEEDER_STRUCTURE = {
       "TP_01":       {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
       "LINE_01":     {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
       "BUS_COUPLER": {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "BUS_ZONE": {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
+      "BUS_ZONE":    {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
       "RCC_01":      {"subsets":["MAIN_01"],"mains":["MAIN_01"]}
     }
   },
@@ -2072,7 +1910,7 @@ const FEEDER_STRUCTURE = {
       "SSMN":        {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
       "TP_01":       {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
       "LINE_01":     {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "BUS_TIE": {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
+      "BUS_TIE":     {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
       "RCC_01":      {"subsets":["MAIN_01"],"mains":["MAIN_01"]}
     }
   },
@@ -2081,42 +1919,39 @@ const FEEDER_STRUCTURE = {
       "SSMN":        {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
       "TP_01":       {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
       "LINE_01":     {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "BUS_TIE": {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
+      "BUS_TIE":     {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
       "RCC_01":      {"subsets":["MAIN_01"],"mains":["MAIN_01"]}
     }
   },
   "AIS substation": {
     feeders: {
       "SSMN":        {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "INC_01":       {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "BS1":     {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "OUT_01":   {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "TS_01(CB)": {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "TS_01(LBS)": {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "BUSPT_01": {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
+      "INC_01":      {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
+      "BS1":         {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
+      "OUT_01":      {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
+      "TS_01(CB)":   {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
+      "TS_01(LBS)":  {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
+      "BUSPT_01":    {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
       "CAP_01":      {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "CAP_BANK_01":      {"subsets":["MAIN_01"],"mains":["MAIN_01"]}
+      "CAP_BANK_01": {"subsets":["MAIN_01"],"mains":["MAIN_01"]}
     }
   },
   "GIS substation": {
     feeders: {
       "SSMN":        {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "INC_01":       {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "BS1":     {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "OUT_01":   {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "TS_01(CB)": {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "BUSPT_01": {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
+      "INC_01":      {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
+      "BS1":         {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
+      "OUT_01":      {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
+      "TS_01(CB)":   {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
+      "BUSPT_01":    {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
       "CAP_01":      {"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "CAP_BANK_01":      {"subsets":["MAIN_01"],"mains":["MAIN_01"]}
+      "CAP_BANK_01": {"subsets":["MAIN_01"],"mains":["MAIN_01"]}
     }
   }
 };
 
-// Feeder subsets — same schema as device subsets
 const FEEDER_SUBSETS = ["Status Point","Control Output","Analog Point"];
 
-// ── Helper: get feeders list for current substation ───────────────────────────
-// FEEDER_STRUCTURE feeders is now an object {feederName: {mains:[...]}}
 function getFeederNames(sub){
   return Object.keys(FEEDER_STRUCTURE[sub]?.feeders || {});
 }
@@ -2126,34 +1961,23 @@ function getSubsetNames(sub, feed){
 function getMainNames(sub, feed){
   return FEEDER_STRUCTURE[sub]?.feeders[feed]?.mains || ["MAIN_01"];
 }
-// Feeders with a trailing number (e.g. TP_01, LINE_01) default main to MAIN_01
-function feederHasNumberSuffix(feedName){
-  return false;
-}
+function feederHasNumberSuffix(feedName){ return false; }
 
-// Schema map for feeder subsets
 const FEEDER_SCHEMA_MAP = {
   "Status Point":  "status",
   "Control Output":"control",
   "Analog Point":  "analog"
 };
 
-// Current feeder mode state
-let currentMode      = 'feeder'; // 'feeder' or 'device'
+let currentMode      = 'feeder';
 let currentSubstation= Object.keys(FEEDER_STRUCTURE)[0];
 let currentFeeder    = Object.keys(FEEDER_STRUCTURE[currentSubstation].feeders)[0];
 let currentSubset    = 'MAIN_01';
 let currentMain      = 'MAIN_01';
 let currentFeederType= FEEDER_SUBSETS[0];
 
-// Feeder subsets — shown between Feeder and Main tabs
-const FEEDER_SUBSET_LIST = ["MAIN_01"];
-
-// In-memory cache for feeder datasets
 const FEEDER_DATASETS = {};
 
-// Build dataset key for feeder data
-// Dataset key now includes main level: substation__feeder__main__type
 function feederKey(sub, feed, subset, main, type){
   return '__feeder__' + sub + '__' + feed + '__' + subset + '__' + main + '__' + type;
 }
@@ -2163,19 +1987,15 @@ function currentFeederKey(){
 }
 
 function feederCols(){
-  // Feeder mode uses its own extended schema with FEEDER_NAME, BAY_NAME, etc.
   return FEEDER_SCHEMA_TEMPLATES[FEEDER_SCHEMA_MAP[currentFeederType]];
 }
 
-// Get or init feeder dataset
 function fds(){
   const k = currentFeederKey();
   if(!FEEDER_DATASETS[k]){
-    // Feeder mode key columns: FEEDER_NAME, BAY_NAME, SPECIFICATION_POINT_NAME, DNP3.0_ADDRESS
-    // These are feeder-specific identifiers, different from device mode defaults
     FEEDER_DATASETS[k] = {
       rows:[], dbIds:[], manuallyAdded:new Set(),
-      originCount:0,  // rows[0..originCount-1] are origin (locked except DNP3.0_ADDRESS)
+      originCount:0,
       dupInfo:{}, keyColumns:new Set(
         FEEDER_DEFAULT_KEYS.filter(c=>feederCols().includes(c))
       ),
@@ -2196,7 +2016,6 @@ function switchMode(mode){
   hideDupAlert();
   document.getElementById('searchBox').value='';
 
-  // Update export button labels and visibility by mode
   const lblAll  = document.getElementById('lblExportAll');
   const btnTCD  = document.getElementById('btnExportTCD');
   if(mode==='feeder'){
@@ -2219,23 +2038,19 @@ function switchMode(mode){
   }
 }
 
-// ── Substation tabs ───────────────────────────────────────────────────────────
+// ── FIXED: Substation tabs now use dev-tab class (bold dark active) ───────────
 function renderSubstationTabs(){
   document.getElementById('substationTabs').innerHTML =
     Object.keys(FEEDER_STRUCTURE).map(s=>
-      `<button class="feeder-tab${s===currentSubstation?' active':''}" onclick="switchSubstation('${s.replace(/'/g,"\'")}')">
-        ${s}
-      </button>`
+      `<button class="dev-tab${s===currentSubstation?' active':''}" onclick="switchSubstation('${s.replace(/'/g,"\\'")}')">${s}</button>`
     ).join('');
 }
 
 async function switchSubstation(s){
   currentSubstation = s;
-  currentFeeder     = getFeederNames(s)[0];
-  currentSubset     = getSubsetNames(s, currentFeeder)[0] || 'MAIN_01';
-  currentMain       = feederHasNumberSuffix(currentFeeder)
-    ? (getMainNames(s, currentFeeder)[0] || 'MAIN_01')
-    : 'MAIN_01';
+  currentFeeder     = getFeederNames(s)[0] || null;
+  currentSubset     = currentFeeder ? (getSubsetNames(s, currentFeeder)[0] || 'MAIN_01') : 'MAIN_01';
+  currentMain       = currentFeeder ? (getMainNames(s, currentFeeder)[0] || 'MAIN_01') : 'MAIN_01';
   currentFeederType = FEEDER_SUBSETS[0];
   selected=new Set();hideDupAlert();
   renderSubstationTabs();
@@ -2243,24 +2058,25 @@ async function switchSubstation(s){
   renderSubsetTabs();
   renderMainTabs();
   renderFeederTypeTabs();
-  await loadFeederDataset();
+  if(currentFeeder) await loadFeederDataset();
+  else {
+    document.getElementById('tableArea').innerHTML='<div class="empty"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg><p>No feeders in this substation</p><span>Add feeders using the + button.</span></div>';
+    renderFeederStats();
+  }
 }
+
 // ── Feeder tabs ───────────────────────────────────────────────────────────────
 function renderFeederTabs(){
   document.getElementById('feederTabs').innerHTML =
     getFeederNames(currentSubstation).map(f=>
-      `<button class="feeder-tab${f===currentFeeder?' active':''}" onclick="switchFeeder('${f.replace(/'/g,"\'")}')">
-        ${f}
-      </button>`
+      `<button class="feeder-tab${f===currentFeeder?' active':''}" onclick="switchFeeder('${f.replace(/'/g,"\\'")}')">${f}</button>`
     ).join('');
 }
 
 async function switchFeeder(f){
   currentFeeder     = f;
   currentSubset     = getSubsetNames(currentSubstation, f)[0] || 'MAIN_01';
-  currentMain       = feederHasNumberSuffix(f)
-    ? (getMainNames(currentSubstation, f)[0] || 'MAIN_01')
-    : 'MAIN_01';
+  currentMain       = getMainNames(currentSubstation, f)[0] || 'MAIN_01';
   currentFeederType = FEEDER_SUBSETS[0];
   selected=new Set();hideDupAlert();
   renderFeederTabs();
@@ -2270,28 +2086,21 @@ async function switchFeeder(f){
   await loadFeederDataset();
 }
 
-// ── Subset tabs (between Feeder and Main) ─────────────────────────────────────
+// ── Subset tabs ───────────────────────────────────────────────────────────────
 function renderSubsetTabs(){
   const subsets = getSubsetNames(currentSubstation, currentFeeder);
   const wrap = document.getElementById('subsetBarWrap');
   if(!wrap) return;
-  if(subsets.length <= 1){
-    wrap.style.display='none';
-    return;
-  }
+  if(subsets.length <= 1){ wrap.style.display='none'; return; }
   wrap.style.display='flex';
   document.getElementById('subsetTabs').innerHTML = subsets.map(s=>
-    `<button class="subset-tab${s===currentSubset?' active':''}" onclick="switchSubset('${s}')">
-      ${s}
-    </button>`
+    `<button class="subset-tab${s===currentSubset?' active':''}" onclick="switchSubset('${s}')">${s}</button>`
   ).join('');
 }
 
 async function switchSubset(s){
   currentSubset = s;
-  currentMain   = feederHasNumberSuffix(currentFeeder)
-    ? (getMainNames(currentSubstation, currentFeeder)[0] || 'MAIN_01')
-    : 'MAIN_01';
+  currentMain   = getMainNames(currentSubstation, currentFeeder)[0] || 'MAIN_01';
   currentFeederType = FEEDER_SUBSETS[0];
   selected=new Set();hideDupAlert();
   renderSubsetTabs();
@@ -2300,7 +2109,6 @@ async function switchSubset(s){
   await loadFeederDataset();
 }
 
-// ── Add Subset Tab ────────────────────────────────────────────────────────────
 function openAddSubsetTab(){
   const name = prompt('Enter subset name (e.g. MAIN_02, BACKUP_01):');
   if(!name || !name.trim()) return;
@@ -2315,21 +2123,16 @@ function openAddSubsetTab(){
   loadFeederDataset();
 }
 
-// ── Main tabs (MAIN_01, MAIN_02...) ──────────────────────────────────────────
+// ── Main tabs ─────────────────────────────────────────────────────────────────
 function renderMainTabs(){
-  const mains = getMainNames(currentSubstation, currentFeeder);
+  const mains = currentFeeder ? getMainNames(currentSubstation, currentFeeder) : [];
   const wrap  = document.getElementById('mainBarWrap');
-  // Always show the main bar — even if empty
   wrap.style.display='flex';
   document.getElementById('mainTabs').innerHTML = mains.length
     ? mains.map(m=>
-        `<button class="main-tab${m===currentMain?' active':''}" onclick="switchMain('${m}')">
-          ${m}
-        </button>`
+        `<button class="main-tab${m===currentMain?' active':''}" onclick="switchMain('${m}')">${m}</button>`
       ).join('')
-    : `<span style="font-size:11px;font-family:var(--mono);color:var(--text3);padding:4px 8px;opacity:.6">
-        no mains yet — click + to add
-      </span>`;
+    : `<span style="font-size:11px;font-family:var(--mono);color:var(--text3);padding:4px 8px;opacity:.6">no mains yet — click + to add</span>`;
 }
 
 async function switchMain(m){
@@ -2341,15 +2144,12 @@ async function switchMain(m){
   await loadFeederDataset();
 }
 
-// ── Add Main ──────────────────────────────────────────────────────────────────
 function openAddMain(){
   document.getElementById('addMainFeederName').textContent=currentFeeder;
-  // Auto-suggest next MAIN_XX number
   const existing=getMainNames(currentSubstation,currentFeeder);
   const nums=existing.map(m=>{const n=m.match(/_(\d+)$/);return n?parseInt(n[1]):0;});
   const nextNum=Math.max(0,...nums)+1;
-  const nextName='MAIN_'+String(nextNum).padStart(2,'0');
-  document.getElementById('newMainName').value=nextName;
+  document.getElementById('newMainName').value='MAIN_'+String(nextNum).padStart(2,'0');
   document.getElementById('addMainModal').classList.add('open');
 }
 async function saveNewMain(){
@@ -2365,13 +2165,11 @@ async function saveNewMain(){
   await loadFeederDataset();
 }
 
-// ── Feeder type tabs (Status Point / Control Output / Analog Point) ───────────
+// ── Feeder type tabs ──────────────────────────────────────────────────────────
 function renderFeederTypeTabs(){
   document.getElementById('feederTypeTabs').innerHTML =
     FEEDER_SUBSETS.map(t=>
-      `<button class="type-tab${t===currentFeederType?' active':''}" onclick="switchFeederType('${t}')">
-        ${t}
-      </button>`
+      `<button class="type-tab${t===currentFeederType?' active':''}" onclick="switchFeederType('${t}')">${t}</button>`
     ).join('');
 }
 
@@ -2382,26 +2180,20 @@ async function switchFeederType(t){
   await loadFeederDataset();
 }
 
-// ── Feeder type tabs ──────────────────────────────────────────────────────────
-
-// ── Load feeder dataset from Supabase ─────────────────────────────────────────
+// ── Load feeder dataset ───────────────────────────────────────────────────────
 async function loadFeederDataset(){
   const k = currentFeederKey();
   try{
     setSyncStatus('syncing','loading…');
     const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(k)+'&order=row_index.asc');
     const d = fds();
-    const prevOriginF=d.originCount||0;
     d.rows  = data.map(r=>r.data);
     d.dbIds = data.map(r=>r.id);
     d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
-    // restore originCount from DB if saved, otherwise set on first load
-    // Try column first, fall back to embedded __originCount in data JSON
     const savedOrigin = data.length
       ? (data[0].origin_count || data[0].data?.__originCount || 0)
       : 0;
     d.originCount = savedOrigin;
-    // Strip __originCount from displayed rows
     d.rows = d.rows.map(r=>{ const {__originCount,...rest}=r; return rest; });
     setSyncStatus('synced','synced');
   }catch(e){
@@ -2486,7 +2278,7 @@ function renderFeederTable(){
         if(isAddr||isEditable) cls+='editable-cell';
         else cls+='locked-cell';
       }
-      return `<td contenteditable="${!locked}" onblur="${locked?'':'editFeederCell('+i+',\''+col.replace(/'/g,"\'")+'\''+',this)'}" spellcheck="false" class="${cls.trim()}"${locked?' title="Origin row — locked"':''}>${String(r[col]??'').replace(/</g,'&lt;')}</td>`;
+      return `<td contenteditable="${!locked}" onblur="${locked?'':'editFeederCell('+i+',\''+col.replace(/'/g,"\\'")+'\''+',this)'}" spellcheck="false" class="${cls.trim()}"${locked?' title="Origin row — locked"':''}>${String(r[col]??'').replace(/</g,'&lt;')}</td>`;
     }).join('');
     const fobadge=isFOrigin?`<span class="badge origin">origin</span>`:badge;
     const fAddedCell=`<td class="meta-cell"><span class="who">${r.__added_by||''}</span><span>${fmtStamp(r.__added_at)}</span></td>`;
@@ -2508,7 +2300,6 @@ function renderFeederTable(){
   area.innerHTML=`<div class="tbl-wrap"><table><thead>${thead}</thead><tbody>${tbody}</tbody></table></div>`;
 }
 
-// ── Feeder stats ──────────────────────────────────────────────────────────────
 function renderFeederStats(){
   const d=fds();
   document.getElementById('sTotal').textContent=d.rows.length;
@@ -2519,15 +2310,12 @@ function renderFeederStats(){
   }
 }
 
-// ── Feeder key chips ──────────────────────────────────────────────────────────
 function renderFeederKeyChips(){
   const el=document.getElementById('keyChips');
   if(!el) return;
   const d=fds();
   el.innerHTML=feederCols().map(c=>
-    `<button class="chip${d.keyColumns.has(c)?' on':''}" onclick="toggleFeederKey('${c.replace(/'/g,"\'")}')">
-      ${c}
-    </button>`
+    `<button class="chip${d.keyColumns.has(c)?' on':''}" onclick="toggleFeederKey('${c.replace(/'/g,"\\'")}')">${c}</button>`
   ).join('');
 }
 
@@ -2539,14 +2327,13 @@ function toggleFeederKey(col){
   renderFeederKeyChips();renderFeederTable();
 }
 
-// ── Feeder edit cell ──────────────────────────────────────────────────────────
 let feederSyncTimer=null;
 function editFeederCell(idx,col,el){
   const d=fds();
   const isOrigin=idx<(d.originCount||0);
   const alwaysEditable=['DNP3.0_ADDRESS','NOTE','REMARK'];
   if(isOrigin && !alwaysEditable.includes(col)){
-    el.innerText=d.rows[idx][col]??''; // revert
+    el.innerText=d.rows[idx][col]??'';
     return;
   }
   d.rows[idx][col]=el.innerText.trim();
@@ -2558,7 +2345,6 @@ function editFeederCell(idx,col,el){
   feederSyncTimer=setTimeout(()=>saveFeederDataset(),800);
 }
 
-// ── Feeder selection ──────────────────────────────────────────────────────────
 function toggleFeederSelect(i,chk){
   if(chk)selected.add(i);else selected.delete(i);
   updateSelBar();renderFeederTable();
@@ -2567,14 +2353,13 @@ function toggleFeederAll(chk){
   const q=(document.getElementById('searchBox').value||'').toLowerCase();
   const d=fds();
   d.rows.forEach((r,i)=>{
-    if(i<(d.originCount||0)) return; // skip origin rows
+    if(i<(d.originCount||0)) return;
     const vis=!q||feederCols().some(c=>String(r[c]||'').toLowerCase().includes(q));
     if(vis){if(chk)selected.add(i);else selected.delete(i);}
   });
   updateSelBar();renderFeederTable();
 }
 
-// ── Feeder delete ─────────────────────────────────────────────────────────────
 function confirmDeleteFeederRow(i){
   document.getElementById('confirmMsg').textContent='Remove this row? This cannot be undone.';
   document.getElementById('confirmOkBtn').onclick=()=>doDeleteFeederOne(i);
@@ -2589,19 +2374,12 @@ async function doDeleteFeederOne(i){
   showLoading('Saving…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();
 }
 
-// ── Feeder add row ────────────────────────────────────────────────────────────
 function openFeederAddRow(){
   const c=feederCols();
   const feederDefaultsMap = {
-    'Status Point': {
-      'DNP3.0_OBJ':'2','DNP3.0_VAR':'1','DNP3.0_QII':'17,28 or 00,01','DNP3.0_CLASS':'1','DNP3.0_TYPE':'DI',
-    },
-    'Control Output': {
-      'DNP3.0_OBJ':'41','DNP3.0_VAR':'1','DNP3.0_QII':'echo of request','DNP3.0_CLASS':'0','DNP3.0_TYPE':'SBO',
-    },
-    'Analog Point': {
-      'DNP3.0_OBJ':'30','DNP3.0_VAR':'1','DNP3.0_QII':'17,28 or 00,01','DNP3.0_CLASS':'1','DNP3.0_TYPE':'AI',
-    },
+    'Status Point':   {'DNP3.0_OBJ':'2','DNP3.0_VAR':'1','DNP3.0_QII':'17,28 or 00,01','DNP3.0_CLASS':'1','DNP3.0_TYPE':'DI'},
+    'Control Output': {'DNP3.0_OBJ':'41','DNP3.0_VAR':'1','DNP3.0_QII':'echo of request','DNP3.0_CLASS':'0','DNP3.0_TYPE':'SBO'},
+    'Analog Point':   {'DNP3.0_OBJ':'30','DNP3.0_VAR':'1','DNP3.0_QII':'17,28 or 00,01','DNP3.0_CLASS':'1','DNP3.0_TYPE':'AI'},
   };
   const defaults=feederDefaultsMap[currentFeederType]||{};
   document.getElementById('addFields').innerHTML=c.map(col=>{
@@ -2622,7 +2400,6 @@ async function saveFeederNewRow(){
   showLoading('Saving…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();
 }
 
-// ── Feeder history (reuse same pattern as device history) ─────────────────────
 async function saveFeederHistoryPoint(trigger='auto'){
   const d=fds();const k=currentFeederKey();
   const histKey='__history__'+k;
@@ -2646,7 +2423,6 @@ async function saveFeederHistoryPoint(trigger='auto'){
   }catch(e){console.error('Feeder history error:',e);}
 }
 
-// ── Feeder dup check ──────────────────────────────────────────────────────────
 function runFeederDupCheck(){
   const d=fds();
   if(!d.rows.length){alert('No rows to check.');return;}
@@ -2695,7 +2471,7 @@ async function saveNewSubstation(){
   currentMain=null;
   closeModal('addSubstationModal');
   await saveFeederConfig();
-  renderSubstationTabs();renderFeederTabs();renderFeederTypeTabs();
+  renderSubstationTabs();renderFeederTabs();renderMainTabs();renderFeederTypeTabs();
   document.getElementById('tableArea').innerHTML='<div class="empty"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg><p>New substation created</p><span>Add feeders using the + button.</span></div>';
 }
 
@@ -2713,11 +2489,11 @@ async function saveNewFeeder(){
   currentFeeder=name;currentSubset="MAIN_01";currentMain="MAIN_01";currentFeederType=FEEDER_SUBSETS[0];
   closeModal('addFeederModal');
   await saveFeederConfig();
-  renderFeederTabs();renderMainTabs();renderFeederTypeTabs();
+  renderFeederTabs();renderSubsetTabs();renderMainTabs();renderFeederTypeTabs();
   await loadFeederDataset();
 }
 
-// ── Save/load feeder config to Supabase ───────────────────────────────────────
+// ── FIXED: loadFeederConfig — restores dynamic substations & feeders from DB ──
 async function saveFeederConfig(){
   try{
     await sbFetch('DELETE',TABLE+'?dataset_key=eq.__feeder_config__');
@@ -2725,21 +2501,26 @@ async function saveFeederConfig(){
     try{ localStorage.setItem('fdm_feeder_structure', JSON.stringify(FEEDER_STRUCTURE)); }catch(e){}
   }catch(e){console.error('Feeder config save error:',e);}
 }
+
 async function loadFeederConfig(){
   try{
     const data=await sbFetch('GET',TABLE+'?dataset_key=eq.__feeder_config__&limit=1');
     if(data&&data.length){
       const s=data[0].data.structure;
       Object.entries(s).forEach(([sub,val])=>{
-        // Only sync mains/subsets for feeders that EXIST in hardcode
-        // Never add or remove substations/feeders from DB
-        if(!FEEDER_STRUCTURE[sub]) return; // skip substations not in hardcode
+        // ── FIXED: restore dynamically-added substations from DB ──────────────
+        if(!FEEDER_STRUCTURE[sub]){
+          FEEDER_STRUCTURE[sub] = { feeders: {} };
+        }
         Object.entries(val.feeders||{}).forEach(([f,fval])=>{
-          if(!FEEDER_STRUCTURE[sub].feeders[f]) return; // skip feeders not in hardcode
-          // Only sync mains and subsets (user-added via + button)
-          if(fval.mains && fval.mains.length > 1)
+          // ── FIXED: restore dynamically-added feeders from DB ─────────────────
+          if(!FEEDER_STRUCTURE[sub].feeders[f]){
+            FEEDER_STRUCTURE[sub].feeders[f] = { subsets: ['MAIN_01'], mains: ['MAIN_01'] };
+          }
+          // Sync mains and subsets (user-added via + button)
+          if(fval.mains && fval.mains.length > 0)
             FEEDER_STRUCTURE[sub].feeders[f].mains = fval.mains;
-          if(fval.subsets && fval.subsets.length > 1)
+          if(fval.subsets && fval.subsets.length > 0)
             FEEDER_STRUCTURE[sub].feeders[f].subsets = fval.subsets;
         });
       });
@@ -2747,38 +2528,7 @@ async function loadFeederConfig(){
   }catch(e){console.error('Feeder config load error:',e);}
 }
 
-// ── Feeder export ─────────────────────────────────────────────────────────────
-function exportFeederExcel(){
-  const d=fds();const c=feederCols();
-  if(!d.rows.length){alert('No data to export.');return;}
-  const out=d.rows.map(r=>{const o={};c.forEach(col=>o[col]=r[col]??'');return o;});
-  const ws=XLSX.utils.json_to_sheet(out);
-  const wb=XLSX.utils.book_new();
-  const sn=(currentSubstation+'_'+currentFeeder+'_'+currentFeederType).replace(/[\/*?:[\]&\s]/g,'_').substring(0,31);
-  XLSX.utils.book_append_sheet(wb,ws,sn);
-  XLSX.writeFile(wb,sn+'_export.xlsx');
-}
-// Export all 3 subsets (Status Point, Control Output, Analog Point)
-// for the current substation + feeder + main as separate sheets in one Excel
-function exportFeederAllSubsets(){
-  const wb=XLSX.utils.book_new();
-  FEEDER_SUBSETS.forEach(subset=>{
-    const k=currentMode==='feeder'
-      ? feederKey(currentSubstation,currentFeeder,currentSubset||'MAIN_01',currentMain||'MAIN_01',subset)
-      : feederKey(currentSubstation,currentFeeder,'MAIN_01','MAIN_01',subset);
-    const d=FEEDER_DATASETS[k];
-    const c=FEEDER_SCHEMA_TEMPLATES[FEEDER_SCHEMA_MAP[subset]];
-    const out=(d&&d.rows.length)
-      ? d.rows.map(r=>{const o={};c.forEach(col=>o[col]=r[col]??'');return o;})
-      : [Object.fromEntries(c.map(col=>[col,'']))];
-    const ws=XLSX.utils.json_to_sheet(out);
-    const sn=subset.replace(/\s+/g,'_').substring(0,31);
-    XLSX.utils.book_append_sheet(wb,ws,sn);
-  });
-  const fname=(currentSubstation+'_'+currentFeeder+'_all_subsets').replace(/[\/*?:[\]&\s]/g,'_').substring(0,50);
-  XLSX.writeFile(wb,fname+'.xlsx');
-}
-
+// ── Export ────────────────────────────────────────────────────────────────────
 function exportFeederCSV(){
   const d=fds();const c=feederCols();
   if(!d.rows.length){alert('No data to export.');return;}
@@ -2807,7 +2557,6 @@ async function exportAllSubstation() {
       for (const subset of subsets) {
         for (const type of FEEDER_SUBSETS) {
           const k = feederKey(sub, feed, subset, main, type);
-          // Load from Supabase if not already cached
           if (!FEEDER_DATASETS[k] || !FEEDER_DATASETS[k].rows.length) {
             try {
               const data = await sbFetch('GET', TABLE + '?dataset_key=eq.' + encodeURIComponent(k) + '&order=row_index.asc');
@@ -2826,7 +2575,6 @@ async function exportAllSubstation() {
             ? d.rows.map(r => { const o = {}; c.forEach(col => o[col] = r[col] ?? ''); return o; })
             : [Object.fromEntries(c.map(col => [col, '']))];
 
-          // Sheet name: FEEDER__MAIN__TYPE (max 31 chars)
           const typeShort = { 'Status Point': 'SP', 'Control Output': 'CO', 'Analog Point': 'AP' }[type] || type;
           const sheetName = (feed + '_' + main + '_' + typeShort)
             .replace(/[\\/*?:[\]\s&()]/g, '_')
@@ -2851,7 +2599,6 @@ async function exportAllSubstation() {
 const CMP={A:null,B:null,colsA:[],colsB:[],keyColumns:new Set(),result:null};
 
 function openCompare(){
-  // reset
   CMP.A=null;CMP.B=null;CMP.colsA=[];CMP.colsB=[];CMP.keyColumns=new Set();CMP.result=null;
   document.getElementById('lblB').textContent='Drop or click to upload File B';
   document.getElementById('dzB').style.borderColor='';
@@ -2862,7 +2609,6 @@ function openCompare(){
   document.getElementById('cmpTable').innerHTML='';
   document.getElementById('compareModal').classList.add('open');
 
-  // auto-load File A from current dataset — routes to feeder or device mode
   const d   = currentMode==='feeder' ? fds() : ds();
   const c   = currentMode==='feeder' ? feederCols() : cols();
   const lbl = currentMode==='feeder'
@@ -2899,11 +2645,8 @@ function loadCompareFile(side,inp){
       else CMP.colsB=fileCols;
       document.getElementById('lbl'+side).textContent=f.name+' ('+data.length+' rows)';
       document.getElementById('dz'+side).style.borderColor='var(--green-bdr)';
-      // update key chips when both loaded
       if(CMP.A&&CMP.B){
-        // union of columns from both files
         const allCols=[...new Set([...CMP.colsA,...CMP.colsB])];
-        // default key = first col of file A
         CMP.keyColumns=new Set([CMP.colsA[0]]);
         renderCmpKeyChips(allCols);
         document.getElementById('cmpKeyBar').style.display='flex';
@@ -2916,7 +2659,7 @@ function loadCompareFile(side,inp){
 
 function renderCmpKeyChips(allCols){
   document.getElementById('cmpKeyChips').innerHTML=allCols.map(c=>
-    `<button class="chip${CMP.keyColumns.has(c)?' on':''}" onclick="toggleCmpKey('${c.replace(/'/g,"\'")}')">${c}</button>`
+    `<button class="chip${CMP.keyColumns.has(c)?' on':''}" onclick="toggleCmpKey('${c.replace(/'/g,"\\'")}')">${c}</button>`
   ).join('');
 }
 
@@ -2945,7 +2688,6 @@ function runCompare(){
     if(ra&&!rb)status='only-a';
     else if(!ra&&rb)status='only-b';
     else{
-      // check if any col differs
       if(allCols.some(c=>String(ra[c]??'')!==String(rb[c]??'')))status='diff';
     }
     return{key:k,ra,rb,status,cols:allCols};
@@ -2957,7 +2699,6 @@ function runCompare(){
   const onlyB=rows.filter(r=>r.status==='only-b').length;
   const diff=rows.filter(r=>r.status==='diff').length;
 
-  // summary
   const sum=document.getElementById('cmpSummary');
   sum.style.display='flex';
   sum.innerHTML=`
@@ -2966,10 +2707,8 @@ function runCompare(){
     <span class="stat-pill pill-b">B only: ${onlyB}</span>
     <span class="stat-pill pill-diff">⚠ ${diff} different</span>`;
 
-  // legend
   document.getElementById('cmpLegend').style.display='flex';
 
-  // table
   const thead=`<tr>
     <th>#</th>
     <th>status</th>
@@ -3004,7 +2743,6 @@ function runCompare(){
 
 async function applyFile(side){
   if(!CMP[side]){alert('File '+side+' not loaded.');return;}
-  // Route save to feeder or device mode
   if(currentMode==='feeder'){
     const d=fds();const c=feederCols();
     d.rows=CMP[side].map(r=>{const o={};c.forEach(col=>o[col]=r[col]??'');return o;});
@@ -3027,7 +2765,6 @@ async function applyMerged(){
   const mapA=new Map();CMP.A.forEach(r=>mapA.set(getRowKey(r),r));
   const merged=[...CMP.A];
   CMP.B.forEach(r=>{if(!mapA.has(getRowKey(r)))merged.push(r);});
-  // Route save to feeder or device mode
   if(currentMode==='feeder'){
     const d=fds();const c=feederCols();
     d.rows=merged.map(r=>{const o={};c.forEach(col=>o[col]=r[col]??'');return o;});
@@ -3044,33 +2781,20 @@ async function applyMerged(){
     showLoading('Saving merged data to cloud…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
   }
 }
-// ── HEADER_NAME_MAP ───────────────────────────────────────────────────────────
+
+// ── Header name map ───────────────────────────────────────────────────────────
 const HEADER_NAME_MAP = {
-  'FEEDER NAME':              'FEEDER_NAME',
-  'BAY NAME':                 'BAY_NAME',
-  'POINT NAME':               'SPECIFICATION_POINT_NAME',
-  'SPECIFICATION POINT NAME': 'SPECIFICATION_POINT_NAME',
-  'DESCRIPTOR':               'SPECIFICATION_DESCRIPTOR',
-  'UNIT':                     'SPECIFICATION_UNIT',
-  'ACTUAL':                   'SCALE_ACTUAL_DATA',
-  'RAW DATA':                 'SCALE_RAW_DATA',
-  'ADDRESS':                  'DNP3.0_ADDRESS',
-  'ADDR#':                     'DNP3.0_ADDRESS',
-  'OBJ':                      'DNP3.0_OBJ',
-  'VAR':                      'DNP3.0_VAR',
-  'QII':                      'DNP3.0_QII',
-  'GH':                       'DNP3.0_QII',
-  'CLASS':                    'DNP3.0_CLASS',
-  'TYPE':                     'DNP3.0_TYPE',
-  '0':                        'STATE_0',
-  '1':                        'STATE_1',
-  '2':                        'STATE_2',
-  '3':                        'STATE_3',
-  '1(CLOSE)':                 'STATE_CLOSE',
-  '2(TRIP)':                  'STATE_TRIP',
-  'PROT.BCU NAME':            'BAY_PROT.&BCU_NAME',
-  'PROT.BCU REFERENCE':       'IEC61850_PROT.&BCU_REFERENCE',
-  'BRCB/URCB':                'BRCB/URCB',
+  'FEEDER NAME':'FEEDER_NAME','BAY NAME':'BAY_NAME',
+  'POINT NAME':'SPECIFICATION_POINT_NAME','SPECIFICATION POINT NAME':'SPECIFICATION_POINT_NAME',
+  'DESCRIPTOR':'SPECIFICATION_DESCRIPTOR','UNIT':'SPECIFICATION_UNIT',
+  'ACTUAL':'SCALE_ACTUAL_DATA','RAW DATA':'SCALE_RAW_DATA',
+  'ADDRESS':'DNP3.0_ADDRESS','ADDR#':'DNP3.0_ADDRESS',
+  'OBJ':'DNP3.0_OBJ','VAR':'DNP3.0_VAR','QII':'DNP3.0_QII','GH':'DNP3.0_QII',
+  'CLASS':'DNP3.0_CLASS','TYPE':'DNP3.0_TYPE',
+  '0':'STATE_0','1':'STATE_1','2':'STATE_2','3':'STATE_3',
+  '1(CLOSE)':'STATE_CLOSE','2(TRIP)':'STATE_TRIP',
+  'PROT.BCU NAME':'BAY_PROT.&BCU_NAME','PROT.BCU REFERENCE':'IEC61850_PROT.&BCU_REFERENCE',
+  'BRCB/URCB':'BRCB/URCB',
 };
 
 // ── parseMultiTableSheet ──────────────────────────────────────────────────────
@@ -3088,12 +2812,9 @@ function parseMultiTableSheet(ws) {
   }
 
   const SECTION_LABELS = {
-    'STATUS POINTS':   'Status Point',
-    'STATUS_POINTS':   'Status Point',
-    'CONTROL OUTPUTS': 'Control Output',
-    'CONTROL_OUTPUTS': 'Control Output',
-    'ANALOG POINTS':   'Analog Point',
-    'ANALOG_POINTS':   'Analog Point',
+    'STATUS POINTS':'Status Point','STATUS_POINTS':'Status Point',
+    'CONTROL OUTPUTS':'Control Output','CONTROL_OUTPUTS':'Control Output',
+    'ANALOG POINTS':'Analog Point','ANALOG_POINTS':'Analog Point',
   };
 
   const HEADER_KEYWORDS = [
@@ -3153,7 +2874,6 @@ function parseMultiTableSheet(ws) {
 
     if (currentHeaders) {
       if (cells[0] && /:\s/.test(cells[0])) continue;
-      // Skip rows where ITEM column is empty or non-numeric (catches blank spacer rows)
       const firstVal = String(cells[0] ?? '').trim();
       if (firstVal === '' || isNaN(firstVal) && firstVal.toUpperCase() === firstVal && firstVal.length > 4) continue;
       const obj = {};
@@ -3165,11 +2885,10 @@ function parseMultiTableSheet(ws) {
 
   if (currentHeaders && currentRows.length)
     tables.push({ headers: currentHeaders, rows: currentRows, type: currentType });
-  // Debug: log what was extracted
+
   console.group('[parseMultiTableSheet] Results');
   tables.forEach((t, i) => {
-    console.log(`Table ${i+1}: type="${t.type}", rows=${t.rows.length}, headers=[${t.headers.slice(0,5).join(', ')}...]`);
-    if (t.rows.length) console.log('  First row sample:', t.rows[0]);
+    console.log(`Table ${i+1}: type="${t.type}", rows=${t.rows.length}`);
   });
   console.groupEnd();
   return tables;
@@ -3197,17 +2916,13 @@ function showImportToast(msg, isError=false) {
   toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 6000);
 }
 
-// ── parseSheetNameForRouting ──────────────────────────────────────────────────
 function parseSheetNameForRouting(sheetName) {
   const n = sheetName.toUpperCase().replace(/\s+/g, '_');
-
-  // Extract MAIN number: "MAIN NO.1" → "MAIN_01"
   const mainMatch = n.match(/MAIN[_\s]*NO[_\s\.]*(\d+)/i);
   const main = mainMatch
     ? 'MAIN_' + String(mainMatch[1]).padStart(2, '0')
     : 'MAIN_01';
 
-  // Try to match a known feeder name inside the sheet name
   for (const sub of Object.keys(FEEDER_STRUCTURE)) {
     for (const feed of getFeederNames(sub)) {
       const normFeed = feed.toUpperCase().replace(/[^A-Z0-9]/g, '_');
@@ -3217,11 +2932,11 @@ function parseSheetNameForRouting(sheetName) {
     }
   }
 
-  // Fallback: strip voltage prefix, use remainder as feeder hint
   const stripped = n.replace(/^\d+KV_?/, '').replace(/_MAIN.*$/, '');
   return { substation: currentSubstation, feeder: stripped, main, subset: main };
 }
 </script>
+
 <!-- Manual Route Modal -->
 <div class="overlay" id="manualRouteModal">
   <div class="modal" style="width:460px">
