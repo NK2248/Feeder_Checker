@@ -834,70 +834,78 @@ function onDrop(e){e.preventDefault();document.getElementById('dropZone').classL
 function handleUpload(inp){const f=inp.files[0];if(f)processFile(f);inp.value='';}
 
 function parseFilenameForRouting(filename) {
-  const base = filename.replace(/\.(csv|xlsx|xls)$/i, '').replace(/[-_ ]+export$/i, '');
+  const base = filename
+    .replace(/\.(csv|xlsx|xls)$/i, '')
+    .replace(/[-_ ]+export$/i, '')
+    .replace(/[-_ ]+copy$/i, '')
+    .replace(/\[\d+\]/g, '')   // strip [1], [2] etc (duplicate downloads)
+    .trim();
 
-  const TYPE_MAP = {
-    'status_point':   'Status Point',
-    'status':         'Status Point',
-    'control_output': 'Control Output',
-    'control':        'Control Output',
-    'analog_point':   'Analog Point',
-    'analog':         'Analog Point',
-  };
+  const norm  = s => s.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  const normB = norm(base);
 
-  // Detect type suffix
+  // ── Type keyword scan (anywhere in filename) ──────────────────
+  const TYPE_KEYWORDS = [
+    { keys: ['status_point', 'status point', 'statuspoint', '_sp_', '_sp'],         type: 'Status Point'   },
+    { keys: ['control_output','control output','controloutput','_co_','_co'],        type: 'Control Output' },
+    { keys: ['analog_point',  'analog point',  'analogpoint',  '_ap_', '_ap'],       type: 'Analog Point'   },
+  ];
   let detectedType = null;
-  let prefix = base;
-  for (const [suffix, type] of Object.entries(TYPE_MAP)) {
-    const re = new RegExp('[-_ ]?' + suffix.replace(/_/g, '[_ ]') + '$', 'i');
-    if (re.test(base)) {
+  for (const { keys, type } of TYPE_KEYWORDS) {
+    if (keys.some(k => normB.includes(norm(k)))) {
       detectedType = type;
-      prefix = base.replace(re, '').replace(/[-_ ]+$/, '');
       break;
     }
   }
 
-  // Detect embedded main
-  let mainMatch = 'MAIN_01';
-  let feederPrefix = prefix;
-  const mm = prefix.match(/^(.+?)__?(MAIN_\d+)__?/i);
-  if (mm) { feederPrefix = mm[1]; mainMatch = mm[2].toUpperCase(); }
+  // ── Main keyword scan ─────────────────────────────────────────
+  const mainMatch = (base.match(/MAIN_\d+/i) || [])[0]?.toUpperCase() || 'MAIN_01';
 
-  const norm = s => s.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-
-  // Try full feeder match (prefix + type both known)
+  // ── Feeder scan — check if any feeder name appears in filename ─
   for (const sub of Object.keys(FEEDER_STRUCTURE)) {
     for (const feed of getFeederNames(sub)) {
-      if (norm(feed) === norm(feederPrefix)) {
-        if (detectedType) {
-          return { confidence: 'full', mode: 'feeder', substation: sub, feeder: feed, main: mainMatch, subset: mainMatch, type: detectedType };
-        } else {
-          // Partial: feeder known, type unknown
-          return { confidence: 'partial', mode: 'feeder', substation: sub, feeder: feed, main: mainMatch, subset: mainMatch, type: null };
-        }
+      if (normB.includes(norm(feed))) {
+        return {
+          confidence: detectedType ? 'full' : 'partial',
+          mode: 'feeder',
+          substation: sub,
+          feeder: feed,
+          main: mainMatch,
+          subset: mainMatch,
+          type: detectedType
+        };
       }
     }
   }
 
-  // Try substation name match (whole filename = substation)
+  // ── Substation scan ───────────────────────────────────────────
   for (const sub of Object.keys(FEEDER_STRUCTURE)) {
-    if (norm(sub) === norm(prefix) || norm(sub).includes(norm(prefix)) || norm(prefix).includes(norm(sub).substring(0,4))) {
-      return { confidence: 'partial', mode: 'feeder', substation: sub, feeder: null, main: 'MAIN_01', subset: 'MAIN_01', type: detectedType };
+    if (normB.includes(norm(sub))) {
+      return {
+        confidence: 'partial',
+        mode: 'feeder',
+        substation: sub,
+        feeder: getFeederNames(sub)[0] || null,
+        main: mainMatch,
+        subset: mainMatch,
+        type: detectedType
+      };
     }
   }
 
-  // Try full device match
+  // ── Device scan ───────────────────────────────────────────────
   for (const dev of Object.keys(GROUPS)) {
-    if (norm(dev) === norm(prefix)) {
-      if (detectedType) {
-        return { confidence: 'full', mode: 'device', device: dev, type: detectedType };
-      } else {
-        return { confidence: 'partial', mode: 'device', device: dev, type: null };
-      }
+    if (normB.includes(norm(dev))) {
+      return {
+        confidence: detectedType ? 'full' : 'partial',
+        mode: 'device',
+        device: dev,
+        type: detectedType
+      };
     }
   }
 
-  // No match at all
+  // ── Nothing found ─────────────────────────────────────────────
   return { confidence: 'none', mode: null };
 }
 
@@ -911,8 +919,8 @@ function processFile(f) {
 
       if (wb.SheetNames.length > 1) {
         pendingMultiSheetWb = wb;
-        pendingImportData = null;
-        pendingImportRoute = null;
+        pendingImportData   = null;
+        pendingImportRoute  = null;
         showMultiSheetModal(f.name, wb);
         return;
       }
@@ -922,21 +930,26 @@ function processFile(f) {
       if (!data.length) { alert('File appears empty.'); return; }
 
       pendingImportData = data;
+
       const route = parseFilenameForRouting(f.name);
+      console.log('[import] file:', f.name, '| route:', route); // debug
 
       if (route.confidence === 'full') {
         pendingImportRoute = route;
         showSmartImportModal(f.name, route);
-      } else if (route.confidence === 'partial') {
-        pendingImportRoute = route;
-        showManualRouteModal(f.name, route); // new — let user fill the gap
       } else {
-        pendingImportRoute = null;
-        showManualRouteModal(f.name, null);  // completely unknown
+        // partial OR none — always show manual modal so nothing silently fails
+        pendingImportRoute = route.confidence !== 'none' ? route : null;
+        showManualRouteModal(f.name, pendingImportRoute);
       }
     } catch (err) {
+      console.error('[import] error:', err);
       alert('Could not read file: ' + err.message);
     }
+  };
+  reader.onerror = err => {
+    console.error('[import] reader error:', err);
+    alert('Could not read file.');
   };
   reader.readAsArrayBuffer(f);
 }
