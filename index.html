@@ -284,12 +284,6 @@ tr.origin-row td.locked-cell:focus{background:#f0f1f4!important;box-shadow:none;
   </div>
 </header>
 
-<!-- Mode bar -->
-<div class="mode-bar" id="modeBar">
-  <span class="mode-label">mode:</span>
-  <button class="mode-tab active" id="modeTabFeeder" onclick="switchMode('feeder')">Substation / Feeder</button>
-  <button class="mode-tab" id="modeTabDevice" onclick="switchMode('device')">Device (AVR / LBS...)</button>
-</div>
 
 <!-- Feeder mode -->
 <div id="feederSection">
@@ -312,7 +306,7 @@ tr.origin-row td.locked-cell:focus{background:#f0f1f4!important;box-shadow:none;
     <span style="color:var(--border2);margin:0 4px;font-size:16px">›</span>
 
     <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-right:4px">Main</span>
-    <div id="mainTabs" style="display:flex;gap:3px;flex-wrap:wrap" id="mainBarWrap"></div>
+    <div id="mainTabs" style="display:flex;gap:3px;flex-wrap:wrap"></div>
     <button class="btn-icon" onclick="openAddMain()" title="Add new main" style="width:22px;height:22px">
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </button>
@@ -326,6 +320,13 @@ tr.origin-row td.locked-cell:focus{background:#f0f1f4!important;box-shadow:none;
     </button>
   </div>
 
+<!-- close feeder type cards row -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+    <div id="feederTypeTabs" style="display:contents"></div>
+  </div>
+
+</div><!-- end feederSection -->
+
 <!-- Device mode -->
 <div id="deviceSection" style="display:none">
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
@@ -334,8 +335,8 @@ tr.origin-row td.locked-cell:focus{background:#f0f1f4!important;box-shadow:none;
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </button>
   </div>
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
-    <div id="feederTypeTabs" style="display:contents"></div>
+  <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+    <div class="type-tabs" id="typeTabs" style="margin-bottom:0"></div>
   </div>
 </div>
 
@@ -1117,12 +1118,8 @@ function showManualRouteModal(filename, partialRoute) {
 }
 
 function mrSwitchMode(mode) {
-  const tf=document.getElementById('modeTabFeeder');
-  const td=document.getElementById('modeTabDevice');
-  tf.style.background=mode==='feeder'?'var(--accent)':'transparent';
-  tf.style.color=mode==='feeder'?'#fff':'var(--text2)';
-  td.style.background=mode==='device'?'var(--accent)':'transparent';
-  td.style.color=mode==='device'?'#fff':'var(--text2)';
+  document.getElementById('mrModeFeeder').classList.toggle('active', mode === 'feeder');
+  document.getElementById('mrModeDevice').classList.toggle('active', mode === 'device');
   document.getElementById('mrFeederPanel').style.display = mode === 'feeder' ? 'block' : 'none';
   document.getElementById('mrDevicePanel').style.display = mode === 'device' ? 'block' : 'none';
 }
@@ -2095,8 +2092,12 @@ function switchMode(mode){
   currentMode=mode;
   document.getElementById('feederSection').style.display  = mode==='feeder'?'block':'none';
   document.getElementById('deviceSection').style.display  = mode==='device'?'block':'none';
-  document.getElementById('modeTabFeeder').classList.toggle('active',mode==='feeder');
-  document.getElementById('modeTabDevice').classList.toggle('active',mode==='device');
+  const tf=document.getElementById('modeTabFeeder');
+  const td=document.getElementById('modeTabDevice');
+  tf.style.background=mode==='feeder'?'var(--accent)':'transparent';
+  tf.style.color=mode==='feeder'?'#fff':'var(--text2)';
+  td.style.background=mode==='device'?'var(--accent)':'transparent';
+  td.style.color=mode==='device'?'#fff':'var(--text2)';
   selected=new Set();hideDupAlert();
   document.getElementById('searchBox').value='';
 
@@ -2189,8 +2190,6 @@ function openAddSubsetTab(){
 
 function renderMainTabs(){
   const mains=currentFeeder?getMainNames(currentSubstation,currentFeeder):[];
-  const wrap=document.getElementById('mainBarWrap');
-  wrap.style.display='flex';
   document.getElementById('mainTabs').innerHTML=mains.length
     ?mains.map(m=>`<button class="main-tab${m===currentMain?' active':''}" onclick="switchMain('${m}')">${m}</button>`).join('')
     :`<span style="font-size:11px;font-family:var(--mono);color:var(--text3);padding:4px 8px;opacity:.6">no mains yet — click + to add</span>`;
