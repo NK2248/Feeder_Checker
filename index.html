@@ -1582,13 +1582,22 @@ async function doClearAll(){
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 
 // ── Export ────────────────────────────────────────────────────────────────────
-function exportAllExcel(){
+async function exportAllExcel(){
   const wb = XLSX.utils.book_new();
   const sheetName = currentDevice.replace(/[\\/*?:[\]]/g,'_').substring(0,31);
   const allSheetData = [];
   let firstTable = true;
 
-  Object.entries(GROUPS[currentDevice]).forEach(([type, key]) => {
+  for(const [type, key] of Object.entries(GROUPS[currentDevice])){
+    // Always fetch fresh from Supabase
+    try{
+      const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(key)+'&order=row_index.asc');
+      if(!DATASETS[key]) DATASETS[key] = {rows:[],dbIds:[],manuallyAdded:new Set(),originCount:0,dupInfo:{},keyColumns:new Set(),checked:false};
+      DATASETS[key].rows = data.map(r => r.data);
+      DATASETS[key].dbIds = data.map(r => r.id);
+      DATASETS[key].originCount = data.length ? (data[0].origin_count||0) : 0;
+    }catch(e){ console.error('Load error for '+key, e); }
+
     const d = DATASETS[key];
     const c = DEFAULT_COLUMNS[key];
 
@@ -1598,18 +1607,17 @@ function exportAllExcel(){
     }
     firstTable = false;
 
-    // Name row → blank → blank → section label → header → data
-    allSheetData.push([currentDevice]);          // name row
-    allSheetData.push([]);                        // blank
-    allSheetData.push([]);                        // blank
-    allSheetData.push([type.toUpperCase()]);      // section label
-    allSheetData.push(c);                         // header
+    allSheetData.push([currentDevice]);
+    allSheetData.push([]);
+    allSheetData.push([]);
+    allSheetData.push([type.toUpperCase()]);
+    allSheetData.push(c);
     if(d && d.rows.length){
       d.rows.forEach(r => allSheetData.push(c.map(col => r[col] ?? '')));
     } else {
       allSheetData.push(c.map(() => ''));
     }
-  });
+  }
 
   if(allSheetData.length <= 1){ alert('No data to export.'); return; }
 
