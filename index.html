@@ -1584,7 +1584,6 @@ function closeModal(id){document.getElementById(id).classList.remove('open');}
 // ── Export ────────────────────────────────────────────────────────────────────
 function exportAllExcel(){
   const wb = XLSX.utils.book_new();
-  // One sheet per device, all 3 types stacked with 2-row gaps
   const sheetName = currentDevice.replace(/[\\/*?:[\]]/g,'_').substring(0,31);
   const allSheetData = [];
   let firstTable = true;
@@ -1599,17 +1598,16 @@ function exportAllExcel(){
     }
     firstTable = false;
 
-    // Section label row
-    allSheetData.push([type.toUpperCase()]);
-    // Header row
-    allSheetData.push(c);
-    // Data rows
+    // Name row → blank → blank → section label → header → data
+    allSheetData.push([currentDevice]);          // name row
+    allSheetData.push([]);                        // blank
+    allSheetData.push([]);                        // blank
+    allSheetData.push([type.toUpperCase()]);      // section label
+    allSheetData.push(c);                         // header
     if(d && d.rows.length){
-      d.rows.forEach(r => {
-        allSheetData.push(c.map(col => r[col] ?? ''));
-      });
+      d.rows.forEach(r => allSheetData.push(c.map(col => r[col] ?? '')));
     } else {
-      allSheetData.push(c.map(() => '')); // empty placeholder row
+      allSheetData.push(c.map(() => ''));
     }
   });
 
@@ -2470,14 +2468,12 @@ async function exportAllSubstation(){
 
     for(const main of mains){
       for(const subset of subsets){
-        // Build one sheet per feeder/main/subset — all 3 types stacked with 2-row gaps
         const sheetName = (feed + '_' + main).replace(/[\\/*?:[\]\s&()]/g,'_').substring(0,31);
-        const allSheetData = []; // array of arrays (AOA)
+        const allSheetData = [];
         let firstTable = true;
 
         for(const type of FEEDER_SUBSETS){
           const k = feederKey(sub, feed, subset, main, type);
-          // Load from Supabase if not cached
           if(!FEEDER_DATASETS[k] || !FEEDER_DATASETS[k].rows.length){
             try{
               const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(k)+'&order=row_index.asc');
@@ -2491,24 +2487,23 @@ async function exportAllSubstation(){
           const d = FEEDER_DATASETS[k];
           const c = FEEDER_SCHEMA_TEMPLATES[FEEDER_SCHEMA_MAP[type]];
 
-          // 2 blank rows between tables (skip before first)
+          // 2 blank rows between tables
           if(!firstTable){
             allSheetData.push([]);
             allSheetData.push([]);
           }
           firstTable = false;
 
-          // Section label row
-          allSheetData.push([type.toUpperCase()]);
-          // Header row
-          allSheetData.push(c);
-          // Data rows
+          // Name row → blank → blank → section label → header → data
+          allSheetData.push([sub + ' / ' + feed + ' / ' + main]);  // name row
+          allSheetData.push([]);                                      // blank
+          allSheetData.push([]);                                      // blank
+          allSheetData.push([type.toUpperCase()]);                    // section label
+          allSheetData.push(c);                                       // header
           if(d && d.rows.length){
-            d.rows.forEach(r => {
-              allSheetData.push(c.map(col => r[col] ?? ''));
-            });
+            d.rows.forEach(r => allSheetData.push(c.map(col => r[col] ?? '')));
           } else {
-            allSheetData.push(c.map(() => '')); // empty placeholder row
+            allSheetData.push(c.map(() => ''));
           }
         }
 
