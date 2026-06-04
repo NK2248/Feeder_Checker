@@ -1584,25 +1584,39 @@ function closeModal(id){document.getElementById(id).classList.remove('open');}
 // ── Export ────────────────────────────────────────────────────────────────────
 function exportAllExcel(){
   const wb = XLSX.utils.book_new();
-  const allRows = [];
-  const allCols = new Set();
+  // One sheet per device, all 3 types stacked with 2-row gaps
+  const sheetName = currentDevice.replace(/[\\/*?:[\]]/g,'_').substring(0,31);
+  const allSheetData = [];
+  let firstTable = true;
+
   Object.entries(GROUPS[currentDevice]).forEach(([type, key]) => {
     const d = DATASETS[key];
     const c = DEFAULT_COLUMNS[key];
-    c.forEach(col => allCols.add(col));
+
+    if(!firstTable){
+      allSheetData.push([]);
+      allSheetData.push([]);
+    }
+    firstTable = false;
+
+    // Section label row
+    allSheetData.push([type.toUpperCase()]);
+    // Header row
+    allSheetData.push(c);
+    // Data rows
     if(d && d.rows.length){
       d.rows.forEach(r => {
-        const o = { _subset: type };
-        c.forEach(col => o[col] = r[col] ?? '');
-        allRows.push(o);
+        allSheetData.push(c.map(col => r[col] ?? ''));
       });
+    } else {
+      allSheetData.push(c.map(() => '')); // empty placeholder row
     }
   });
-  if(!allRows.length){ alert('No data to export.'); return; }
-  const colOrder = ['_subset', ...allCols];
-  const ws = XLSX.utils.json_to_sheet(allRows, { header: colOrder });
-  const sn = currentDevice.replace(/[\\/*?:[\]]/g,'_').substring(0,31);
-  XLSX.utils.book_append_sheet(wb, ws, sn);
+
+  if(allSheetData.length <= 1){ alert('No data to export.'); return; }
+
+  const ws = XLSX.utils.aoa_to_sheet(allSheetData);
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
   XLSX.writeFile(wb, currentDevice + '_export.xlsx');
 }
 
@@ -2441,42 +2455,71 @@ function exportFeederCSV(){
   a.click();
 }
 
+// ── Export (fixed: separate tables per type in one sheet, spaced 2 rows apart) ─
+
 async function exportAllSubstation(){
-  const sub=currentSubstation;const feeders=getFeederNames(sub);
-  if(!feeders.length){alert('No feeders in this substation.');return;}
-  showLoading('Loading all datasets for '+sub+'…');
-  const wb=XLSX.utils.book_new();let sheetCount=0;
+  const sub = currentSubstation;
+  const feeders = getFeederNames(sub);
+  if(!feeders.length){ alert('No feeders in this substation.'); return; }
+  showLoading('Loading all datasets for ' + sub + '…');
+  const wb = XLSX.utils.book_new();
 
   for(const feed of feeders){
-    const mains=getMainNames(sub,feed);const subsets=getSubsetNames(sub,feed);
+    const mains = getMainNames(sub, feed);
+    const subsets = getSubsetNames(sub, feed);
+
     for(const main of mains){
       for(const subset of subsets){
+        // Build one sheet per feeder/main/subset — all 3 types stacked with 2-row gaps
+        const sheetName = (feed + '_' + main).replace(/[\\/*?:[\]\s&()]/g,'_').substring(0,31);
+        const allSheetData = []; // array of arrays (AOA)
+        let firstTable = true;
+
         for(const type of FEEDER_SUBSETS){
-          const k=feederKey(sub,feed,subset,main,type);
-          if(!FEEDER_DATASETS[k]||!FEEDER_DATASETS[k].rows.length){
+          const k = feederKey(sub, feed, subset, main, type);
+          // Load from Supabase if not cached
+          if(!FEEDER_DATASETS[k] || !FEEDER_DATASETS[k].rows.length){
             try{
-              const data=await sbFetch('GET',TABLE+'?dataset_key=eq.'+encodeURIComponent(k)+'&order=row_index.asc');
-              if(!FEEDER_DATASETS[k]) FEEDER_DATASETS[k]={rows:[],dbIds:[],manuallyAdded:new Set(),originCount:0,dupInfo:{},keyColumns:new Set(),checked:false};
-              FEEDER_DATASETS[k].rows=data.map(r=>r.data);
-              FEEDER_DATASETS[k].dbIds=data.map(r=>r.id);
-              FEEDER_DATASETS[k].originCount=data.length?(data[0].origin_count||0):0;
-            }catch(e){console.error('Load error for '+k,e);}
+              const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(k)+'&order=row_index.asc');
+              if(!FEEDER_DATASETS[k]) FEEDER_DATASETS[k] = {rows:[],dbIds:[],manuallyAdded:new Set(),originCount:0,dupInfo:{},keyColumns:new Set(),checked:false};
+              FEEDER_DATASETS[k].rows = data.map(r => r.data);
+              FEEDER_DATASETS[k].dbIds = data.map(r => r.id);
+              FEEDER_DATASETS[k].originCount = data.length ? (data[0].origin_count||0) : 0;
+            }catch(e){ console.error('Load error for '+k, e); }
           }
-          const d=FEEDER_DATASETS[k];
-          const c=FEEDER_SCHEMA_TEMPLATES[FEEDER_SCHEMA_MAP[type]];
-          const out=(d&&d.rows.length)?d.rows.map(r=>{const o={};c.forEach(col=>o[col]=r[col]??'');return o;}):[Object.fromEntries(c.map(col=>[col,'']))];
-          const typeShort={'Status Point':'SP','Control Output':'CO','Analog Point':'AP'}[type]||type;
-          const sheetName=(feed+'_'+main+'_'+typeShort).replace(/[\\/*?:[\]\s&()]/g,'_').substring(0,31);
-          const ws=XLSX.utils.json_to_sheet(out);
-          XLSX.utils.book_append_sheet(wb,ws,sheetName);
-          sheetCount++;
+
+          const d = FEEDER_DATASETS[k];
+          const c = FEEDER_SCHEMA_TEMPLATES[FEEDER_SCHEMA_MAP[type]];
+
+          // 2 blank rows between tables (skip before first)
+          if(!firstTable){
+            allSheetData.push([]);
+            allSheetData.push([]);
+          }
+          firstTable = false;
+
+          // Section label row
+          allSheetData.push([type.toUpperCase()]);
+          // Header row
+          allSheetData.push(c);
+          // Data rows
+          if(d && d.rows.length){
+            d.rows.forEach(r => {
+              allSheetData.push(c.map(col => r[col] ?? ''));
+            });
+          } else {
+            allSheetData.push(c.map(() => '')); // empty placeholder row
+          }
         }
+
+        const ws = XLSX.utils.aoa_to_sheet(allSheetData);
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
       }
     }
   }
+
   hideLoading();
-  if(!sheetCount){alert('No data found for '+sub+'.');return;}
-  XLSX.writeFile(wb,sub.replace(/[\\/*?:[\]\s&()]/g,'_')+'_full_export.xlsx');
+  XLSX.writeFile(wb, sub.replace(/[\\/*?:[\]\s&()]/g,'_') + '_full_export.xlsx');
 }
 
 // ── Compare ───────────────────────────────────────────────────────────────────
