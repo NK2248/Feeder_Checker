@@ -2482,32 +2482,30 @@ async function exportAllSubstation(){
 
         for(const type of FEEDER_SUBSETS){
           const k = feederKey(sub, feed, subset, main, type);
-          if(!FEEDER_DATASETS[k] || !FEEDER_DATASETS[k].rows.length){
-            try{
-              const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(k)+'&order=row_index.asc');
-              if(!FEEDER_DATASETS[k]) FEEDER_DATASETS[k] = {rows:[],dbIds:[],manuallyAdded:new Set(),originCount:0,dupInfo:{},keyColumns:new Set(),checked:false};
-              FEEDER_DATASETS[k].rows = data.map(r => r.data);
-              FEEDER_DATASETS[k].dbIds = data.map(r => r.id);
-              FEEDER_DATASETS[k].originCount = data.length ? (data[0].origin_count||0) : 0;
-            }catch(e){ console.error('Load error for '+k, e); }
-          }
+
+          // Always fetch fresh from Supabase — don't rely on cache
+          try{
+            const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(k)+'&order=row_index.asc');
+            if(!FEEDER_DATASETS[k]) FEEDER_DATASETS[k] = {rows:[],dbIds:[],manuallyAdded:new Set(),originCount:0,dupInfo:{},keyColumns:new Set(),checked:false};
+            FEEDER_DATASETS[k].rows = data.map(r => r.data);
+            FEEDER_DATASETS[k].dbIds = data.map(r => r.id);
+            FEEDER_DATASETS[k].originCount = data.length ? (data[0].origin_count||0) : 0;
+          }catch(e){ console.error('Load error for '+k, e); }
 
           const d = FEEDER_DATASETS[k];
           const c = FEEDER_SCHEMA_TEMPLATES[FEEDER_SCHEMA_MAP[type]];
 
-          // 2 blank rows between tables
           if(!firstTable){
             allSheetData.push([]);
             allSheetData.push([]);
           }
           firstTable = false;
 
-          // Name row → blank → blank → section label → header → data
-          allSheetData.push([sub + ' / ' + feed + ' / ' + main]);  // name row
-          allSheetData.push([]);                                      // blank
-          allSheetData.push([]);                                      // blank
-          allSheetData.push([type.toUpperCase()]);                    // section label
-          allSheetData.push(c);                                       // header
+          allSheetData.push([sub + ' / ' + feed + ' / ' + main]);
+          allSheetData.push([]);
+          allSheetData.push([]);
+          allSheetData.push([type.toUpperCase()]);
+          allSheetData.push(c);
           if(d && d.rows.length){
             d.rows.forEach(r => allSheetData.push(c.map(col => r[col] ?? '')));
           } else {
