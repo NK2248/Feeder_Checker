@@ -348,50 +348,36 @@ tr.origin-row td.locked-cell:focus{
     <input type="text" id="searchBox" placeholder="Search current dataset…" oninput="currentMode==='feeder'?renderFeederTable():renderTable()">
   </div>
   <div class="btn-group">
-    <!-- Add row — routes to feeder or device mode -->
     <button class="btn" onclick="currentMode==='feeder'?openFeederAddRow():openAddRow()">
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       add row
     </button>
-    <!-- Clear all rows -->
     <button class="btn danger" onclick="confirmClearAll()">
       <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>
-      clear all rows
+      clear all
     </button>
-    <!-- Compare files -->
     <button class="btn" onclick="openCompare()" style="color:var(--blue);border-color:var(--blue-bdr);background:var(--blue-bg)">
       <svg viewBox="0 0 24 24" style="stroke:var(--blue)"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
-      compare files
+      compare
     </button>
-    <!-- Check duplicates — routes to feeder or device mode -->
     <button class="btn warn" onclick="currentMode==='feeder'?runFeederDupCheck():runDupCheck()">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      check duplicates
+      check dups
     </button>
-    <!-- History -->
     <button class="btn" style="color:#5a3d8a;border-color:#c8a8e8;background:#f4eeff" onclick="openHistory()">
       <svg viewBox="0 0 24 24" style="stroke:#5a3d8a"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       history
     </button>
-    <!-- Export Excel — routes to feeder or device mode -->
-    <button class="btn success" onclick="currentMode==='feeder'?exportFeederExcel():exportExcel()">
+    <!-- Export group — label changes by mode -->
+    <button class="btn success" id="btnExportAll" onclick="currentMode==='feeder'?exportAllSubstation():exportAllExcel()">
       <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      export Excel
+      <span id="lblExportAll">export substation</span>
     </button>
-    <!-- Export all subsets for current feeder (feeder mode) or all device sheets (device mode) -->
-    <button class="btn success" onclick="currentMode==='feeder'?exportFeederAllSubsets():exportAllExcel()">
-      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      export all subsets
-    </button>
-    <button class="btn success" onclick="currentMode==='feeder'?exportAllSubstation():exportAllExcel()">
-      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      export all substation
-    </button>
-    <!-- Export CSV — routes to feeder or device mode -->
-    <button class="btn" onclick="currentMode==='feeder'?exportFeederCSV():exportCSV()">
+    <button class="btn" id="btnExportTCD" onclick="currentMode==='feeder'?exportFeederCSV():exportDeviceTCD()" style="display:none">
       <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-      CSV
+      TCD
     </button>
+  </div>
   </div>
   <div class="legend">
     <div class="leg"><div class="leg-dot" style="background:var(--amber-bdr)"></div><span>duplicate</span></div>
@@ -1230,23 +1216,44 @@ function exportExcel(){
   XLSX.writeFile(wb,currentKey()+'_export.xlsx');
 }
 function exportAllExcel(){
-  const wb=XLSX.utils.book_new();
-  Object.entries(GROUPS[currentDevice]).forEach(([type,key])=>{
-    const d=DATASETS[key];const c=DEFAULT_COLUMNS[key];
-    const out=d.rows.length?d.rows.map(r=>{const o={};c.forEach(col=>o[col]=r[col]??'');return o;}):[Object.fromEntries(c.map(col=>[col,'']))];
-    const ws=XLSX.utils.json_to_sheet(out);
-    const sn=type.replace(/[\\/*?:[\]()]/g,'').replace(/\s+/g,'_').substring(0,31);
-    XLSX.utils.book_append_sheet(wb,ws,sn);
+  const wb = XLSX.utils.book_new();
+  const allRows = [];
+  const allCols = new Set();
+
+  Object.entries(GROUPS[currentDevice]).forEach(([type, key]) => {
+    const d = DATASETS[key];
+    const c = DEFAULT_COLUMNS[key];
+    c.forEach(col => allCols.add(col));
+    if(d && d.rows.length){
+      d.rows.forEach(r => {
+        const o = { _subset: type };
+        c.forEach(col => o[col] = r[col] ?? '');
+        allRows.push(o);
+      });
+    }
   });
-  XLSX.writeFile(wb,currentDevice+'_all_subsets.xlsx');
+
+  if(!allRows.length){ alert('No data to export.'); return; }
+
+  const colOrder = ['_subset', ...allCols];
+  const ws = XLSX.utils.json_to_sheet(allRows, { header: colOrder });
+  const sn = currentDevice.replace(/[\\/*?:[\]]/g,'_').substring(0,31);
+  XLSX.utils.book_append_sheet(wb, ws, sn);
+  XLSX.writeFile(wb, currentDevice + '_export.xlsx');
 }
-function exportCSV(){
-  const d=ds();const c=cols();
-  if(!d.rows.length){alert('No data to export.');return;}
-  const lines=[c.join(','),...d.rows.map(r=>c.map(col=>'"'+(String(r[col]??'').replace(/"/g,'""'))+'"').join(','))];
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'}));
-  a.download=currentKey()+'.csv';a.click();
+
+function exportDeviceTCD(){
+  const d = ds(); const c = cols();
+  if(!d.rows.length){ alert('No data to export.'); return; }
+  // TCD is tab-delimited
+  const lines = [
+    c.join('\t'),
+    ...d.rows.map(r => c.map(col => String(r[col] ?? '').replace(/\t/g,'')).join('\t'))
+  ];
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/plain' }));
+  a.download = currentKey() + '.tcd';
+  a.click();
 }
 
 // ── Render all ────────────────────────────────────────────────────────────────
@@ -1769,16 +1776,25 @@ function fds(){
 // ── Mode switcher ─────────────────────────────────────────────────────────────
 function switchMode(mode){
   currentMode = mode;
-  // toggle sections
   document.getElementById('feederSection').style.display  = mode==='feeder'?'block':'none';
   document.getElementById('deviceSection').style.display  = mode==='device'?'block':'none';
-  // toggle mode tab styles
   document.getElementById('modeTabFeeder').classList.toggle('active', mode==='feeder');
   document.getElementById('modeTabDevice').classList.toggle('active', mode==='device');
-  // reset selection and alerts
   selected = new Set();
   hideDupAlert();
   document.getElementById('searchBox').value='';
+
+  // Update export button labels and visibility by mode
+  const lblAll  = document.getElementById('lblExportAll');
+  const btnTCD  = document.getElementById('btnExportTCD');
+  if(mode==='feeder'){
+    lblAll.textContent  = 'export substation';
+    btnTCD.style.display = 'none';
+  } else {
+    lblAll.textContent  = 'export device';
+    btnTCD.style.display = 'inline-flex';
+  }
+
   if(mode==='feeder'){
     renderSubstationTabs();
     renderFeederTabs();
