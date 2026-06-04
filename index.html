@@ -19,7 +19,7 @@
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px}
-.page{max-width:1200px;margin:0 auto;padding:1.5rem 1.25rem 4rem}
+.page{max-width:100%;margin:0 auto;padding:1.5rem 1.5rem 4rem}
 .hdr{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1.5rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border)}
 .hdr-left{display:flex;align-items:center;gap:10px}
 .logo{width:34px;height:34px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -87,7 +87,9 @@ h1{font-size:22px;font-weight:600;letter-spacing:-.02em}
 .drop-zone p{font-size:13px;color:var(--text2);font-weight:500}
 .drop-zone span{font-size:12px;color:var(--text3)}
 .drop-zone input{display:none}
-.tbl-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden}
+.tbl-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;width:100%;display:block;}
+.tbl-wrap{overflow-x:auto;max-height:calc(100vh - 420px);min-height:300px;overflow-y:auto;width:100%;}
+table{width:100%;border-collapse:collapse;font-size:12px;table-layout:auto;min-width:100%;}
 .tbl-wrap{overflow-x:auto;max-height:440px;overflow-y:auto}
 table{width:100%;border-collapse:collapse;font-size:12px;table-layout:auto}
 thead th{background:var(--surface2);padding:8px 10px;text-align:left;font-weight:600;font-size:10px;color:var(--text2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:2;white-space:nowrap;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;min-width:60px;resize:horizontal;overflow:auto}
@@ -1138,15 +1140,93 @@ async function doManualRouteImport(importMode) {
   }
 
   closeModal('manualRouteModal');
-  pendingImportRoute = route;
 
-  // Reuse doSmartImport since the route shape is identical
-  await doSmartImport(importMode);
+  const importData = pendingImportData;
+  pendingImportData = null;
+  if (!importData || !importData.length) {
+    // Resolve queue if active
+    if (typeof window._manualRouteResolve === 'function') {
+      const res = window._manualRouteResolve;
+      window._manualRouteResolve = null;
+      res();
+    }
+    return;
+  }
+
+  if (route.mode === 'feeder') {
+    // Navigate to the correct substation / feeder / main / type
+    currentSubstation = route.substation;
+    currentFeeder     = route.feeder;
+    currentMain       = route.main || 'MAIN_01';
+    currentSubset     = route.subset || route.main || 'MAIN_01';
+    currentFeederType = route.type || 'Status Point';
+
+    const d = fds();
+    const c = feederCols();
+
+    if (importMode === 'origin') {
+      d.rows = []; d.manuallyAdded = new Set(); d.originCount = 0;
+    }
+    importData.forEach(r => {
+      const row = {}; c.forEach(col => row[col] = r[col] !== undefined ? r[col] : '');
+      d.rows.push(row);
+      if (importMode === 'addon') d.manuallyAdded.add(d.rows.length - 1);
+    });
+    if (importMode === 'origin') {
+      d.originCount = d.rows.length;
+      d.manuallyAdded = new Set();
+    }
+    d.dupInfo = {}; d.checked = false;
+    selected = new Set(); hideDupAlert();
+
+    // Refresh UI to show the destination we just imported into
+    renderSubstationTabs(); renderFeederTabs();
+    renderSubsetTabs(); renderMainTabs(); renderFeederTypeTabs();
+    renderFeederTable(); renderFeederStats();
+
+    showLoading('Saving to cloud…');
+    await saveFeederDataset();
+    await saveFeederHistoryPoint('auto');
+    hideLoading();
+
+  } else {
+    // Device mode
+    if (route.device && route.device !== currentDevice) {
+      currentDevice = route.device;
+      currentType   = route.type || Object.keys(GROUPS[currentDevice])[0];
+    } else if (route.type) {
+      currentType = route.type;
+    }
+
+    const d = ds(); const c = cols();
+
+    if (importMode === 'origin') {
+      d.rows = []; d.manuallyAdded = new Set(); d.originCount = 0;
+    }
+    importData.forEach(r => {
+      const row = {}; c.forEach(col => row[col] = r[col] !== undefined ? r[col] : '');
+      d.rows.push(row);
+      if (importMode === 'addon') d.manuallyAdded.add(d.rows.length - 1);
+    });
+    if (importMode === 'origin') {
+      d.originCount = d.rows.length;
+      d.manuallyAdded = new Set();
+    }
+    d.dupInfo = {}; d.checked = false;
+    selected = new Set(); hideDupAlert();
+    renderAll();
+
+    showLoading('Saving to cloud…');
+    await saveDataset(currentKey());
+    await saveHistoryPoint('auto');
+    hideLoading();
+  }
+
   // Resolve multi-table queue promise if active
   if (typeof window._manualRouteResolve === 'function') {
-    const resolve = window._manualRouteResolve;
+    const res = window._manualRouteResolve;
     window._manualRouteResolve = null;
-    resolve();
+    res();
   }
 }
 
