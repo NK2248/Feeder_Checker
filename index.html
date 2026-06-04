@@ -87,7 +87,7 @@ h1{font-size:22px;font-weight:600;letter-spacing:-.02em}
 .drop-zone p{font-size:13px;color:var(--text2);font-weight:500}
 .drop-zone span{font-size:12px;color:var(--text3)}
 .drop-zone input{display:none}
-.tbl-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;width:100%;box-sizing:border-box;}
+.tbl-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;width:100%;box-sizing:border-box;max-width:100%;}
 .tbl-wrap{overflow-x:auto;max-height:440px;overflow-y:auto;width:100%;}
 table{width:100%;border-collapse:collapse;font-size:12px;table-layout:auto}
 thead th{background:var(--surface2);padding:8px 10px;text-align:left;font-weight:600;font-size:10px;color:var(--text2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:2;white-space:nowrap;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;min-width:60px;resize:horizontal;overflow:auto}
@@ -227,6 +227,7 @@ tr.origin-row td.locked-cell:focus{
 .meta-cell{font-size:10px;color:var(--text3);font-family:var(--mono);white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;cursor:default}
 .meta-cell span{display:block;line-height:1.5}
 .meta-cell .who{color:var(--accent);font-weight:500}
+#tableArea{max-width:100%;overflow-x:auto;}
 </style>
 </head>
 <body>
@@ -362,8 +363,10 @@ tr.origin-row td.locked-cell:focus{
   </div>
 </div>
 
-<div class="tbl-card" id="tableArea"></div>
-<div class="tbl-card" id="tableArea"></div>
+<div style="width:100%;overflow:hidden;">
+  <div class="tbl-card" id="tableArea"></div>
+  <!-- action bar stays here, same width container -->
+</div>
 
 <!-- Action bar — below table -->
 <div style="display:flex;border:1px solid var(--border2);border-radius:var(--r);overflow:hidden;flex-shrink:0">
@@ -3093,7 +3096,7 @@ function parseMultiTableSheet(ws) {
     'ITEM','FEEDER NAME','FEEDER_NAME','BAY NAME','BAY_NAME',
     'SPECIFICATION POINT NAME','SPECIFICATION_POINT_NAME',
     'POINT NAME','DNP3.0 SERVER','DNP3.0_ADDRESS','ADDRESS',
-    'DESCRIPTOR','OBJ','TAR','GH','CLASS','TYPE','REMARK'
+    'DESCRIPTOR','OBJ','VAR','QII','CLASS','TYPE','REMARK'
   ];
 
   function norm(s) { return s.toUpperCase().replace(/[^A-Z0-9]/g, '_'); }
@@ -3146,7 +3149,7 @@ function parseMultiTableSheet(ws) {
 
     if (currentHeaders) {
       // Skip metadata lines like "SYSTEM VOLTAGE LEVEL : 115kV"
-      if (cells[0] && /:\s/.test(cells[0])) continue;
+      if (cells[0] && (/:\s/.test(cells[0]) || /^#/.test(cells[0]))) continue;
       const obj = {};
       currentHeaders.forEach((h, i) => { if (h) obj[h] = cells[i] ?? ''; });
       if (Object.values(obj).every(v => String(v).trim() === '')) continue;
