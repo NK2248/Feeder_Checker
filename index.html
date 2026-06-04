@@ -87,8 +87,8 @@ h1{font-size:22px;font-weight:600;letter-spacing:-.02em}
 .drop-zone p{font-size:13px;color:var(--text2);font-weight:500}
 .drop-zone span{font-size:12px;color:var(--text3)}
 .drop-zone input{display:none}
-.tbl-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden}
-.tbl-wrap{overflow-x:auto;max-height:440px;overflow-y:auto}
+.tbl-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;width:100%;box-sizing:border-box;}
+.tbl-wrap{overflow-x:auto;max-height:440px;overflow-y:auto;width:100%;}
 table{width:100%;border-collapse:collapse;font-size:12px;table-layout:auto}
 thead th{background:var(--surface2);padding:8px 10px;text-align:left;font-weight:600;font-size:10px;color:var(--text2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:2;white-space:nowrap;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;min-width:60px;resize:horizontal;overflow:auto}
 td{padding:7px 10px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle;white-space:nowrap}
@@ -366,33 +366,34 @@ tr.origin-row td.locked-cell:focus{
 <div class="tbl-card" id="tableArea"></div>
 
 <!-- Action bar — below table -->
-<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;padding:10px 0;border-top:1px solid var(--border)">
-  <button class="btn" onclick="currentMode==='feeder'?openFeederAddRow():openAddRow()">
-    <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    add row
-  </button>
-  <button class="btn danger" onclick="confirmClearAll()">
-    <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>
-    clear all
-  </button>
-  <button class="btn warn" onclick="currentMode==='feeder'?runFeederDupCheck():runDupCheck()">
-    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-    check dups
-  </button>
-  <button class="btn" onclick="openCompare()" style="color:var(--blue);border-color:var(--blue-bdr);background:var(--blue-bg)">
-    <svg viewBox="0 0 24 24" style="stroke:var(--blue)"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
-    compare
-  </button>
-  <button class="btn" style="color:#5a3d8a;border-color:#c8a8e8;background:#f4eeff" onclick="openHistory()">
-    <svg viewBox="0 0 24 24" style="stroke:#5a3d8a"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-    history
-  </button>
-  <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
-    <button class="btn success" id="btnExportAll" onclick="currentMode==='feeder'?exportAllSubstation():exportAllExcel()">
+<div style="display:flex;border:1px solid var(--border2);border-radius:var(--r);overflow:hidden;flex-shrink:0">
+    <button class="btn" style="border:none;border-right:1px solid var(--border2);border-radius:0" onclick="currentMode==='feeder'?openFeederAddRow():openAddRow()">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      add row
+    </button>
+    <button class="btn danger" style="border:none;border-right:1px solid var(--border2);border-radius:0;background:transparent;color:var(--red)" onclick="confirmClearAll()">
+      <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+      clear all
+    </button>
+    <button class="btn warn" style="border:none;border-right:1px solid var(--border2);border-radius:0;background:transparent;color:var(--amber)" onclick="currentMode==='feeder'?runFeederDupCheck():runDupCheck()">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      check dups
+    </button>
+    <button class="btn" style="border:none;border-right:1px solid var(--border2);border-radius:0;color:var(--blue);background:transparent" onclick="openCompare()">
+      <svg viewBox="0 0 24 24" style="stroke:var(--blue)"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+      compare
+    </button>
+    <button class="btn" style="border:none;border-radius:0;color:#5a3d8a;background:transparent" onclick="openHistory()">
+      <svg viewBox="0 0 24 24" style="stroke:#5a3d8a"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      history
+    </button>
+  </div>
+  <div style="margin-left:auto;display:flex;border:1px solid var(--border2);border-radius:var(--r);overflow:hidden;flex-shrink:0">
+    <button class="btn success" id="btnExportAll" style="border:none;border-right:1px solid var(--border2);border-radius:0;background:transparent;color:var(--green)" onclick="currentMode==='feeder'?exportAllSubstation():exportAllExcel()">
       <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       <span id="lblExportAll">export substation</span>
     </button>
-    <button class="btn" id="btnExportTCD" onclick="currentMode==='feeder'?exportFeederCSV():exportDeviceTCD()" style="display:none">
+    <button class="btn" id="btnExportTCD" onclick="currentMode==='feeder'?exportFeederCSV():exportDeviceTCD()" style="display:none;border:none;border-radius:0;background:transparent">
       <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
       TCD
     </button>
@@ -945,6 +946,23 @@ function processFile(f) {
         for (const sheetName of wb.SheetNames) {
           const ws     = wb.Sheets[sheetName];
           const tables = parseMultiTableSheet(ws);
+          showImportToast(
+            `<strong>Sheet: ${sheetName}</strong><br>` +
+            (tables.length
+              ? tables.map((t,i) => `&nbsp;${i+1}. ${t.type||'?'} — ${t.rows.length} rows`).join('<br>')
+              : '⚠ No tables found in this sheet')
+          );
+          // Show what was found
+          if (!tables.length) {
+            showImportToast('⚠ No tables detected in this sheet. Check console for details.', true);
+            return;
+          }
+          showImportToast(
+            `<strong>Found ${tables.length} table(s):</strong><br>` +
+            tables.map((t,i) =>
+              `&nbsp;${i+1}. <b>${t.type || '?unknown type'}</b> — ${t.rows.length} rows`
+            ).join('<br>')
+          );
           const sheetRoute = parseSheetNameForRouting(sheetName);
 
           for (const [idx, tbl] of tables.entries()) {
@@ -3138,8 +3156,36 @@ function parseMultiTableSheet(ws) {
 
   if (currentHeaders && currentRows.length)
     tables.push({ headers: currentHeaders, rows: currentRows, type: currentType });
-
+  // Debug: log what was extracted
+  console.group('[parseMultiTableSheet] Results');
+  tables.forEach((t, i) => {
+    console.log(`Table ${i+1}: type="${t.type}", rows=${t.rows.length}, headers=[${t.headers.slice(0,5).join(', ')}...]`);
+    if (t.rows.length) console.log('  First row sample:', t.rows[0]);
+  });
+  console.groupEnd();
   return tables;
+}
+
+function showImportToast(msg, isError=false) {
+  let toast = document.getElementById('importToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'importToast';
+    toast.style.cssText = `
+      position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+      background:var(--surface);border:1px solid var(--border2);
+      border-radius:var(--rlg);padding:12px 20px;font-size:13px;
+      font-family:var(--mono);z-index:300;min-width:320px;max-width:600px;
+      box-shadow:0 4px 24px rgba(0,0,0,.12);display:flex;flex-direction:column;gap:6px;
+    `;
+    document.body.appendChild(toast);
+  }
+  toast.style.borderColor = isError ? 'var(--red-bdr)' : 'var(--green-bdr)';
+  toast.style.color       = isError ? 'var(--red)'     : 'var(--text)';
+  toast.innerHTML = msg;
+  toast.style.display = 'flex';
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 6000);
 }
 
 // ── parseSheetNameForRouting ──────────────────────────────────────────────────
