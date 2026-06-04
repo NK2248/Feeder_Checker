@@ -87,8 +87,8 @@ h1{font-size:22px;font-weight:600;letter-spacing:-.02em}
 .drop-zone p{font-size:13px;color:var(--text2);font-weight:500}
 .drop-zone span{font-size:12px;color:var(--text3)}
 .drop-zone input{display:none}
-.tbl-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;width:100%;box-sizing:border-box;max-width:100%;}
-.tbl-wrap{overflow-x:auto;max-height:440px;overflow-y:auto;width:100%;display:block;}
+.tbl-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;width:100%;box-sizing:border-box;max-width:100%;display:block;}
+.tbl-wrap{overflow-x:auto;max-height:440px;overflow-y:auto;width:100%;display:block;max-width:100%;}
 table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;word-break:break-word;}
 thead th{background:var(--surface2);padding:8px 10px;text-align:left;font-weight:600;font-size:10px;color:var(--text2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:2;white-space:nowrap;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;min-width:60px;max-width:160px;overflow:hidden;text-overflow:ellipsis;resize:horizontal;}
 td{padding:7px 10px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;}
@@ -227,7 +227,11 @@ tr.origin-row td.locked-cell:focus{
 .meta-cell{font-size:10px;color:var(--text3);font-family:var(--mono);white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;cursor:default}
 .meta-cell span{display:block;line-height:1.5}
 .meta-cell .who{color:var(--accent);font-weight:500}
-#tableArea{max-width:100%;overflow-x:auto;}
+#tableArea{
+  max-width:100%;
+  overflow-x:auto;
+  box-sizing:border-box;
+}
 </style>
 </head>
 <body>
