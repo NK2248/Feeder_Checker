@@ -3178,15 +3178,60 @@ function updateHeaderHint(){
   }
 }
 
+function buildFileColumnsAndMap(){
+  const r1 = COLMAP.rawRows[COLMAP.headerRowIdx] || [];
+  const r2 = COLMAP.useDoubleHeader && COLMAP.headerRowIdx2 !== null
+    ? COLMAP.rawRows[COLMAP.headerRowIdx2] || []
+    : null;
+
+  const maxCols = Math.max(r1.length, r2 ? r2.length : 0);
+  COLMAP.fileColumns = [];
+  COLMAP.colStartIdx = {}; // track original column index
+
+  for(let ci=0; ci<maxCols; ci++){
+    const top    = (r1[ci]||'').trim();
+    const bottom = r2 ? (r2[ci]||'').trim() : '';
+
+    let combined = '';
+    if(top && bottom){
+      // combine: "DNP3.0 SERVER" + "OBJ" → "DNP3.0_OBJ"
+      combined = (top+' '+bottom).trim();
+    } else if(top){
+      combined = top;
+    } else if(bottom){
+      combined = bottom;
+    } else {
+      // empty column — skip
+      continue;
+    }
+
+    // deduplicate column names
+    let finalName = combined;
+    let suffix = 2;
+    while(COLMAP.fileColumns.includes(finalName)){
+      finalName = combined + '_' + suffix++;
+    }
+    COLMAP.fileColumns.push(finalName);
+    COLMAP.colStartIdx[finalName] = ci;
+  }
+
+  document.getElementById('colMapSection').style.display='block';
+  autoMapColumns();
+  updateMappingPreview();
+}
+
 function selectHeaderRow(idx){
   COLMAP.headerRowIdx = idx;
-  COLMAP.fileColumns = COLMAP.rawRows[idx].filter(c=>c!=='');
-  document.getElementById('colMapHeaderHint').innerHTML =
-    `<span style="color:var(--green);font-weight:500">✓ Row ${idx+1} selected as header</span> — ${COLMAP.fileColumns.length} columns found`;
+  // check if auto-detect already found a second row
+  if(COLMAP.useDoubleHeader && COLMAP.headerRowIdx2 !== null){
+    // keep it
+  } else {
+    COLMAP.headerRowIdx2 = null;
+    COLMAP.useDoubleHeader = false;
+  }
   renderColMapPreview();
-  autoMapColumns();
-  document.getElementById('colMapSection').style.display = 'block';
-  updateMappingPreview();
+  updateHeaderHint();
+  buildFileColumnsAndMap();
 }
 
 function autoMapColumns(){
@@ -3275,19 +3320,26 @@ function buildMappedRows(){
   const range = COLMAP.fullRange;
   const dataRows = [];
 
-  for(let R = COLMAP.headerRowIdx+1; R <= range.e.r; R++){
+  // data starts after the last header row
+  const dataStartR = range.s.r + Math.max(
+    COLMAP.headerRowIdx,
+    COLMAP.headerRowIdx2 ?? COLMAP.headerRowIdx
+  ) + 1;
+
+  for(let R = dataStartR; R <= range.e.r; R++){
     const rawRow = [];
     for(let C = range.s.c; C <= range.e.c; C++){
       const cell = ws[XLSX.utils.encode_cell({r:R,c:C})];
       rawRow.push(cell ? String(cell.v??'').trim() : '');
     }
-    // skip completely empty rows
     if(rawRow.every(v=>v==='')) continue;
 
     const obj = {};
-    COLMAP.fileColumns.forEach((fileCol,ci)=>{
+    COLMAP.fileColumns.forEach(fileCol=>{
       const schemaCol = COLMAP.mappings[fileCol];
       if(schemaCol && schemaCol !== '— skip —'){
+        // use the original column index from header parsing
+        const ci = COLMAP.colStartIdx[fileCol] ?? COLMAP.fileColumns.indexOf(fileCol);
         obj[schemaCol] = rawRow[ci] ?? '';
       }
     });
