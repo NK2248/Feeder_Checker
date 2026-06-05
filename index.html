@@ -3005,7 +3005,9 @@ function colMapLoadSheet(sheetName){
   COLMAP.fullRange = range;
   COLMAP.ws = ws;
   COLMAP.headerRowIdx = null;
-  COLMAP.headerRowIdx2 = null; // second header row
+  COLMAP.headerRowIdx2 = null;
+  COLMAP.headerRowIdx3 = null;
+  COLMAP.headerRows = []; // sorted list of all selected header row indices
   COLMAP.useDoubleHeader = false;
 
   renderColMapPreview();
@@ -3030,24 +3032,43 @@ function autoDetectHeaderRow(rawRows){
   const norm = s => s.toUpperCase().replace(/[^A-Z0-9]/g,'_');
 
   for(let i=0;i<rawRows.length;i++){
-    // single row match — needs 2+ keyword hits
+    // single row
     const hits = rawRows[i].filter(c=>c!==''&&
       HEADER_KEYWORDS.some(kw=>norm(c)===norm(kw)||norm(c).includes(norm(kw)))
     );
-    if(hits.length >= 2) return i;
+    if(hits.length >= 2){
+      COLMAP.headerRows=[i];
+      return i;
+    }
 
-    // double row match — combine row i and i+1, check combined hits
+    // try combining 2 rows
     if(i+1 < rawRows.length){
-      const combined = rawRows[i].map((c,ci)=>{
-        const below = rawRows[i+1][ci]||'';
-        return (c+' '+below).trim();
-      });
-      const combinedHits = combined.filter(c=>c!==''&&
+      const combined2 = rawRows[i].map((c,ci)=>(c+' '+(rawRows[i+1][ci]||'')).trim());
+      const hits2 = combined2.filter(c=>c!==''&&
         HEADER_KEYWORDS.some(kw=>norm(c)===norm(kw)||norm(c).includes(norm(kw)))
       );
-      if(combinedHits.length >= 3){
-        // auto-select both rows
+      if(hits2.length >= 3){
         COLMAP.headerRowIdx2 = i+1;
+        COLMAP.headerRowIdx3 = null;
+        COLMAP.headerRows = [i, i+1];
+        COLMAP.useDoubleHeader = true;
+        return i;
+      }
+    }
+
+    // try combining 3 rows
+    if(i+1 < rawRows.length && i+2 < rawRows.length){
+      const maxC = Math.max(rawRows[i].length, rawRows[i+1].length, rawRows[i+2].length);
+      const combined3 = Array.from({length:maxC},(_,ci)=>(
+        (rawRows[i][ci]||'')+' '+(rawRows[i+1][ci]||'')+' '+(rawRows[i+2][ci]||'')
+      ).trim());
+      const hits3 = combined3.filter(c=>c!==''&&
+        HEADER_KEYWORDS.some(kw=>norm(c)===norm(kw)||norm(c).includes(norm(kw)))
+      );
+      if(hits3.length >= 3){
+        COLMAP.headerRowIdx2 = i+1;
+        COLMAP.headerRowIdx3 = i+2;
+        COLMAP.headerRows = [i, i+1, i+2];
         COLMAP.useDoubleHeader = true;
         return i;
       }
@@ -3065,36 +3086,46 @@ function renderColMapPreview(){
   const maxCols = Math.max(...rows.map(r=>r.length));
   const thead = `<tr>
     <th style="background:var(--surface2);padding:4px 8px;font-size:10px;font-family:var(--mono);border-bottom:1px solid var(--border);position:sticky;top:0;white-space:nowrap">#</th>
-    <th style="background:var(--surface2);padding:4px 8px;font-size:10px;font-family:var(--mono);border-bottom:1px solid var(--border);position:sticky;top:0;white-space:nowrap">use</th>
+    <th style="background:var(--surface2);padding:4px 8px;font-size:10px;font-family:var(--mono);border-bottom:1px solid var(--border);position:sticky;top:0;white-space:nowrap">role</th>
     ${Array.from({length:maxCols},(_,i)=>
       `<th style="background:var(--surface2);padding:4px 8px;font-size:10px;font-family:var(--mono);border-bottom:1px solid var(--border);position:sticky;top:0;white-space:nowrap">${String.fromCharCode(65+i)}</th>`
     ).join('')}
   </tr>`;
 
-  const tbody = rows.map((row,ri)=>{
-    const isH1 = ri === COLMAP.headerRowIdx;
-    const isH2 = ri === COLMAP.headerRowIdx2;
-    const isData = !isH1 && !isH2 && COLMAP.headerRowIdx!==null && ri > Math.max(COLMAP.headerRowIdx, COLMAP.headerRowIdx2??-1);
+  // label colors per header row
+  const HDR_COLORS = [
+    {bg:'var(--accent-light)', badge:'var(--accent)',   label:'HDR 1'},
+    {bg:'#e8f5e8',             badge:'var(--green)',    label:'HDR 2'},
+    {bg:'#fff8e8',             badge:'var(--amber)',    label:'HDR 3'},
+  ];
 
-    let rowBg = ri%2===0 ? 'background:var(--surface)' : 'background:var(--bg)';
-    let rowLabel = '';
-    if(isH1){
-      rowBg = 'background:var(--accent-light)';
-      rowLabel = `<span style="display:inline-block;font-size:9px;font-family:var(--mono);background:var(--accent);color:#fff;border-radius:3px;padding:1px 5px">HDR 1</span>`;
-    } else if(isH2){
-      rowBg = 'background:#e8f5e8';
-      rowLabel = `<span style="display:inline-block;font-size:9px;font-family:var(--mono);background:var(--green);color:#fff;border-radius:3px;padding:1px 5px">HDR 2</span>`;
+  const lastHdrIdx = COLMAP.headerRows.length
+    ? Math.max(...COLMAP.headerRows)
+    : (COLMAP.headerRowIdx ?? -1);
+
+  const tbody = rows.map((row,ri)=>{
+    const hdrPos = COLMAP.headerRows.indexOf(ri);
+    const isHdr  = hdrPos !== -1;
+    const isData = !isHdr && COLMAP.headerRowIdx !== null && ri > lastHdrIdx;
+
+    let rowBg  = ri%2===0 ? 'background:var(--surface)' : 'background:var(--bg)';
+    let badge  = '';
+
+    if(isHdr){
+      const hc = HDR_COLORS[hdrPos] || HDR_COLORS[2];
+      rowBg = `background:${hc.bg}`;
+      badge = `<span style="display:inline-block;font-size:9px;font-family:var(--mono);background:${hc.badge};color:#fff;border-radius:3px;padding:1px 5px">${hc.label}</span>`;
     } else if(isData){
-      rowLabel = `<span style="font-size:9px;font-family:var(--mono);color:var(--text3)">data</span>`;
+      badge = `<span style="font-size:9px;font-family:var(--mono);color:var(--text3)">data</span>`;
     }
 
     const cells = Array.from({length:maxCols},(_,ci)=>
-      `<td style="padding:4px 8px;font-size:11px;border-bottom:1px solid var(--border);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;font-family:${isH1||isH2?'var(--mono)':'inherit'};font-weight:${isH1||isH2?'600':'400'}">${row[ci]??''}</td>`
+      `<td style="padding:4px 8px;font-size:11px;border-bottom:1px solid var(--border);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;font-family:${isHdr?'var(--mono)':'inherit'};font-weight:${isHdr?'600':'400'}">${row[ci]??''}</td>`
     ).join('');
 
-    return `<tr style="${rowBg};cursor:pointer" onclick="onPreviewRowClick(${ri})" title="Click to set header row">
+    return `<tr style="${rowBg};cursor:pointer" onclick="onPreviewRowClick(${ri})" title="Click to toggle header row">
       <td style="padding:4px 8px;font-size:10px;font-family:var(--mono);color:var(--text3);border-bottom:1px solid var(--border);white-space:nowrap">${ri+1}</td>
-      <td style="padding:4px 8px;border-bottom:1px solid var(--border);white-space:nowrap;text-align:center">${rowLabel}</td>
+      <td style="padding:4px 8px;border-bottom:1px solid var(--border);white-space:nowrap;text-align:center">${badge}</td>
       ${cells}
     </tr>`;
   }).join('');
@@ -3104,112 +3135,124 @@ function renderColMapPreview(){
 }
 
 function onPreviewRowClick(ri){
-  // If no header selected yet — set as first header row
-  if(COLMAP.headerRowIdx === null){
-    COLMAP.headerRowIdx = ri;
-    COLMAP.headerRowIdx2 = null;
-    COLMAP.useDoubleHeader = false;
-    renderColMapPreview();
-    updateHeaderHint();
-    buildFileColumnsAndMap();
-    return;
-  }
+  const headers = [...COLMAP.headerRows];
+  const pos = headers.indexOf(ri);
 
-  // If clicking the current HDR1 row — deselect all
-  if(ri === COLMAP.headerRowIdx){
-    COLMAP.headerRowIdx = null;
-    COLMAP.headerRowIdx2 = null;
-    COLMAP.useDoubleHeader = false;
-    COLMAP.fileColumns = [];
-    COLMAP.mappings = {};
-    document.getElementById('colMapSection').style.display='none';
-    document.getElementById('colMapDataPreview').style.display='none';
-    renderColMapPreview();
-    document.getElementById('colMapHeaderHint').textContent='Click a row to set as header';
-    return;
-  }
+  if(pos !== -1){
+    // clicking an already-selected header row removes it
+    headers.splice(pos, 1);
+    COLMAP.headerRows = headers.sort((a,b)=>a-b);
 
-  // If clicking the current HDR2 row — remove second header
-  if(ri === COLMAP.headerRowIdx2){
-    COLMAP.headerRowIdx2 = null;
-    COLMAP.useDoubleHeader = false;
-    renderColMapPreview();
-    updateHeaderHint();
-    buildFileColumnsAndMap();
-    return;
-  }
-
-  // If clicking a row adjacent to HDR1 — offer as second header row
-  if(Math.abs(ri - COLMAP.headerRowIdx) === 1){
-    COLMAP.headerRowIdx2 = ri;
-    COLMAP.useDoubleHeader = true;
-    // ensure HDR1 is always the higher row
-    if(COLMAP.headerRowIdx2 < COLMAP.headerRowIdx){
-      [COLMAP.headerRowIdx, COLMAP.headerRowIdx2] = [COLMAP.headerRowIdx2, COLMAP.headerRowIdx];
+    if(!COLMAP.headerRows.length){
+      // all removed — full reset
+      COLMAP.headerRowIdx  = null;
+      COLMAP.headerRowIdx2 = null;
+      COLMAP.headerRowIdx3 = null;
+      COLMAP.useDoubleHeader = false;
+      COLMAP.fileColumns = [];
+      COLMAP.mappings = {};
+      document.getElementById('colMapSection').style.display='none';
+      document.getElementById('colMapDataPreview').style.display='none';
+      renderColMapPreview();
+      document.getElementById('colMapHeaderHint').textContent=
+        'Click a row to set as header — click up to 3 consecutive rows for merged headers';
+      return;
     }
+
+    syncHeaderIdxFromRows();
     renderColMapPreview();
     updateHeaderHint();
     buildFileColumnsAndMap();
     return;
   }
 
-  // Otherwise set as new single header row 1
-  COLMAP.headerRowIdx = ri;
-  COLMAP.headerRowIdx2 = null;
-  COLMAP.useDoubleHeader = false;
+  // not yet selected — add it if ≤ 3 headers and it's consecutive with existing
+  if(headers.length >= 3){
+    showImportToast('⚠ Maximum 3 header rows supported. Click a highlighted row to remove it first.');
+    return;
+  }
+
+  if(headers.length > 0){
+    const sorted = [...headers, ri].sort((a,b)=>a-b);
+    // must be consecutive
+    for(let i=1;i<sorted.length;i++){
+      if(sorted[i]-sorted[i-1] !== 1){
+        showImportToast('⚠ Header rows must be consecutive. Click adjacent rows only.');
+        return;
+      }
+    }
+    COLMAP.headerRows = sorted;
+  } else {
+    COLMAP.headerRows = [ri];
+  }
+
+  syncHeaderIdxFromRows();
+  COLMAP.useDoubleHeader = COLMAP.headerRows.length > 1;
   renderColMapPreview();
   updateHeaderHint();
   buildFileColumnsAndMap();
 }
 
+// keep headerRowIdx / headerRowIdx2 / headerRowIdx3 in sync
+function syncHeaderIdxFromRows(){
+  const h = COLMAP.headerRows;
+  COLMAP.headerRowIdx  = h[0] ?? null;
+  COLMAP.headerRowIdx2 = h[1] ?? null;
+  COLMAP.headerRowIdx3 = h[2] ?? null;
+}
+
 function updateHeaderHint(){
-  if(COLMAP.headerRowIdx === null){
-    document.getElementById('colMapHeaderHint').textContent='Click a row to set as header';
+  const h = COLMAP.headerRows;
+  if(!h.length){
+    document.getElementById('colMapHeaderHint').textContent=
+      'Click a row to set as header — click up to 3 consecutive rows for merged headers';
     return;
   }
-  if(COLMAP.useDoubleHeader && COLMAP.headerRowIdx2 !== null){
-    document.getElementById('colMapHeaderHint').innerHTML=
-      `<span style="color:var(--green);font-weight:500">✓ Rows ${COLMAP.headerRowIdx+1} + ${COLMAP.headerRowIdx2+1} combined as header</span> — ${COLMAP.fileColumns.length} columns found
-       <span style="color:var(--text3);margin-left:8px">· click HDR2 row again to remove second header</span>`;
-  } else {
-    document.getElementById('colMapHeaderHint').innerHTML=
-      `<span style="color:var(--accent);font-weight:500">✓ Row ${COLMAP.headerRowIdx+1} as header</span> — ${COLMAP.fileColumns.length} columns found
-       <span style="color:var(--text3);margin-left:8px">· click an adjacent row to add a second header row</span>`;
-  }
+  const rowNums = h.map(i=>i+1).join(' + ');
+  const count = COLMAP.fileColumns.length;
+  const typeLabel = h.length===1?'single header':h.length===2?'2-row merged header':'3-row merged header';
+  const colors = ['var(--accent)','var(--green)','var(--amber)'];
+  const badges = h.map((idx,i)=>
+    `<span style="display:inline-block;font-size:9px;font-family:var(--mono);background:${colors[i]};color:#fff;border-radius:3px;padding:1px 5px;margin-right:3px">Row ${idx+1}</span>`
+  ).join('');
+
+  document.getElementById('colMapHeaderHint').innerHTML=`
+    ${badges}
+    <span style="color:var(--text);font-weight:500">${typeLabel}</span>
+    — <span style="color:var(--text2)">${count} columns found</span>
+    <span style="color:var(--text3);margin-left:8px;font-size:10px">· click a highlighted row to remove it · click adjacent row to add (max 3)</span>
+  `;
 }
 
 function buildFileColumnsAndMap(){
-  const r1 = COLMAP.rawRows[COLMAP.headerRowIdx] || [];
-  const r2 = COLMAP.useDoubleHeader && COLMAP.headerRowIdx2 !== null
-    ? COLMAP.rawRows[COLMAP.headerRowIdx2] || []
-    : null;
+  const h = COLMAP.headerRows;
+  if(!h.length) return;
 
-  const maxCols = Math.max(r1.length, r2 ? r2.length : 0);
+  const rows = h.map(idx => COLMAP.rawRows[idx] || []);
+  const maxCols = Math.max(...rows.map(r=>r.length));
+
   COLMAP.fileColumns = [];
-  COLMAP.colStartIdx = {}; // track original column index
+  COLMAP.colStartIdx = {};
 
   for(let ci=0; ci<maxCols; ci++){
-    const top    = (r1[ci]||'').trim();
-    const bottom = r2 ? (r2[ci]||'').trim() : '';
+    // collect non-empty values from each header row for this column
+    const parts = rows.map(r=>(r[ci]||'').trim()).filter(Boolean);
 
-    let combined = '';
-    if(top && bottom){
-      // combine: "DNP3.0 SERVER" + "OBJ" → "DNP3.0_OBJ"
-      combined = (top+' '+bottom).trim();
-    } else if(top){
-      combined = top;
-    } else if(bottom){
-      combined = bottom;
-    } else {
-      // empty column — skip
-      continue;
-    }
+    if(!parts.length) continue; // fully empty column — skip
+
+    // join parts: deduplicate adjacent identical words
+    // e.g. ["DNP3.0","DNP3.0","OBJ"] → "DNP3.0 OBJ"
+    const deduped = parts.reduce((acc,p)=>{
+      if(!acc.length || acc[acc.length-1]!==p) acc.push(p);
+      return acc;
+    },[]);
+    const combined = deduped.join(' ').trim();
 
     // deduplicate column names
     let finalName = combined;
     let suffix = 2;
     while(COLMAP.fileColumns.includes(finalName)){
-      finalName = combined + '_' + suffix++;
+      finalName = combined+'_'+suffix++;
     }
     COLMAP.fileColumns.push(finalName);
     COLMAP.colStartIdx[finalName] = ci;
@@ -3221,14 +3264,13 @@ function buildFileColumnsAndMap(){
 }
 
 function selectHeaderRow(idx){
-  COLMAP.headerRowIdx = idx;
-  // check if auto-detect already found a second row
-  if(COLMAP.useDoubleHeader && COLMAP.headerRowIdx2 !== null){
-    // keep it
-  } else {
-    COLMAP.headerRowIdx2 = null;
-    COLMAP.useDoubleHeader = false;
-  }
+  // called by auto-detect — set headerRows from current idx + idx2/idx3
+  const h = [idx];
+  if(COLMAP.headerRowIdx2 !== null) h.push(COLMAP.headerRowIdx2);
+  if(COLMAP.headerRowIdx3 !== null) h.push(COLMAP.headerRowIdx3);
+  COLMAP.headerRows = [...new Set(h)].sort((a,b)=>a-b);
+  syncHeaderIdxFromRows();
+  COLMAP.useDoubleHeader = COLMAP.headerRows.length > 1;
   renderColMapPreview();
   updateHeaderHint();
   buildFileColumnsAndMap();
@@ -3321,9 +3363,10 @@ function buildMappedRows(){
   const dataRows = [];
 
   // data starts after the last header row
-  const dataStartR = range.s.r + Math.max(
-    COLMAP.headerRowIdx,
-    COLMAP.headerRowIdx2 ?? COLMAP.headerRowIdx
+  const dataStartR = range.s.r + (
+    COLMAP.headerRows.length
+      ? Math.max(...COLMAP.headerRows)
+      : COLMAP.headerRowIdx
   ) + 1;
 
   for(let R = dataStartR; R <= range.e.r; R++){
