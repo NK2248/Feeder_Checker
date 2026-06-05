@@ -2992,7 +2992,8 @@ function colMapLoadSheet(sheetName){
   const ws = COLMAP.wb.Sheets[sheetName];
   const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
   const rawRows = [];
-  for(let R = range.s.r; R <= Math.min(range.e.r, range.s.r+49); R++){
+  // increase preview to 60 rows to capture more header variations
+  for(let R = range.s.r; R <= Math.min(range.e.r, range.s.r+59); R++){
     const row = [];
     for(let C = range.s.c; C <= range.e.c; C++){
       const cell = ws[XLSX.utils.encode_cell({r:R,c:C})];
@@ -3003,52 +3004,178 @@ function colMapLoadSheet(sheetName){
   COLMAP.rawRows = rawRows;
   COLMAP.fullRange = range;
   COLMAP.ws = ws;
+  COLMAP.headerRowIdx = null;
+  COLMAP.headerRowIdx2 = null; // second header row
+  COLMAP.useDoubleHeader = false;
+
   renderColMapPreview();
 
-  // auto-detect header row
+  // auto-detect header
   const autoIdx = autoDetectHeaderRow(rawRows);
   if(autoIdx !== null){
     selectHeaderRow(autoIdx);
   } else {
-    document.getElementById('colMapHeaderHint').textContent = 'Click a row to set as header';
+    document.getElementById('colMapHeaderHint').textContent = 'Click a row to set as header — or select 2 rows for merged headers';
   }
 }
 
 function autoDetectHeaderRow(rawRows){
-  const HEADER_KEYWORDS = ['FEEDER_NAME','FEEDER NAME','BAY_NAME','BAY NAME',
+  const HEADER_KEYWORDS = [
+    'FEEDER_NAME','FEEDER NAME','BAY_NAME','BAY NAME',
     'SPECIFICATION_POINT_NAME','POINT NAME','DNP3.0_ADDRESS','ADDRESS',
-    'DESCRIPTOR','OBJ','VAR','QII','CLASS','TYPE','REMARK','STATE_0','STATE_CLOSE'];
+    'DESCRIPTOR','OBJ','VAR','QII','CLASS','TYPE','REMARK',
+    'STATE_0','STATE_CLOSE','DNP3.0','SERVER','SPECIFICATION',
+    'SCALE','UNIT','IEC','BRCB','PROT','BCU'
+  ];
   const norm = s => s.toUpperCase().replace(/[^A-Z0-9]/g,'_');
+
   for(let i=0;i<rawRows.length;i++){
-    const hits = rawRows[i].filter(c=>
+    // single row match — needs 2+ keyword hits
+    const hits = rawRows[i].filter(c=>c!==''&&
       HEADER_KEYWORDS.some(kw=>norm(c)===norm(kw)||norm(c).includes(norm(kw)))
     );
     if(hits.length >= 2) return i;
+
+    // double row match — combine row i and i+1, check combined hits
+    if(i+1 < rawRows.length){
+      const combined = rawRows[i].map((c,ci)=>{
+        const below = rawRows[i+1][ci]||'';
+        return (c+' '+below).trim();
+      });
+      const combinedHits = combined.filter(c=>c!==''&&
+        HEADER_KEYWORDS.some(kw=>norm(c)===norm(kw)||norm(c).includes(norm(kw)))
+      );
+      if(combinedHits.length >= 3){
+        // auto-select both rows
+        COLMAP.headerRowIdx2 = i+1;
+        COLMAP.useDoubleHeader = true;
+        return i;
+      }
+    }
   }
   return null;
 }
 
 function renderColMapPreview(){
   const rows = COLMAP.rawRows;
-  if(!rows.length){ document.getElementById('colMapPreview').innerHTML='<div class="empty" style="padding:1rem">No data found in this sheet</div>'; return; }
+  if(!rows.length){
+    document.getElementById('colMapPreview').innerHTML='<div class="empty" style="padding:1rem">No data found in this sheet</div>';
+    return;
+  }
   const maxCols = Math.max(...rows.map(r=>r.length));
-  const thead = `<tr><th style="background:var(--surface2);padding:4px 8px;font-size:10px;font-family:var(--mono);border-bottom:1px solid var(--border);position:sticky;top:0;white-space:nowrap">#</th>` +
-    Array.from({length:maxCols},(_,i)=>
+  const thead = `<tr>
+    <th style="background:var(--surface2);padding:4px 8px;font-size:10px;font-family:var(--mono);border-bottom:1px solid var(--border);position:sticky;top:0;white-space:nowrap">#</th>
+    <th style="background:var(--surface2);padding:4px 8px;font-size:10px;font-family:var(--mono);border-bottom:1px solid var(--border);position:sticky;top:0;white-space:nowrap">use</th>
+    ${Array.from({length:maxCols},(_,i)=>
       `<th style="background:var(--surface2);padding:4px 8px;font-size:10px;font-family:var(--mono);border-bottom:1px solid var(--border);position:sticky;top:0;white-space:nowrap">${String.fromCharCode(65+i)}</th>`
-    ).join('') + '</tr>';
+    ).join('')}
+  </tr>`;
+
   const tbody = rows.map((row,ri)=>{
-    const isHeader = ri === COLMAP.headerRowIdx;
-    const bg = isHeader ? 'background:var(--accent-light);outline:2px solid var(--accent);' : (ri%2===0?'background:var(--surface)':'background:var(--bg)');
+    const isH1 = ri === COLMAP.headerRowIdx;
+    const isH2 = ri === COLMAP.headerRowIdx2;
+    const isData = !isH1 && !isH2 && COLMAP.headerRowIdx!==null && ri > Math.max(COLMAP.headerRowIdx, COLMAP.headerRowIdx2??-1);
+
+    let rowBg = ri%2===0 ? 'background:var(--surface)' : 'background:var(--bg)';
+    let rowLabel = '';
+    if(isH1){
+      rowBg = 'background:var(--accent-light)';
+      rowLabel = `<span style="display:inline-block;font-size:9px;font-family:var(--mono);background:var(--accent);color:#fff;border-radius:3px;padding:1px 5px">HDR 1</span>`;
+    } else if(isH2){
+      rowBg = 'background:#e8f5e8';
+      rowLabel = `<span style="display:inline-block;font-size:9px;font-family:var(--mono);background:var(--green);color:#fff;border-radius:3px;padding:1px 5px">HDR 2</span>`;
+    } else if(isData){
+      rowLabel = `<span style="font-size:9px;font-family:var(--mono);color:var(--text3)">data</span>`;
+    }
+
     const cells = Array.from({length:maxCols},(_,ci)=>
-      `<td style="padding:4px 8px;font-size:11px;border-bottom:1px solid var(--border);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;font-family:${isHeader?'var(--mono)':'inherit'};font-weight:${isHeader?'600':'400'}">${row[ci]??''}</td>`
+      `<td style="padding:4px 8px;font-size:11px;border-bottom:1px solid var(--border);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;font-family:${isH1||isH2?'var(--mono)':'inherit'};font-weight:${isH1||isH2?'600':'400'}">${row[ci]??''}</td>`
     ).join('');
-    return `<tr style="${bg};cursor:pointer" onclick="selectHeaderRow(${ri})" title="Set row ${ri+1} as header">
+
+    return `<tr style="${rowBg};cursor:pointer" onclick="onPreviewRowClick(${ri})" title="Click to set header row">
       <td style="padding:4px 8px;font-size:10px;font-family:var(--mono);color:var(--text3);border-bottom:1px solid var(--border);white-space:nowrap">${ri+1}</td>
+      <td style="padding:4px 8px;border-bottom:1px solid var(--border);white-space:nowrap;text-align:center">${rowLabel}</td>
       ${cells}
     </tr>`;
   }).join('');
+
   document.getElementById('colMapPreview').innerHTML =
     `<table style="width:100%;border-collapse:collapse"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+}
+
+function onPreviewRowClick(ri){
+  // If no header selected yet — set as first header row
+  if(COLMAP.headerRowIdx === null){
+    COLMAP.headerRowIdx = ri;
+    COLMAP.headerRowIdx2 = null;
+    COLMAP.useDoubleHeader = false;
+    renderColMapPreview();
+    updateHeaderHint();
+    buildFileColumnsAndMap();
+    return;
+  }
+
+  // If clicking the current HDR1 row — deselect all
+  if(ri === COLMAP.headerRowIdx){
+    COLMAP.headerRowIdx = null;
+    COLMAP.headerRowIdx2 = null;
+    COLMAP.useDoubleHeader = false;
+    COLMAP.fileColumns = [];
+    COLMAP.mappings = {};
+    document.getElementById('colMapSection').style.display='none';
+    document.getElementById('colMapDataPreview').style.display='none';
+    renderColMapPreview();
+    document.getElementById('colMapHeaderHint').textContent='Click a row to set as header';
+    return;
+  }
+
+  // If clicking the current HDR2 row — remove second header
+  if(ri === COLMAP.headerRowIdx2){
+    COLMAP.headerRowIdx2 = null;
+    COLMAP.useDoubleHeader = false;
+    renderColMapPreview();
+    updateHeaderHint();
+    buildFileColumnsAndMap();
+    return;
+  }
+
+  // If clicking a row adjacent to HDR1 — offer as second header row
+  if(Math.abs(ri - COLMAP.headerRowIdx) === 1){
+    COLMAP.headerRowIdx2 = ri;
+    COLMAP.useDoubleHeader = true;
+    // ensure HDR1 is always the higher row
+    if(COLMAP.headerRowIdx2 < COLMAP.headerRowIdx){
+      [COLMAP.headerRowIdx, COLMAP.headerRowIdx2] = [COLMAP.headerRowIdx2, COLMAP.headerRowIdx];
+    }
+    renderColMapPreview();
+    updateHeaderHint();
+    buildFileColumnsAndMap();
+    return;
+  }
+
+  // Otherwise set as new single header row 1
+  COLMAP.headerRowIdx = ri;
+  COLMAP.headerRowIdx2 = null;
+  COLMAP.useDoubleHeader = false;
+  renderColMapPreview();
+  updateHeaderHint();
+  buildFileColumnsAndMap();
+}
+
+function updateHeaderHint(){
+  if(COLMAP.headerRowIdx === null){
+    document.getElementById('colMapHeaderHint').textContent='Click a row to set as header';
+    return;
+  }
+  if(COLMAP.useDoubleHeader && COLMAP.headerRowIdx2 !== null){
+    document.getElementById('colMapHeaderHint').innerHTML=
+      `<span style="color:var(--green);font-weight:500">✓ Rows ${COLMAP.headerRowIdx+1} + ${COLMAP.headerRowIdx2+1} combined as header</span> — ${COLMAP.fileColumns.length} columns found
+       <span style="color:var(--text3);margin-left:8px">· click HDR2 row again to remove second header</span>`;
+  } else {
+    document.getElementById('colMapHeaderHint').innerHTML=
+      `<span style="color:var(--accent);font-weight:500">✓ Row ${COLMAP.headerRowIdx+1} as header</span> — ${COLMAP.fileColumns.length} columns found
+       <span style="color:var(--text3);margin-left:8px">· click an adjacent row to add a second header row</span>`;
+  }
 }
 
 function selectHeaderRow(idx){
