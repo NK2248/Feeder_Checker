@@ -2960,6 +2960,23 @@ function isRowNonNumericItem(row, ri){
   return true; // non-numeric label → unwanted
 }
 
+function isRowRepeatedHeader(row){
+  // if a data row looks identical to the header row, skip it
+  // (handles repeated headers in merged tables)
+  if(!COLMAP.headerRows.length) return false;
+  const hdrRow = COLMAP.allRawRows[COLMAP.headerRows[0]] || [];
+  const norm = s => s.toUpperCase().replace(/[^A-Z0-9]/g,'_');
+
+  const rowNorms = row.map(c => norm(String(c||'')));
+  const hdrNorms = hdrRow.map(c => norm(String(c||'')));
+
+  const matches = rowNorms.filter((v,i) => v && v === hdrNorms[i]).length;
+  const nonEmpty = rowNorms.filter(v => v).length;
+
+  // if 70%+ of non-empty cells match the header → it's a repeated header
+  return nonEmpty > 0 && (matches / nonEmpty) >= 0.7;
+}
+
 function isRowLikelyNewHeader(row, existingHeaderCols){
   // detects if a row looks like a new table header (signals end of current table)
   const norm = s => s.toUpperCase().replace(/[^A-Z0-9]/g,'_');
@@ -3067,72 +3084,231 @@ function detectAllTables(allRows){
   return tables;
 }
 
+function isSameStructure(tableA, tableB, allRows){
+  // Compare column headers of two tables — if >60% overlap, consider same structure
+  const norm = s => s.toUpperCase().replace(/[^A-Z0-9]/g,'_');
+
+  const getHdrCols = t => {
+    const cols = new Set();
+    t.hdrRows.forEach(ri => {
+      (allRows[ri]||[]).forEach(c => { if(c) cols.add(norm(c)); });
+    });
+    return cols;
+  };
+
+  const colsA = getHdrCols(tableA);
+  const colsB = getHdrCols(tableB);
+  if(!colsA.size || !colsB.size) return false;
+
+  const overlap = [...colsA].filter(c => colsB.has(c)).length;
+  const ratio = overlap / Math.max(colsA.size, colsB.size);
+  return ratio >= 0.6;
+}
+
 function renderTableSelector(){
   const tables = COLMAP.detectedTables;
+  const allRows = COLMAP.allRawRows;
 
-  // find or create the table selector container in the modal
   let sel = document.getElementById('colMapTableSelector');
   if(!sel){
     sel = document.createElement('div');
     sel.id = 'colMapTableSelector';
-    // insert before the header hint area
     const hint = document.getElementById('colMapHeaderHint');
     hint.parentNode.insertBefore(sel, hint.parentNode.firstChild);
   }
 
   if(!tables.length){
-    sel.innerHTML='';
+    sel.innerHTML = '';
     return;
   }
 
   if(tables.length === 1){
-    // only 1 table found — auto-select it silently, just show info
-    sel.innerHTML=`
+    sel.innerHTML = `
       <div style="background:var(--green-bg);border:1px solid var(--green-bdr);border-radius:var(--r);padding:8px 12px;font-size:12px;color:var(--green);font-family:var(--mono);margin-bottom:10px;display:flex;align-items:center;gap:8px">
         <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;flex-shrink:0"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
         1 table detected · rows ${tables[0].hdrRows[0]+1}–${tables[0].dataEnd+1} · ${tables[0].rowCount} data rows
       </div>`;
+    COLMAP.mergedTableIdxs = new Set([0]);
     applyDetectedTable(0);
     return;
   }
 
-  // multiple tables — show selector
-  sel.innerHTML=`
-    <div style="margin-bottom:10px">
-      <div style="font-size:10px;font-family:var(--mono);color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">
-        ${tables.length} tables detected in this sheet — select one to import
+  // check which tables have same structure as table 0
+  const sameAsFirst = tables.map((t,i) =>
+    i === 0 ? true : isSameStructure(tables[0], t, allRows)
+  );
+  const autoMergeCount = sameAsFirst.filter(Boolean).length;
+
+  // auto-enable merge if multiple tables share structure
+  if(autoMergeCount > 1 && !COLMAP._mergeInitialized){
+    COLMAP._mergeInitialized = true;
+    COLMAP.useMergeMode = true;
+    COLMAP.mergedTableIdxs = new Set(
+      sameAsFirst.map((same,i) => same ? i : -1).filter(i => i >= 0)
+    );
+  }
+
+  const totalMergedRows = [...COLMAP.mergedTableIdxs]
+    .reduce((sum,i) => sum + (tables[i]?.rowCount||0), 0);
+
+  sel.innerHTML = `
+    <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--rlg);padding:10px 14px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+        <div style="font-size:11px;font-family:var(--mono);color:var(--text2);font-weight:500">
+          ${tables.length} tables detected
+          ${autoMergeCount > 1 ? `<span style="color:var(--green);margin-left:6px">· ${autoMergeCount} share same structure</span>` : ''}
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;font-family:var(--mono);color:var(--text2)">
+            <input type="checkbox" id="chkMergeMode" ${COLMAP.useMergeMode?'checked':''}
+              onchange="toggleMergeMode(this.checked)"
+              style="cursor:pointer;accent-color:var(--accent)">
+            merge selected tables
+          </label>
+          ${COLMAP.useMergeMode ? `
+          <button class="btn" style="font-size:10px;padding:2px 8px" onclick="selectAllSameStructure()">
+            select same structure
+          </button>
+          <button class="btn" style="font-size:10px;padding:2px 8px" onclick="selectAllTables()">
+            select all
+          </button>
+          <button class="btn" style="font-size:10px;padding:2px 8px" onclick="deselectAllTables()">
+            deselect all
+          </button>` : ''}
+        </div>
       </div>
+
       <div style="display:flex;flex-direction:column;gap:4px">
-        ${tables.map((t,i)=>`
-          <div onclick="selectDetectedTable(${i})"
+        ${tables.map((t,i) => {
+          const isSelected = COLMAP.mergedTableIdxs.has(i) || (!COLMAP.useMergeMode && COLMAP.selectedTableIdx === i);
+          const isSame = sameAsFirst[i];
+          const structBadge = isSame
+            ? `<span style="font-size:9px;font-family:var(--mono);background:var(--green-bg);color:var(--green);border:1px solid var(--green-bdr);border-radius:3px;padding:1px 5px">same structure</span>`
+            : `<span style="font-size:9px;font-family:var(--mono);background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bdr);border-radius:3px;padding:1px 5px">different</span>`;
+
+          return `<div onclick="onTableSelectorClick(${i})"
             style="display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:center;
                    padding:8px 12px;border-radius:var(--r);cursor:pointer;
-                   border:1px solid ${COLMAP.selectedTableIdx===i?'var(--accent)':'var(--border2)'};
-                   background:${COLMAP.selectedTableIdx===i?'var(--accent-light)':'var(--surface)'}">
-            <input type="radio" ${COLMAP.selectedTableIdx===i?'checked':''} style="cursor:pointer;accent-color:var(--accent)">
-            <div>
-              <div style="font-size:12px;font-weight:500;color:${COLMAP.selectedTableIdx===i?'var(--accent-text)':'var(--text)'}">
+                   border:1px solid ${isSelected?'var(--accent)':'var(--border2)'};
+                   background:${isSelected?'var(--accent-light)':'var(--surface)'}">
+            <input type="${COLMAP.useMergeMode?'checkbox':'radio'}"
+              ${isSelected?'checked':''}
+              style="cursor:pointer;accent-color:var(--accent)"
+              onclick="event.stopPropagation();onTableSelectorClick(${i})">
+            <div style="min-width:0">
+              <div style="font-size:12px;font-weight:500;color:${isSelected?'var(--accent-text)':'var(--text)'};display:flex;align-items:center;gap:6px;flex-wrap:wrap">
                 Table ${i+1}
-                <span style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-left:6px">${t.preview}</span>
+                ${structBadge}
+                <span style="font-size:10px;font-family:var(--mono);color:var(--text3)">${t.preview}</span>
               </div>
               <div style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-top:2px">
                 Header: row${t.hdrRows.length>1?'s':''} ${t.hdrRows.map(r=>r+1).join('+')}
                 · Data: rows ${t.dataStart+1}–${t.dataEnd+1}
               </div>
             </div>
-            <span style="font-size:11px;font-family:var(--mono);color:var(--text2)">${t.rowCount} rows</span>
-            <span style="font-size:10px;font-family:var(--mono);padding:2px 8px;border-radius:20px;
-                         background:${COLMAP.selectedTableIdx===i?'var(--accent)':'var(--surface2)'};
-                         color:${COLMAP.selectedTableIdx===i?'#fff':'var(--text3)'}">
-              ${COLMAP.selectedTableIdx===i?'selected':'select'}
+            <span style="font-size:11px;font-family:var(--mono);color:var(--text2);white-space:nowrap">${t.rowCount} rows</span>
+            <span style="font-size:10px;font-family:var(--mono);padding:2px 8px;border-radius:20px;white-space:nowrap;
+                         background:${isSelected?'var(--accent)':'var(--surface2)'};
+                         color:${isSelected?'#fff':'var(--text3)'}">
+              ${isSelected?'✓ included':'select'}
             </span>
-          </div>`
-        ).join('')}
+          </div>`;
+        }).join('')}
       </div>
-      <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:6px">
-        💡 Or manually click rows in the preview below to override header selection
-      </div>
+
+      ${COLMAP.useMergeMode && COLMAP.mergedTableIdxs.size > 0 ? `
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:11px;font-family:var(--mono);color:var(--green);display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        ${COLMAP.mergedTableIdxs.size} table${COLMAP.mergedTableIdxs.size>1?'s':''} selected · ${totalMergedRows} total rows will be merged
+        <span style="color:var(--text3)">· data appended in table order</span>
+      </div>` : ''}
     </div>`;
+
+  // apply current selection
+  if(COLMAP.useMergeMode){
+    applyMergedTables();
+  } else {
+    applyDetectedTable(COLMAP.selectedTableIdx);
+  }
+}
+
+function toggleMergeMode(enabled){
+  COLMAP.useMergeMode = enabled;
+  if(enabled){
+    // start with current single selection in merge set
+    COLMAP.mergedTableIdxs = new Set([COLMAP.selectedTableIdx]);
+  } else {
+    // revert to single selection
+    const first = [...COLMAP.mergedTableIdxs][0] ?? 0;
+    COLMAP.selectedTableIdx = first;
+  }
+  renderTableSelector();
+}
+
+function onTableSelectorClick(idx){
+  if(COLMAP.useMergeMode){
+    if(COLMAP.mergedTableIdxs.has(idx)){
+      if(COLMAP.mergedTableIdxs.size > 1) COLMAP.mergedTableIdxs.delete(idx);
+      else showImportToast('At least one table must be selected.');
+    } else {
+      COLMAP.mergedTableIdxs.add(idx);
+    }
+    applyMergedTables();
+  } else {
+    COLMAP.selectedTableIdx = idx;
+    applyDetectedTable(idx);
+  }
+  renderTableSelector();
+}
+
+function selectAllSameStructure(){
+  const allRows = COLMAP.allRawRows;
+  const tables = COLMAP.detectedTables;
+  COLMAP.mergedTableIdxs = new Set(
+    tables.map((t,i) => isSameStructure(tables[0], t, allRows) ? i : -1)
+           .filter(i => i >= 0)
+  );
+  applyMergedTables();
+  renderTableSelector();
+}
+
+function selectAllTables(){
+  COLMAP.mergedTableIdxs = new Set(COLMAP.detectedTables.map((_,i)=>i));
+  applyMergedTables();
+  renderTableSelector();
+}
+
+function deselectAllTables(){
+  COLMAP.mergedTableIdxs = new Set([0]); // keep at least one
+  applyMergedTables();
+  renderTableSelector();
+}
+
+function applyMergedTables(){
+  const tables = COLMAP.detectedTables;
+  const selected = [...COLMAP.mergedTableIdxs].sort((a,b)=>a-b);
+  if(!selected.length) return;
+
+  // use header from first selected table
+  const firstTable = tables[selected[0]];
+  COLMAP.headerRows    = [...firstTable.hdrRows];
+  COLMAP.headerRowIdx  = firstTable.hdrRows[0] ?? null;
+  COLMAP.headerRowIdx2 = firstTable.hdrRows[1] ?? null;
+  COLMAP.headerRowIdx3 = firstTable.hdrRows[2] ?? null;
+  COLMAP.useDoubleHeader = firstTable.hdrRows.length > 1;
+
+  // set boundary to span all selected tables
+  const allDataEnds = selected.map(i => tables[i].dataEnd);
+  const overallEnd  = Math.max(...allDataEnds);
+  COLMAP.activeTableBoundary = {
+    dataStart: firstTable.dataStart,
+    dataEnd:   overallEnd,
+    mergedIdxs: selected
+  };
+
+  renderColMapPreview();
+  updateHeaderHint();
+  buildFileColumnsAndMap();
 }
 
 function setPreviewMode(mode){
@@ -3396,11 +3572,13 @@ function colMapLoadSheet(sheetName){
   COLMAP.useDoubleHeader = false;
   COLMAP.detectedTables   = detectAllTables(allRawRows);
   COLMAP.selectedTableIdx = 0;
-  COLMAP.manualSkipRows   = new Set();
-  COLMAP.manualDataEnd    = null;
-  COLMAP.previewMode      = 'header';
-  COLMAP.itemColIdx       = null;   // column index that contains row numbers
-  COLMAP.useItemColCheck  = true;   // toggle for this feature
+  COLMAP.manualSkipRows    = new Set();
+  COLMAP.manualDataEnd     = null;
+  COLMAP.previewMode       = 'header';
+  COLMAP.itemColIdx        = null;
+  COLMAP.useItemColCheck   = true;
+  COLMAP.mergedTableIdxs   = new Set([0]);  // which detected tables to merge
+  COLMAP.useMergeMode      = false;         // whether merge mode is active
 
   renderColMapPreview();
   renderTableSelector();
@@ -3947,63 +4125,64 @@ function updateMappingPreview(){
 
 function buildMappedRows(){
   if(COLMAP.headerRowIdx === null) return [];
-  const ws   = COLMAP.ws;
-  const range = COLMAP.fullRange;
-  const allRows = COLMAP.allRawRows; // use full sheet rows
+  const range   = COLMAP.fullRange;
+  const allRows = COLMAP.allRawRows;
   const dataRows = [];
 
-  const dataStartR = range.s.r + (
-    COLMAP.headerRows.length
-      ? Math.max(...COLMAP.headerRows)
-      : COLMAP.headerRowIdx
-  ) + 1;
-
-  // use detected boundary if available, otherwise scan to end
+  // collect data ranges — either merged tables or single boundary
+  const ranges = [];
   const boundary = COLMAP.activeTableBoundary;
-  const effectiveEnd = COLMAP.manualDataEnd ?? (boundary ? boundary.dataEnd : null);
-  const dataEndR = effectiveEnd !== null
-    ? range.s.r + effectiveEnd
-    : Math.min(range.s.r + allRows.length - 1, range.e.r);
 
-  let consecutiveBlank = 0;
-
-  for(let R = dataStartR; R <= dataEndR; R++){
-    const rowIdx = R - range.s.r;
-    const rawRow = allRows[rowIdx] || [];
-
-    // blank row handling
-    if(isRowBlank(rawRow)){
-      consecutiveBlank++;
-      if(consecutiveBlank >= COLMAP_CONFIG.maxConsecutiveBlank) break;
-      continue;
-    }
-    consecutiveBlank = 0;
-
-    // skip unwanted rows
-    // manual skip rows override everything
-    if(COLMAP.manualSkipRows.has(rowIdx)) continue;
-
-    // auto-skip unwanted rows (unless manually force-included — future feature)
-    if(isRowUnwanted(rawRow, rowIdx)) continue;
-    if(isRowNonNumericItem(rawRow, rowIdx)) continue;
-
-    // map columns
-    const obj = {};
-    let hasValue = false;
-    COLMAP.fileColumns.forEach(fileCol=>{
-      const schemaCol = COLMAP.mappings[fileCol];
-      if(schemaCol && schemaCol !== '— skip —'){
-        const ci = COLMAP.colStartIdx[fileCol] ?? COLMAP.fileColumns.indexOf(fileCol);
-        const val = rawRow[ci] ?? '';
-        obj[schemaCol] = val;
-        if(val !== '') hasValue = true;
-      }
+  if(COLMAP.useMergeMode && boundary?.mergedIdxs?.length > 1){
+    // multiple tables — collect each table's data range separately
+    boundary.mergedIdxs.forEach(idx => {
+      const t = COLMAP.detectedTables[idx];
+      if(t) ranges.push({ start: t.dataStart, end: t.dataEnd });
     });
+  } else {
+    // single table or auto-detected
+    const effectiveEnd = COLMAP.manualDataEnd ?? (boundary ? boundary.dataEnd : null);
+    const dataStartR = Math.max(...COLMAP.headerRows) + 1;
+    const dataEndR = effectiveEnd ?? (allRows.length - 1);
+    ranges.push({ start: dataStartR, end: dataEndR });
+  }
 
-    // skip rows where all mapped columns are empty
-    if(!hasValue) continue;
+  for(const {start, end} of ranges){
+    let consecutiveBlank = 0;
 
-    dataRows.push(obj);
+    for(let rowIdx = start; rowIdx <= end; rowIdx++){
+      const rawRow = allRows[rowIdx] || [];
+
+      if(isRowBlank(rawRow)){
+        consecutiveBlank++;
+        if(consecutiveBlank >= COLMAP_CONFIG.maxConsecutiveBlank) break;
+        continue;
+      }
+      consecutiveBlank = 0;
+
+      // skip repeated header rows (same columns as the main header)
+      if(isRowRepeatedHeader(rawRow)) continue;
+
+      if(COLMAP.manualSkipRows.has(rowIdx)) continue;
+      if(isRowNonNumericItem(rawRow, rowIdx)) continue;
+      if(isRowUnwanted(rawRow, rowIdx)) continue;
+
+      const obj = {};
+      let hasValue = false;
+      COLMAP.fileColumns.forEach(fileCol => {
+        const schemaCol = COLMAP.mappings[fileCol];
+        if(schemaCol && schemaCol !== '— skip —'){
+          const ci  = COLMAP.colStartIdx[fileCol] ?? COLMAP.fileColumns.indexOf(fileCol);
+          const val = rawRow[ci] ?? '';
+          obj[schemaCol] = val;
+          if(val !== '') hasValue = true;
+        }
+      });
+
+      if(!hasValue) continue;
+      dataRows.push(obj);
+      if(dataRows.length >= COLMAP_CONFIG.maxDataRows) break;
+    }
 
     if(dataRows.length >= COLMAP_CONFIG.maxDataRows) break;
   }
