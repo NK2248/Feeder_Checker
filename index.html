@@ -961,81 +961,18 @@ function detectTypeFromHeaders(headers) {
   return null;
 }
 
-function processFile(f) {
+function processFile(f){
   const reader = new FileReader();
-  reader.onload = async e => {
-    try {
-      const wb = XLSX.read(e.target.result, { type: 'array' });
-
-      if (wb.SheetNames.length > 1) {
-        for (const sheetName of wb.SheetNames) {
-          const ws     = wb.Sheets[sheetName];
-          const tables = parseMultiTableSheet(ws);
-          if (!tables.length) {
-            showImportToast('⚠ No tables found in sheet: ' + sheetName, true);
-            continue;
-          }
-          showImportToast(
-            `<strong>Sheet: ${sheetName}</strong><br>` +
-            tables.map((t,i) => `&nbsp;${i+1}. ${t.type||'?'} — ${t.rows.length} rows`).join('<br>')
-          );
-          const sheetRoute = parseSheetNameForRouting(sheetName);
-
-          for (const [idx, tbl] of tables.entries()) {
-            if (!tbl.rows.length) continue;
-            pendingImportData  = tbl.rows;
-            pendingImportRoute = {
-              confidence:  sheetRoute.feeder ? 'full' : 'partial',
-              mode:        'feeder',
-              substation:  sheetRoute.substation,
-              feeder:      sheetRoute.feeder,
-              main:        sheetRoute.main,
-              subset:      sheetRoute.main,
-              type:        tbl.type
-            };
-            const label = sheetName + ' — ' + (tbl.type || 'table ' + (idx + 1));
-            showManualRouteModal(label, pendingImportRoute);
-            await new Promise(resolve => { window._manualRouteResolve = resolve; });
-          }
-        }
-        return;
-      }
-
-      const ws     = wb.Sheets[wb.SheetNames[0]];
-      const tables = parseMultiTableSheet(ws);
-
-      if (!tables.length) { alert('File appears empty.'); return; }
-
-      if (tables.length === 1) {
-        const data = tables[0].rows;
-        if (!data.length) { alert('Table has no data rows.'); return; }
-        pendingImportData = data;
-        const route = parseFilenameForRouting(f.name);
-        pendingImportRoute = route.confidence !== 'none' ? route : null;
-        showManualRouteModal(f.name, pendingImportRoute);
-        return;
-      }
-
-      const baseRoute = parseFilenameForRouting(f.name);
-      for (const [idx, tbl] of tables.entries()) {
-        if (!tbl.rows.length) continue;
-        pendingImportData  = tbl.rows;
-        pendingImportRoute = {
-          ...baseRoute,
-          type:       tbl.type || baseRoute.type || null,
-          confidence: (baseRoute.confidence !== 'none' && tbl.type) ? 'full' : 'partial'
-        };
-        const label = f.name + ' — ' + (tbl.type || 'table ' + (idx + 1));
-        showManualRouteModal(label, pendingImportRoute);
-        await new Promise(resolve => { window._manualRouteResolve = resolve; });
-      }
-
-    } catch (err) {
-      console.error('[import] error:', err);
-      alert('Could not read file: ' + err.message);
+  reader.onload = e => {
+    try{
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      openColumnMapper(f.name, wb);
+    } catch(err){
+      console.error('[import] error:',err);
+      alert('Could not read file: '+err.message);
     }
   };
-  reader.onerror = () => alert('Could not read file.');
+  reader.onerror = ()=>alert('Could not read file.');
   reader.readAsArrayBuffer(f);
 }
 
@@ -2881,7 +2818,8 @@ const HEADER_NAME_MAP = {
   'CLASS':'DNP3.0_CLASS','TYPE':'DNP3.0_TYPE',
   '0':'STATE_0','1':'STATE_1','2':'STATE_2','3':'STATE_3',
   '1(CLOSE)':'STATE_CLOSE','2(TRIP)':'STATE_TRIP',
-  'PROT.BCU NAME':'BAY_PROT.&BCU_NAME','PROT.BCU REFERENCE':'IEC61850_PROT.&BCU_REFERENCE',
+  'BAY':'BAY_PROT.&BCU_NAME','PROT.BCU NAME':'BAY_PROT.&BCU_NAME',
+  'IEC61850':'IEC61850_PROT.&BCU_REFERENCE','PROT.BCU REFERENCE':'IEC61850_PROT.&BCU_REFERENCE',
   'BRCB/URCB':'BRCB/URCB',
 };
 
@@ -2944,6 +2882,381 @@ function parseSheetNameForRouting(sheetName){
   const stripped=n.replace(/^\d+KV_?/,'').replace(/_MAIN.*$/,'');
   return{substation:currentSubstation,feeder:null,main,subset:main}; // feeder:null forces manual selection
 }
+
+// ── Flexible Column Mapper ────────────────────────────────────────────────────
+const COLMAP = {
+  wb: null,           // parsed workbook
+  sheetName: null,    // active sheet
+  rawRows: [],        // all rows as arrays of strings
+  headerRowIdx: null, // which raw row index is the header
+  fileColumns: [],    // column names from header row
+  mappings: {},       // { fileCol: schemaCol }
+  filename: ''
+};
+
+// All possible schema columns across all types
+function getAllSchemaColumns(){
+  const cols = new Set();
+  Object.values(DEFAULT_COLUMNS).forEach(c=>c.forEach(col=>cols.add(col)));
+  Object.values(FEEDER_SCHEMA_TEMPLATES).forEach(c=>c.forEach(col=>cols.add(col)));
+  return ['— skip —', ...cols];
+}
+
+// Fuzzy match file column name to schema column
+function fuzzyMatchColumn(fileCol){
+  const norm = s => s.toUpperCase().replace(/[^A-Z0-9]/g,'_').replace(/_+/g,'_');
+  const nf = norm(fileCol);
+  const allSchema = getAllSchemaColumns().slice(1); // skip "— skip —"
+
+  // Exact match first
+  const exact = allSchema.find(s => norm(s) === nf);
+  if(exact) return exact;
+
+  // Check HEADER_NAME_MAP
+  const mapped = HEADER_NAME_MAP[fileCol.trim()];
+  if(mapped) return mapped;
+
+  // Partial match
+  const partial = allSchema.find(s => {
+    const ns = norm(s);
+    return ns.includes(nf) || nf.includes(ns);
+  });
+  if(partial) return partial;
+
+  // Keyword shortcuts
+  const shortcuts = {
+    'ADDR':'DNP3.0_ADDRESS','ADDRESS':'DNP3.0_ADDRESS',
+    'POINT':'SPECIFICATION_POINT_NAME','POINTNAME':'SPECIFICATION_POINT_NAME',
+    'DESC':'SPECIFICATION_DESCRIPTOR','DESCRIPTOR':'SPECIFICATION_DESCRIPTOR',
+    'OBJ':'DNP3.0_OBJ','VAR':'DNP3.0_VAR','QII':'DNP3.0_QII',
+    'CLASS':'DNP3.0_CLASS','TYPE':'DNP3.0_TYPE',
+    'STATE0':'STATE_0','STATE1':'STATE_1','STATE2':'STATE_2','STATE3':'STATE_3',
+    'CLOSE':'STATE_CLOSE','TRIP':'STATE_TRIP',
+    'UNIT':'SPECIFICATION_UNIT','ACTUAL':'SCALE_ACTUAL_DATA','RAW':'SCALE_RAW_DATA',
+    'FEEDER':'FEEDER_NAME','BAY':'BAY_NAME','REMARK':'REMARK','NOTE':'NOTE',
+    'PROT':'BAY_PROT.&BCU_NAME','IEC':'IEC61850_PROT.&BCU_REFERENCE','BRCB':'BRCB/URCB'
+  };
+  for(const [kw, schema] of Object.entries(shortcuts)){
+    if(nf.includes(kw)) return schema;
+  }
+
+  return '— skip —';
+}
+
+// Open the mapper modal for a given file
+function openColumnMapper(filename, wb){
+  COLMAP.wb = wb;
+  COLMAP.filename = filename;
+  COLMAP.headerRowIdx = null;
+  COLMAP.fileColumns = [];
+  COLMAP.mappings = {};
+  COLMAP.sheetName = wb.SheetNames[0];
+
+  document.getElementById('colMapFilename').textContent = filename;
+
+  // Sheet tabs
+  const sheetBar = document.getElementById('colMapSheetBar');
+  const sheetTabs = document.getElementById('colMapSheetTabs');
+  if(wb.SheetNames.length > 1){
+    sheetBar.style.display = 'block';
+    sheetTabs.innerHTML = wb.SheetNames.map(s =>
+      `<button class="type-tab${s===COLMAP.sheetName?' active':''}" onclick="colMapSwitchSheet('${s.replace(/'/g,"\\'")}')">
+        ${s}
+      </button>`
+    ).join('');
+  } else {
+    sheetBar.style.display = 'none';
+  }
+
+  document.getElementById('colMapSection').style.display = 'none';
+  document.getElementById('colMapDataPreview').style.display = 'none';
+  document.getElementById('colMapModal').classList.add('open');
+  colMapLoadSheet(COLMAP.sheetName);
+}
+
+function colMapSwitchSheet(name){
+  COLMAP.sheetName = name;
+  COLMAP.headerRowIdx = null;
+  COLMAP.fileColumns = [];
+  COLMAP.mappings = {};
+  document.getElementById('colMapSection').style.display = 'none';
+  document.getElementById('colMapDataPreview').style.display = 'none';
+  // update tab styles
+  document.getElementById('colMapSheetTabs').querySelectorAll('button').forEach(b=>{
+    b.classList.toggle('active', b.textContent.trim()===name);
+  });
+  colMapLoadSheet(name);
+}
+
+function colMapLoadSheet(sheetName){
+  const ws = COLMAP.wb.Sheets[sheetName];
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+  const rawRows = [];
+  for(let R = range.s.r; R <= Math.min(range.e.r, range.s.r+49); R++){
+    const row = [];
+    for(let C = range.s.c; C <= range.e.c; C++){
+      const cell = ws[XLSX.utils.encode_cell({r:R,c:C})];
+      row.push(cell ? String(cell.v ?? '').trim() : '');
+    }
+    rawRows.push(row);
+  }
+  COLMAP.rawRows = rawRows;
+  COLMAP.fullRange = range;
+  COLMAP.ws = ws;
+  renderColMapPreview();
+
+  // auto-detect header row
+  const autoIdx = autoDetectHeaderRow(rawRows);
+  if(autoIdx !== null){
+    selectHeaderRow(autoIdx);
+  } else {
+    document.getElementById('colMapHeaderHint').textContent = 'Click a row to set as header';
+  }
+}
+
+function autoDetectHeaderRow(rawRows){
+  const HEADER_KEYWORDS = ['FEEDER_NAME','FEEDER NAME','BAY_NAME','BAY NAME',
+    'SPECIFICATION_POINT_NAME','POINT NAME','DNP3.0_ADDRESS','ADDRESS',
+    'DESCRIPTOR','OBJ','VAR','QII','CLASS','TYPE','REMARK','STATE_0','STATE_CLOSE'];
+  const norm = s => s.toUpperCase().replace(/[^A-Z0-9]/g,'_');
+  for(let i=0;i<rawRows.length;i++){
+    const hits = rawRows[i].filter(c=>
+      HEADER_KEYWORDS.some(kw=>norm(c)===norm(kw)||norm(c).includes(norm(kw)))
+    );
+    if(hits.length >= 2) return i;
+  }
+  return null;
+}
+
+function renderColMapPreview(){
+  const rows = COLMAP.rawRows;
+  if(!rows.length){ document.getElementById('colMapPreview').innerHTML='<div class="empty" style="padding:1rem">No data found in this sheet</div>'; return; }
+  const maxCols = Math.max(...rows.map(r=>r.length));
+  const thead = `<tr><th style="background:var(--surface2);padding:4px 8px;font-size:10px;font-family:var(--mono);border-bottom:1px solid var(--border);position:sticky;top:0;white-space:nowrap">#</th>` +
+    Array.from({length:maxCols},(_,i)=>
+      `<th style="background:var(--surface2);padding:4px 8px;font-size:10px;font-family:var(--mono);border-bottom:1px solid var(--border);position:sticky;top:0;white-space:nowrap">${String.fromCharCode(65+i)}</th>`
+    ).join('') + '</tr>';
+  const tbody = rows.map((row,ri)=>{
+    const isHeader = ri === COLMAP.headerRowIdx;
+    const bg = isHeader ? 'background:var(--accent-light);outline:2px solid var(--accent);' : (ri%2===0?'background:var(--surface)':'background:var(--bg)');
+    const cells = Array.from({length:maxCols},(_,ci)=>
+      `<td style="padding:4px 8px;font-size:11px;border-bottom:1px solid var(--border);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;font-family:${isHeader?'var(--mono)':'inherit'};font-weight:${isHeader?'600':'400'}">${row[ci]??''}</td>`
+    ).join('');
+    return `<tr style="${bg};cursor:pointer" onclick="selectHeaderRow(${ri})" title="Set row ${ri+1} as header">
+      <td style="padding:4px 8px;font-size:10px;font-family:var(--mono);color:var(--text3);border-bottom:1px solid var(--border);white-space:nowrap">${ri+1}</td>
+      ${cells}
+    </tr>`;
+  }).join('');
+  document.getElementById('colMapPreview').innerHTML =
+    `<table style="width:100%;border-collapse:collapse"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+}
+
+function selectHeaderRow(idx){
+  COLMAP.headerRowIdx = idx;
+  COLMAP.fileColumns = COLMAP.rawRows[idx].filter(c=>c!=='');
+  document.getElementById('colMapHeaderHint').innerHTML =
+    `<span style="color:var(--green);font-weight:500">✓ Row ${idx+1} selected as header</span> — ${COLMAP.fileColumns.length} columns found`;
+  renderColMapPreview();
+  autoMapColumns();
+  document.getElementById('colMapSection').style.display = 'block';
+  updateMappingPreview();
+}
+
+function autoMapColumns(){
+  COLMAP.mappings = {};
+  COLMAP.fileColumns.forEach(col=>{
+    COLMAP.mappings[col] = fuzzyMatchColumn(col);
+  });
+  renderColMapRows();
+  updateMappingPreview();
+}
+
+function clearAllMappings(){
+  COLMAP.fileColumns.forEach(col=>{ COLMAP.mappings[col]='— skip —'; });
+  renderColMapRows();
+  updateMappingPreview();
+}
+
+function renderColMapRows(){
+  const allSchema = getAllSchemaColumns();
+  const usedTargets = new Set(Object.values(COLMAP.mappings).filter(v=>v!=='— skip —'));
+
+  document.getElementById('colMapRows').innerHTML = COLMAP.fileColumns.map((col,i)=>{
+    const mapped = COLMAP.mappings[col] || '— skip —';
+    const isSkipped = mapped === '— skip —';
+    const isDuplicate = !isSkipped && [...Object.entries(COLMAP.mappings)]
+      .filter(([k,v])=>v===mapped&&k!==col).length>0;
+
+    const options = allSchema.map(s=>{
+      const isUsedElsewhere = s!=='— skip —' && s!==mapped && usedTargets.has(s);
+      return `<option value="${s}" ${s===mapped?'selected':''} ${isUsedElsewhere?'style="color:var(--text3)"':''}>${s}</option>`;
+    }).join('');
+
+    return `<div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;padding:4px;border-radius:var(--r);background:${isSkipped?'transparent':isDuplicate?'var(--amber-bg)':'var(--green-bg)'}">
+      <div style="font-size:12px;font-family:var(--mono);color:${isSkipped?'var(--text3)':'var(--text)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:4px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r)" title="${col}">${col}</div>
+      <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:${isSkipped?'var(--border2)':'var(--accent)'};fill:none;stroke-width:2;stroke-linecap:round;flex-shrink:0"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <select onchange="onMappingChange('${col.replace(/'/g,"\\'")}',this.value)"
+          style="padding:4px 8px;border:1px solid ${isDuplicate?'var(--amber-bdr)':isSkipped?'var(--border2)':'var(--green-bdr)'};border-radius:var(--r);font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--text);width:100%">
+          ${options}
+        </select>
+        ${isDuplicate?`<span style="font-size:10px;color:var(--amber);font-family:var(--mono)">⚠ duplicate mapping</span>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Update match count
+  const matched = Object.values(COLMAP.mappings).filter(v=>v!=='— skip —').length;
+  document.getElementById('colMapMatchCount').textContent = `${matched} / ${COLMAP.fileColumns.length} mapped`;
+}
+
+function onMappingChange(fileCol, schemaCol){
+  COLMAP.mappings[fileCol] = schemaCol;
+  renderColMapRows();
+  updateMappingPreview();
+}
+
+function updateMappingPreview(){
+  const mapped = buildMappedRows();
+  if(!mapped.length){
+    document.getElementById('colMapDataPreview').style.display='none';
+    document.getElementById('colMapImportHint').textContent='';
+    return;
+  }
+
+  const schemaCols = [...new Set(Object.values(COLMAP.mappings).filter(v=>v!=='— skip —'))];
+  const preview = mapped.slice(0,5);
+  const thead = '<tr>' + schemaCols.map(c=>
+    `<th style="padding:5px 8px;background:var(--surface2);font-size:10px;font-family:var(--mono);text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0">${c}</th>`
+  ).join('') + '</tr>';
+  const tbody = preview.map((r,i)=>
+    `<tr style="${i%2===0?'background:var(--surface)':'background:var(--bg)'}">` +
+    schemaCols.map(c=>`<td style="padding:5px 8px;font-size:11px;border-bottom:1px solid var(--border);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r[c]??''}</td>`).join('') +
+    '</tr>'
+  ).join('');
+
+  document.getElementById('colMapDataPreviewTable').innerHTML =
+    `<table style="width:100%;border-collapse:collapse"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+  document.getElementById('colMapDataPreview').style.display = 'block';
+  document.getElementById('colMapImportHint').textContent =
+    `${mapped.length} data rows ready · ${schemaCols.length} columns mapped`;
+}
+
+function buildMappedRows(){
+  if(COLMAP.headerRowIdx === null) return [];
+  const ws = COLMAP.ws;
+  const range = COLMAP.fullRange;
+  const dataRows = [];
+
+  for(let R = COLMAP.headerRowIdx+1; R <= range.e.r; R++){
+    const rawRow = [];
+    for(let C = range.s.c; C <= range.e.c; C++){
+      const cell = ws[XLSX.utils.encode_cell({r:R,c:C})];
+      rawRow.push(cell ? String(cell.v??'').trim() : '');
+    }
+    // skip completely empty rows
+    if(rawRow.every(v=>v==='')) continue;
+
+    const obj = {};
+    COLMAP.fileColumns.forEach((fileCol,ci)=>{
+      const schemaCol = COLMAP.mappings[fileCol];
+      if(schemaCol && schemaCol !== '— skip —'){
+        obj[schemaCol] = rawRow[ci] ?? '';
+      }
+    });
+    dataRows.push(obj);
+  }
+  return dataRows;
+}
+
+function applyColumnMapping(){
+  const mapped = buildMappedRows();
+  if(!mapped.length){ alert('No data rows found after mapping.'); return; }
+
+  const mappedCols = Object.values(COLMAP.mappings).filter(v=>v!=='— skip —');
+  if(!mappedCols.length){ alert('Please map at least one column.'); return; }
+
+  closeModal('colMapModal');
+  pendingImportData = mapped;
+
+  // Try to detect type from mapped columns
+  const detectedType = detectTypeFromHeaders(mappedCols);
+
+  const route = parseFilenameForRouting(COLMAP.filename);
+  pendingImportRoute = route.confidence !== 'none'
+    ? {...route, type: detectedType || route.type}
+    : { confidence:'none', mode:null, type: detectedType };
+
+  showManualRouteModal(COLMAP.filename, pendingImportRoute);
+}
+
 </script>
+
+<!-- Column Mapper Modal -->
+<div class="overlay" id="colMapModal">
+  <div class="modal" style="width:98vw;max-width:900px;max-height:92vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">
+      <h3 style="margin:0">Map Columns</h3>
+      <button class="btn" onclick="closeModal('colMapModal');pendingImportData=null;">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>close
+      </button>
+    </div>
+    <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:12px" id="colMapFilename"></div>
+
+    <!-- Sheet selector -->
+    <div id="colMapSheetBar" style="display:none;margin-bottom:10px">
+      <div style="font-size:10px;font-family:var(--mono);color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Sheet</div>
+      <div id="colMapSheetTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+    </div>
+
+    <!-- Header row picker -->
+    <div style="margin-bottom:10px">
+      <div style="font-size:10px;font-family:var(--mono);color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">
+        Click a row below to set it as the <strong style="color:var(--accent)">header row</strong>
+      </div>
+      <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:6px" id="colMapHeaderHint">No header selected yet</div>
+    </div>
+
+    <!-- Raw preview table -->
+    <div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--r);max-height:200px;overflow-y:auto;margin-bottom:14px" id="colMapPreview"></div>
+
+    <!-- Column mapping -->
+    <div id="colMapSection" style="display:none">
+      <div style="font-size:10px;font-family:var(--mono);color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Map file columns → dataset columns</div>
+      <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+        <button class="btn" style="font-size:11px" onclick="autoMapColumns()">
+          <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+          auto-match
+        </button>
+        <button class="btn" style="font-size:11px" onclick="clearAllMappings()">
+          <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          clear all
+        </button>
+        <div style="flex:1"></div>
+        <div style="font-size:11px;color:var(--text3);font-family:var(--mono);display:flex;align-items:center" id="colMapMatchCount"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-bottom:4px;padding:0 4px">
+        <div style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.05em">File column</div>
+        <div></div>
+        <div style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Maps to</div>
+      </div>
+      <div id="colMapRows" style="display:flex;flex-direction:column;gap:4px;max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r);padding:8px"></div>
+
+      <!-- Data preview after mapping -->
+      <div id="colMapDataPreview" style="display:none;margin-top:14px">
+        <div style="font-size:10px;font-family:var(--mono);color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Preview (first 5 rows after mapping)</div>
+        <div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--r);max-height:180px;overflow-y:auto" id="colMapDataPreviewTable"></div>
+      </div>
+
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;align-items:center">
+        <span style="font-size:11px;color:var(--text3);font-family:var(--mono);flex:1" id="colMapImportHint"></span>
+        <button class="btn primary" onclick="applyColumnMapping()">
+          <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><polyline points="20 6 9 17 4 12"/></svg>
+          confirm mapping & continue
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
