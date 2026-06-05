@@ -3626,26 +3626,13 @@ function syncHeaderIdxFromRows(){
 }
 
 function updateHeaderHint(){
-  const h = COLMAP.headerRows;
-  if(!h.length){
-    document.getElementById('colMapHeaderHint').textContent=
-      'Click a row to set as header — click up to 3 consecutive rows for merged headers';
+  if(COLMAP.previewMode==='boundary'){
+    updateBoundaryHint();
     return;
   }
-  const rowNums = h.map(i=>i+1).join(' + ');
-  const count = COLMAP.fileColumns.length;
-  const typeLabel = h.length===1?'single header':h.length===2?'2-row merged header':'3-row merged header';
-  const colors = ['var(--accent)','var(--green)','var(--amber)'];
-  const badges = h.map((idx,i)=>
-    `<span style="display:inline-block;font-size:9px;font-family:var(--mono);background:${colors[i]};color:#fff;border-radius:3px;padding:1px 5px;margin-right:3px">Row ${idx+1}</span>`
-  ).join('');
-
-  document.getElementById('colMapHeaderHint').innerHTML=`
-    ${badges}
-    <span style="color:var(--text);font-weight:500">${typeLabel}</span>
-    — <span style="color:var(--text2)">${count} columns found</span>
-    <span style="color:var(--text3);margin-left:8px;font-size:10px">· click a highlighted row to remove it · click adjacent row to add (max 3)</span>
-  `;
+  document.getElementById('colMapHeaderHint').innerHTML = COLMAP.headerRows.length
+    ? getHeaderHintText()
+    : 'Click a row to set as header — click up to 3 consecutive rows for merged headers';
 }
 
 function buildFileColumnsAndMap(){
@@ -3799,8 +3786,9 @@ function buildMappedRows(){
 
   // use detected boundary if available, otherwise scan to end
   const boundary = COLMAP.activeTableBoundary;
-  const dataEndR = boundary
-    ? range.s.r + boundary.dataEnd
+  const effectiveEnd = COLMAP.manualDataEnd ?? (boundary ? boundary.dataEnd : null);
+  const dataEndR = effectiveEnd !== null
+    ? range.s.r + effectiveEnd
     : Math.min(range.s.r + allRows.length - 1, range.e.r);
 
   let consecutiveBlank = 0;
@@ -3818,6 +3806,10 @@ function buildMappedRows(){
     consecutiveBlank = 0;
 
     // skip unwanted rows
+    // manual skip rows override everything
+    if(COLMAP.manualSkipRows.has(rowIdx)) continue;
+
+    // auto-skip unwanted rows (unless manually force-included — future feature)
     if(isRowUnwanted(rawRow)) continue;
 
     // map columns
@@ -3913,6 +3905,10 @@ function applyColumnMapping(){
         <button class="btn" style="font-size:11px" onclick="clearAllMappings()">
           <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           clear all
+        </button>
+        <button class="btn" style="font-size:11px" onclick="clearAllManualMarks()">
+          <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+          reset marks
         </button>
         <div style="flex:1"></div>
         <div style="font-size:11px;color:var(--text3);font-family:var(--mono);display:flex;align-items:center" id="colMapMatchCount"></div>
