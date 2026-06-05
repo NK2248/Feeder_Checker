@@ -2919,7 +2919,7 @@ function isRowBlank(row){
   return row.every(c=>String(c||'').trim()==='');
 }
 
-function isRowUnwanted(row){
+function isRowUnwanted(row, ri){
   const nonEmpty = row.filter(c=>String(c||'').trim()!=='');
   if(!nonEmpty.length) return true; // blank
 
@@ -2939,6 +2939,25 @@ function isRowUnwanted(row){
   if(nonEmpty.length < COLMAP_CONFIG.minNonEmptyCells) return true;
 
   return false;
+}
+
+
+function isRowNonNumericItem(row, ri){
+  // returns true if the item column exists, is enabled,
+  // and the value in this row is non-numeric / empty
+  if(!COLMAP.useItemColCheck) return false;
+  if(COLMAP.itemColIdx === null) return false;
+  if(COLMAP.headerRows.includes(ri)) return false; // never flag header rows
+
+  const val = String(row[COLMAP.itemColIdx] ?? '').trim();
+  if(val === '') return true;                       // empty item cell = unwanted
+  if(!isNaN(val)) return false;                    // numeric = keep
+
+  // allow formats like "1.", "1)", "A1", "I", "II" (roman numerals) — treat as item
+  if(/^\d+[.):]?$/.test(val)) return false;        // "1." "2)" "3:"
+  if(/^[IVXLCDM]+$/i.test(val) && val.length<=5) return false; // roman numerals
+
+  return true; // non-numeric label → unwanted
 }
 
 function isRowLikelyNewHeader(row, existingHeaderCols){
@@ -3026,7 +3045,7 @@ function detectAllTables(allRows){
       // new table header detected → stop
       if(rowHeaderScore(row) >= 2 && isRowLikelyNewHeader(row, hdrCols)) break;
 
-      if(!isRowUnwanted(row)){
+      if(!isRowUnwanted(row, r) && !isRowNonNumericItem(row, r)){
         dataEnd = r;
         dataRowCount++;
       }
@@ -3250,7 +3269,8 @@ function classifyRow(row, ri){
   if(ri < (h[0]??0)) return 'pre-header';
   if(ri > lastHdr){
     if(isRowBlank(row)) return 'blank';
-    if(isRowUnwanted(row)) return 'unwanted';
+    if(isRowNonNumericItem(row, ri)) return 'unwanted';
+    if(isRowUnwanted(row, ri)) return 'unwanted';
     return 'data';
   }
   return 'between-header';
@@ -3376,9 +3396,11 @@ function colMapLoadSheet(sheetName){
   COLMAP.useDoubleHeader = false;
   COLMAP.detectedTables   = detectAllTables(allRawRows);
   COLMAP.selectedTableIdx = 0;
-  COLMAP.manualSkipRows   = new Set(); // user-marked skip rows
-  COLMAP.manualDataEnd    = null;      // user-set bottom boundary (row index)
-  COLMAP.previewMode      = 'header';  // 'header' | 'boundary'
+  COLMAP.manualSkipRows   = new Set();
+  COLMAP.manualDataEnd    = null;
+  COLMAP.previewMode      = 'header';
+  COLMAP.itemColIdx       = null;   // column index that contains row numbers
+  COLMAP.useItemColCheck  = true;   // toggle for this feature
 
   renderColMapPreview();
   renderTableSelector();
@@ -3674,8 +3696,156 @@ function buildFileColumnsAndMap(){
   }
 
   document.getElementById('colMapSection').style.display='block';
+
+  // detect item column for non-numeric row filtering
+  const itemResult = detectItemColumn(COLMAP.headerRows, COLMAP.allRawRows);
+  COLMAP.itemColIdx = itemResult ? itemResult.colIdx : null;
+  COLMAP.itemColHeader = itemResult ? itemResult.headerVal : null;
+  renderItemColIndicator(itemResult);
+
   autoMapColumns();
   updateMappingPreview();
+}
+
+function detectItemColumn(headerRows, allRawRows){
+  // Look for a column whose header looks like an item/number column
+  // and whose first few data values are numeric
+  const ITEM_KEYWORDS = [
+    'ITEM','NO','NO.','NUMBER','#','SEQ','ROW','INDEX','ID','SR','SR.NO','S.NO'
+  ];
+  const norm = s => s.toUpperCase().replace(/[^A-Z0-9]/g,'');
+
+  if(!headerRows.length) return null;
+
+  // get header row cells
+  const hdrRow = allRawRows[headerRows[0]] || [];
+  const lastHdr = Math.max(...headerRows);
+  const dataStartIdx = lastHdr + 1;
+
+  // collect a sample of data rows (up to 10) for validation
+  const dataSample = [];
+  for(let i = dataStartIdx; i < allRawRows.length && dataSample.length < 10; i++){
+    const row = allRawRows[i];
+    if(!isRowBlank(row)) dataSample.push(row);
+  }
+  if(!dataSample.length) return null;
+
+  // check each column
+  for(let ci = 0; ci < hdrRow.length; ci++){
+    const headerVal = String(hdrRow[ci] || '').trim();
+
+    // check if header matches item keywords
+    const isItemHeader = ITEM_KEYWORDS.some(kw => norm(headerVal) === norm(kw));
+
+    // also check if it's the first non-empty column with numeric data
+    const isFirstCol = ci === 0 || hdrRow.slice(0,ci).every(c=>!c);
+
+    if(!isItemHeader && !isFirstCol) continue;
+
+    // validate: most data values in this column should be numeric
+    const vals = dataSample
+      .map(row => String(row[ci] ?? '').trim())
+      .filter(v => v !== '');
+
+    if(!vals.length) continue;
+
+    const numericCount = vals.filter(v => !isNaN(v) && v !== '').length;
+    const numericRatio = numericCount / vals.length;
+
+    if(numericRatio >= 0.7){
+      // good candidate — majority numeric
+      return { colIdx: ci, headerVal, numericRatio };
+    }
+  }
+
+  return null;
+}
+
+function renderItemColIndicator(result){
+  // find or create the indicator element
+  let el = document.getElementById('itemColIndicator');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'itemColIndicator';
+    el.style.cssText = 'margin-bottom:8px;';
+    // insert before colMapSection
+    const sec = document.getElementById('colMapSection');
+    sec.parentNode.insertBefore(el, sec);
+  }
+
+  if(!result){
+    el.innerHTML = `
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:7px 12px;font-size:11px;font-family:var(--mono);color:var(--text3);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:var(--text3);fill:none;stroke-width:2;stroke-linecap:round;flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        No item/number column detected — non-numeric row filter inactive
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;margin-left:auto">
+          <input type="checkbox" id="chkItemColCheck" ${COLMAP.useItemColCheck?'checked':''} onchange="COLMAP.useItemColCheck=this.checked;renderColMapPreview();updateMappingPreview();" style="cursor:pointer;accent-color:var(--accent)">
+          <span style="color:var(--text2)">filter non-numeric rows</span>
+        </label>
+      </div>`;
+    return;
+  }
+
+  el.innerHTML = `
+    <div style="background:var(--green-bg);border:1px solid var(--green-bdr);border-radius:var(--r);padding:7px 12px;font-size:11px;font-family:var(--mono);color:var(--green);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;flex-shrink:0"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      Item column detected: <strong style="font-family:var(--mono)">${result.headerVal || 'col '+(result.colIdx+1)}</strong>
+      (col ${result.colIdx+1}, ${Math.round(result.numericRatio*100)}% numeric)
+      — rows where this column is non-numeric will be marked as
+      <span style="background:var(--amber-bdr);color:#333;border-radius:3px;padding:1px 5px;font-size:9px">auto-skip</span>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;margin-left:auto">
+        <input type="checkbox" id="chkItemColCheck" ${COLMAP.useItemColCheck?'checked':''} onchange="COLMAP.useItemColCheck=this.checked;renderColMapPreview();updateMappingPreview();" style="cursor:pointer;accent-color:var(--accent)">
+        <span style="color:var(--green)">enable filter</span>
+      </label>
+      <button class="btn" style="font-size:10px;padding:2px 8px;margin-left:4px" onclick="openItemColPicker()">change column</button>
+    </div>`;
+}
+
+function openItemColPicker(){
+  // build a simple prompt showing all columns with a radio selector
+  const hdrRow = COLMAP.allRawRows[COLMAP.headerRows[0]] || [];
+  const options = hdrRow
+    .map((h,i) => `<label style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:var(--r);cursor:pointer;font-size:12px;font-family:var(--mono);background:${COLMAP.itemColIdx===i?'var(--accent-light)':'transparent'}">
+      <input type="radio" name="itemColPick" value="${i}" ${COLMAP.itemColIdx===i?'checked':''} style="accent-color:var(--accent)">
+      <span style="color:var(--text3);font-size:10px">col ${i+1}</span>
+      <span>${h||'(empty)'}</span>
+    </label>`)
+    .join('');
+
+  const none = `<label style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:var(--r);cursor:pointer;font-size:12px;font-family:var(--mono);background:${COLMAP.itemColIdx===null?'var(--amber-bg)':'transparent'}">
+    <input type="radio" name="itemColPick" value="-1" ${COLMAP.itemColIdx===null?'checked':''} style="accent-color:var(--accent)">
+    <span>— disable item column filter —</span>
+  </label>`;
+
+  // reuse confirm modal for picker
+  document.querySelector('#confirmModal h3').textContent = 'Select item / row-number column';
+  document.getElementById('confirmMsg').innerHTML = `
+    <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:8px">
+      Rows where this column is non-numeric will be auto-skipped
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px;max-height:240px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r);padding:6px">
+      ${none}
+      ${options}
+    </div>`;
+  document.getElementById('confirmOkBtn').style.display = '';
+  document.getElementById('confirmOkBtn').textContent = 'Apply';
+  document.getElementById('confirmOkBtn').onclick = () => {
+    const picked = document.querySelector('input[name="itemColPick"]:checked');
+    if(picked){
+      const val = parseInt(picked.value);
+      COLMAP.itemColIdx = val === -1 ? null : val;
+      COLMAP.itemColHeader = val === -1 ? null : (hdrRow[val]||'col '+(val+1));
+      const ratio = val === -1 ? 0 : 1;
+      renderItemColIndicator(val === -1 ? null : {colIdx:val, headerVal:COLMAP.itemColHeader, numericRatio:ratio});
+      renderColMapPreview();
+      updateMappingPreview();
+    }
+    // restore confirm modal state
+    document.querySelector('#confirmModal h3').textContent = 'Remove rows?';
+    document.getElementById('confirmOkBtn').textContent = 'Remove';
+    closeModal('confirmModal');
+  };
+  document.getElementById('confirmModal').classList.add('open');
 }
 
 function selectHeaderRow(idx){
@@ -3814,7 +3984,8 @@ function buildMappedRows(){
     if(COLMAP.manualSkipRows.has(rowIdx)) continue;
 
     // auto-skip unwanted rows (unless manually force-included — future feature)
-    if(isRowUnwanted(rawRow)) continue;
+    if(isRowUnwanted(rawRow, rowIdx)) continue;
+    if(isRowNonNumericItem(rawRow, rowIdx)) continue;
 
     // map columns
     const obj = {};
