@@ -3115,6 +3115,107 @@ function renderTableSelector(){
     </div>`;
 }
 
+function setPreviewMode(mode){
+  COLMAP.previewMode = mode;
+  const btnH = document.getElementById('previewModeHeader');
+  const btnB = document.getElementById('previewModeBoundary');
+  if(mode==='header'){
+    btnH.style.background = 'var(--accent)'; btnH.style.color = '#fff';
+    btnB.style.background = 'transparent';   btnB.style.color = 'var(--text2)';
+    document.getElementById('colMapHeaderHint').innerHTML =
+      COLMAP.headerRows.length
+        ? getHeaderHintText()
+        : 'Click a row to set as header — click up to 3 consecutive rows for merged headers';
+  } else {
+    btnH.style.background = 'transparent'; btnH.style.color = 'var(--text2)';
+    btnB.style.background = 'var(--accent)'; btnB.style.color = '#fff';
+    updateBoundaryHint();
+  }
+  renderColMapPreview();
+}
+
+function getHeaderHintText(){
+  const h = COLMAP.headerRows;
+  if(!h.length) return 'Click a row to set as header';
+  const colors = ['var(--accent)','var(--green)','var(--amber)'];
+  const badges = h.map((idx,i)=>
+    `<span style="display:inline-block;font-size:9px;font-family:var(--mono);background:${colors[i]};color:#fff;border-radius:3px;padding:1px 5px;margin-right:3px">Row ${idx+1}</span>`
+  ).join('');
+  const typeLabel = h.length===1?'single header':h.length===2?'2-row merged header':'3-row merged header';
+  return `${badges}<span style="color:var(--text);font-weight:500">${typeLabel}</span> — <span style="color:var(--text2)">${COLMAP.fileColumns.length} columns found</span>
+    <span style="color:var(--text3);margin-left:8px;font-size:10px">· click a highlighted row to remove it · click adjacent row to add (max 3)</span>`;
+}
+
+function updateBoundaryHint(){
+  const boundary = COLMAP.activeTableBoundary;
+  const manualEnd = COLMAP.manualDataEnd;
+  const skipCount = COLMAP.manualSkipRows.size;
+  const autoEnd = boundary ? boundary.dataEnd : null;
+  const effectiveEnd = manualEnd ?? autoEnd;
+
+  let parts = [];
+  if(effectiveEnd !== null){
+    parts.push(`<span style="color:var(--green);font-weight:500">bottom boundary: row ${effectiveEnd+1}</span>`);
+    if(manualEnd !== null && manualEnd !== autoEnd){
+      parts.push(`<span style="color:var(--amber);font-size:10px">(overriding auto-detected row ${autoEnd?autoEnd+1:'?'})</span>`);
+    }
+  } else {
+    parts.push(`<span style="color:var(--text3)">no boundary set — click the last data row to set bottom boundary</span>`);
+  }
+  if(skipCount>0){
+    parts.push(`<span style="color:var(--red);font-size:10px">· ${skipCount} row${skipCount>1?'s':''} manually skipped</span>`);
+  }
+  parts.push(`<span style="color:var(--text3);font-size:10px;margin-left:4px">· right-click any data row to skip/unskip · left-click to set as bottom boundary</span>`);
+  document.getElementById('colMapHeaderHint').innerHTML = parts.join(' ');
+}
+
+function toggleSkipRow(ri){
+  // cannot skip header rows
+  if(COLMAP.headerRows.includes(ri)){
+    showImportToast('⚠ Cannot skip a header row.');
+    return;
+  }
+  if(COLMAP.manualSkipRows.has(ri)){
+    COLMAP.manualSkipRows.delete(ri);
+    showImportToast('Row '+(ri+1)+' unskipped.');
+  } else {
+    COLMAP.manualSkipRows.add(ri);
+    showImportToast('Row '+(ri+1)+' marked as skip.');
+  }
+  updateBoundaryHint();
+  renderColMapPreview();
+  updateMappingPreview();
+}
+
+function setBoundaryEnd(ri){
+  // must be after header rows
+  const lastHdr = COLMAP.headerRows.length ? Math.max(...COLMAP.headerRows) : -1;
+  if(ri <= lastHdr){
+    showImportToast('⚠ Bottom boundary must be below the header rows.');
+    return;
+  }
+  // clicking same row again = clear manual boundary
+  if(COLMAP.manualDataEnd === ri){
+    COLMAP.manualDataEnd = null;
+    showImportToast('Bottom boundary cleared — using auto-detected boundary.');
+  } else {
+    COLMAP.manualDataEnd = ri;
+    showImportToast('Bottom boundary set to row '+(ri+1)+'.');
+  }
+  updateBoundaryHint();
+  renderColMapPreview();
+  updateMappingPreview();
+}
+
+function clearAllManualMarks(){
+  COLMAP.manualSkipRows = new Set();
+  COLMAP.manualDataEnd  = null;
+  updateBoundaryHint();
+  renderColMapPreview();
+  updateMappingPreview();
+  showImportToast('All manual marks cleared.');
+}
+
 function selectDetectedTable(idx){
   COLMAP.selectedTableIdx = idx;
   applyDetectedTable(idx);
@@ -3272,8 +3373,11 @@ function colMapLoadSheet(sheetName){
   COLMAP.headerRowIdx3 = null;
   COLMAP.headerRows    = [];
   COLMAP.useDoubleHeader = false;
-  COLMAP.detectedTables  = detectAllTables(allRawRows);
+  COLMAP.detectedTables   = detectAllTables(allRawRows);
   COLMAP.selectedTableIdx = 0;
+  COLMAP.manualSkipRows   = new Set(); // user-marked skip rows
+  COLMAP.manualDataEnd    = null;      // user-set bottom boundary (row index)
+  COLMAP.previewMode      = 'header';  // 'header' | 'boundary'
 
   renderColMapPreview();
   renderTableSelector();
@@ -3376,55 +3480,75 @@ function renderColMapPreview(){
     const pastEnd = boundary && ri > boundary.dataEnd && role==='data';
 
     // row styling
+    const isManualSkip = COLMAP.manualSkipRows.has(ri);
+    const effectiveEnd = COLMAP.manualDataEnd ?? (boundary ? boundary.dataEnd : null);
+    const isBoundaryRow = ri === effectiveEnd;
+    const isAutoSkip = !isHdr && (role==='blank'||role==='unwanted');
+    const isPastBound = effectiveEnd !== null && !isHdr && ri > effectiveEnd;
+
     let rowBg   = ri%2===0 ? 'background:var(--surface)' : 'background:var(--bg)';
     let opacity = '1';
     let badge   = '';
-    let title   = `Click to toggle as header row`;
+    let rightBadge = '';
+    let title   = COLMAP.previewMode==='header'
+      ? 'Click to toggle as header row'
+      : 'Left-click: set as bottom boundary | Right-click / Ctrl+click: skip/unskip row';
 
     if(isHdr){
       const hc = HDR_COLORS[hdrPos] || HDR_COLORS[2];
       rowBg = `background:${hc.bg}`;
       badge = `<span style="display:inline-block;font-size:9px;font-family:var(--mono);background:${hc.badge};color:#fff;border-radius:3px;padding:1px 5px">${hc.label}</span>`;
 
+    } else if(isManualSkip){
+      rowBg  = 'background:#fff0f0';
+      opacity = '0.5';
+      badge  = `<span style="display:inline-block;font-size:9px;font-family:var(--mono);background:var(--red);color:#fff;border-radius:3px;padding:1px 5px">skip ✕</span>`;
+      title  = 'Manually skipped — right-click to unskip';
+
+    } else if(isPastBound){
+      rowBg   = 'background:var(--surface2)';
+      opacity = '0.3';
+      badge   = `<span style="display:inline-block;font-size:9px;font-family:var(--mono);background:var(--border2);color:var(--text2);border-radius:3px;padding:1px 5px">out</span>`;
+      title   = 'Outside table boundary — will not be imported';
+
     } else if(role==='blank'){
-      rowBg = 'background:var(--surface2)';
+      rowBg   = 'background:var(--surface2)';
       opacity = '0.4';
-      badge = `<span style="font-size:9px;font-family:var(--mono);color:var(--text3)">blank</span>`;
-      title = 'Blank row — will be skipped';
+      badge   = `<span style="font-size:9px;font-family:var(--mono);color:var(--text3)">blank</span>`;
+      title   = 'Blank row — will be skipped';
 
     } else if(role==='unwanted'){
-      rowBg = 'background:#fff0f0';
+      rowBg   = 'background:#fff8f0';
       opacity = '0.55';
-      badge = `<span style="display:inline-block;font-size:9px;font-family:var(--mono);background:var(--red-bdr);color:#fff;border-radius:3px;padding:1px 5px">skip</span>`;
-      title = 'This row looks like a label/note and will be skipped';
+      badge   = `<span style="display:inline-block;font-size:9px;font-family:var(--mono);background:var(--amber-bdr);color:#000;border-radius:3px;padding:1px 5px">auto-skip</span>`;
+      title   = 'Auto-skipped label/note row — right-click to force-include';
 
     } else if(role==='pre-header'){
       opacity = '0.4';
-      badge = `<span style="font-size:9px;font-family:var(--mono);color:var(--text3)">pre</span>`;
+      badge   = `<span style="font-size:9px;font-family:var(--mono);color:var(--text3)">pre</span>`;
 
-    } else if(pastEnd){
-      rowBg = 'background:var(--surface2)';
-      opacity = '0.35';
-      badge = `<span style="display:inline-block;font-size:9px;font-family:var(--mono);background:var(--border2);color:var(--text2);border-radius:3px;padding:1px 5px">out</span>`;
-      title = 'Outside table boundary — will not be imported';
-
-    } else if(role==='data' && inBound){
+    } else if(role==='data'){
       badge = `<span style="font-size:9px;font-family:var(--mono);color:var(--text3)">data</span>`;
     }
 
-    const cells = Array.from({length:maxCols},(_,ci)=>
-      `<td style="padding:4px 8px;font-size:11px;border-bottom:1px solid var(--border);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;opacity:${opacity};font-family:${isHdr?'var(--mono)':'inherit'};font-weight:${isHdr?'600':'400'}">${row[ci]??''}</td>`
-    ).join('');
+    // boundary end indicator
+    if(isBoundaryRow && !isPastBound){
+      const isManual = COLMAP.manualDataEnd === ri;
+      rightBadge = `<span style="display:inline-block;font-size:9px;font-family:var(--mono);background:${isManual?'var(--accent)':'var(--green)'};color:#fff;border-radius:3px;padding:1px 6px;margin-left:4px">${isManual?'▼ end (manual)':'▼ end (auto)'}</span>`;
+    }
 
-    // boundary end marker
-    const isBoundaryEnd = boundary && ri === boundary.dataEnd;
-    const borderStyle = isBoundaryEnd
-      ? 'border-bottom:2px dashed var(--accent)'
+    // boundary mode: highlight row on hover more clearly
+    const isManual = COLMAP.manualDataEnd === ri;
+    const borderStyle = isBoundaryRow
+      ? `border-bottom:3px solid ${isManual?'var(--accent)':'var(--green)'}`
       : '';
 
-    return `<tr style="${rowBg};cursor:pointer;${borderStyle}" onclick="onPreviewRowClick(${ri})" title="${title}">
+    return `<tr style="${rowBg};cursor:pointer;${borderStyle}" 
+      onclick="onPreviewRowClick(${ri},event)" 
+      oncontextmenu="onPreviewRowClick(${ri},event);return false;" 
+      title="${title}">
       <td style="padding:4px 8px;font-size:10px;font-family:var(--mono);color:var(--text3);border-bottom:1px solid var(--border);white-space:nowrap;opacity:${opacity}">${ri+1}</td>
-      <td style="padding:4px 8px;border-bottom:1px solid var(--border);white-space:nowrap;text-align:center">${badge}</td>
+      <td style="padding:4px 8px;border-bottom:1px solid var(--border);white-space:nowrap;text-align:center;min-width:100px">${badge}${rightBadge}</td>
       ${cells}
     </tr>`;
   }).join('');
@@ -3433,23 +3557,28 @@ function renderColMapPreview(){
     `<table style="width:100%;border-collapse:collapse"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
 }
 
-function onPreviewRowClick(ri){
+function onPreviewRowClick(ri, evt){
+  if(COLMAP.previewMode === 'boundary'){
+    // right-click or ctrl+click = toggle skip
+    if(evt && (evt.button===2 || evt.ctrlKey || evt.metaKey)){
+      toggleSkipRow(ri);
+      return;
+    }
+    // left-click = set as bottom boundary
+    setBoundaryEnd(ri);
+    return;
+  }
+
+  // --- header mode (original logic) ---
   const headers = [...COLMAP.headerRows];
   const pos = headers.indexOf(ri);
 
   if(pos !== -1){
-    // clicking an already-selected header row removes it
-    headers.splice(pos, 1);
+    headers.splice(pos,1);
     COLMAP.headerRows = headers.sort((a,b)=>a-b);
-
     if(!COLMAP.headerRows.length){
-      // all removed — full reset
-      COLMAP.headerRowIdx  = null;
-      COLMAP.headerRowIdx2 = null;
-      COLMAP.headerRowIdx3 = null;
-      COLMAP.useDoubleHeader = false;
-      COLMAP.fileColumns = [];
-      COLMAP.mappings = {};
+      COLMAP.headerRowIdx=null;COLMAP.headerRowIdx2=null;COLMAP.headerRowIdx3=null;
+      COLMAP.useDoubleHeader=false;COLMAP.fileColumns=[];COLMAP.mappings={};
       document.getElementById('colMapSection').style.display='none';
       document.getElementById('colMapDataPreview').style.display='none';
       renderColMapPreview();
@@ -3457,7 +3586,6 @@ function onPreviewRowClick(ri){
         'Click a row to set as header — click up to 3 consecutive rows for merged headers';
       return;
     }
-
     syncHeaderIdxFromRows();
     renderColMapPreview();
     updateHeaderHint();
@@ -3465,17 +3593,14 @@ function onPreviewRowClick(ri){
     return;
   }
 
-  // not yet selected — add it if ≤ 3 headers and it's consecutive with existing
   if(headers.length >= 3){
     showImportToast('⚠ Maximum 3 header rows supported. Click a highlighted row to remove it first.');
     return;
   }
-
   if(headers.length > 0){
-    const sorted = [...headers, ri].sort((a,b)=>a-b);
-    // must be consecutive
+    const sorted = [...headers,ri].sort((a,b)=>a-b);
     for(let i=1;i<sorted.length;i++){
-      if(sorted[i]-sorted[i-1] !== 1){
+      if(sorted[i]-sorted[i-1]!==1){
         showImportToast('⚠ Header rows must be consecutive. Click adjacent rows only.');
         return;
       }
@@ -3759,13 +3884,20 @@ function applyColumnMapping(){
       <div id="colMapSheetTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
     </div>
 
-    <!-- Header row picker -->
-    <div style="margin-bottom:10px">
-      <div style="font-size:10px;font-family:var(--mono);color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">
-        Click a row below to set it as the <strong style="color:var(--accent)">header row</strong>
-      </div>
-      <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:6px" id="colMapHeaderHint">No header selected yet</div>
+    <!-- Mode toggle -->
+    <div style="display:flex;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rlg);padding:4px;margin-bottom:10px;width:fit-content">
+      <button id="previewModeHeader" onclick="setPreviewMode('header')"
+        style="padding:4px 14px;border-radius:var(--r);border:none;cursor:pointer;font-size:12px;font-family:var(--mono);font-weight:500;background:var(--accent);color:#fff;transition:all .15s">
+        ① select headers
+      </button>
+      <button id="previewModeBoundary" onclick="setPreviewMode('boundary')"
+        style="padding:4px 14px;border-radius:var(--r);border:none;cursor:pointer;font-size:12px;font-family:var(--mono);font-weight:500;background:transparent;color:var(--text2);transition:all .15s">
+        ② mark rows / set boundary
+      </button>
     </div>
+
+    <!-- Mode hint -->
+    <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:6px;min-height:18px" id="colMapHeaderHint">No header selected yet</div>
 
     <!-- Raw preview table -->
     <div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--r);max-height:200px;overflow-y:auto;margin-bottom:14px" id="colMapPreview"></div>
