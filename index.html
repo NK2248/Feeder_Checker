@@ -1566,13 +1566,50 @@ const DEVICE_ROW_DEFAULTS = {
   'Analog Point':   {'DNP3.0_OBJ':'30','DNP3.0_VAR':'1','DNP3.0_QII':'17,28 or 00,01','DNP3.0_CLASS':'1','DNP3.0_TYPE':'AI'},
 };
 
+// Auto-fill rules: when DNP3.0_TYPE changes, apply these field values
+const TYPE_AUTOFILL = {
+  'DI':  {'DNP3.0_OBJ':'2', 'DNP3.0_VAR':'1','DNP3.0_QII':'17,28 or 00,01','DNP3.0_CLASS':'1'},
+  'SOE':  {'DNP3.0_OBJ':'2', 'DNP3.0_VAR':'2','DNP3.0_QII':'17,28 or 00,01','DNP3.0_CLASS':'1'},
+  'DI2': {'DNP3.0_OBJ':'3', 'DNP3.0_VAR':'1','DNP3.0_QII':'17,28 or 00,01','DNP3.0_CLASS':'1'},
+  'SBO': {'DNP3.0_OBJ':'41','DNP3.0_VAR':'1','DNP3.0_QII':'echo of request','DNP3.0_CLASS':'0'},
+  'DO':  {'DNP3.0_OBJ':'12','DNP3.0_VAR':'1','DNP3.0_QII':'echo of request','DNP3.0_CLASS':'0'},
+  'AI':  {'DNP3.0_OBJ':'30','DNP3.0_VAR':'1','DNP3.0_QII':'17,28 or 00,01','DNP3.0_CLASS':'1'},
+  'AO':  {'DNP3.0_OBJ':'40','DNP3.0_VAR':'1','DNP3.0_QII':'17,28 or 00,01','DNP3.0_CLASS':'1'},
+  'CTR': {'DNP3.0_OBJ':'20','DNP3.0_VAR':'1','DNP3.0_QII':'17,28 or 00,01','DNP3.0_CLASS':'1'},
+};
+
 function openAddRow(){
   const c=cols();
   const defaults=DEVICE_ROW_DEFAULTS[currentType]||{};
   document.getElementById('addFields').innerHTML=c.map(col=>{
     const def=defaults[col]??'';
+    // DNP3.0_TYPE gets a dropdown
+    if(col==='DNP3.0_TYPE'){
+      const types=Object.keys(TYPE_AUTOFILL);
+      return `<div class="frow"><label>${col}</label>
+        <select id="nf_DNP3_0_TYPE" onchange="onAddRowTypeChange(this.value,'device')"
+          style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%">
+          ${types.map(t=>`<option value="${t}" ${t===def?'selected':''}>${t}</option>`).join('')}
+          <option value="" ${!def?'selected':''}>— custom —</option>
+        </select></div>`;
+    }
+    // SPECIFICATION_DESCRIPTOR gets a helper note for DI type
+    if(col==='SPECIFICATION_DESCRIPTOR'){
+      return `<div class="frow"><label>${col} <span id="descHelper" style="font-size:10px;color:var(--accent);font-family:var(--mono);font-weight:400;text-transform:none;letter-spacing:0"></span></label>
+        <input type="text" id="nf_SPECIFICATION_DESCRIPTOR" placeholder="${col}" value="${def}" style="width:100%"></div>`;
+    }
     return `<div class="frow"><label>${col}</label><input type="text" id="nf_${col.replace(/\W/g,'_')}" placeholder="${col}" value="${def}"></div>`;
   }).join('');
+
+  // wire up state fields to auto-update descriptor hint
+  setTimeout(()=>{
+    ['STATE_0','STATE_1'].forEach(s=>{
+      const el=document.getElementById('nf_'+s.replace(/\W/g,'_'));
+      if(el) el.addEventListener('input',updateDescriptorHint);
+    });
+    onAddRowTypeChange(defaults['DNP3.0_TYPE']||'DI','device');
+  },0);
+
   document.getElementById('addModal').classList.add('open');
 }
 
@@ -1587,6 +1624,74 @@ async function saveNewRow(){
   closeModal('addModal');renderAll();
   showLoading('Saving…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
 }
+
+function onAddRowTypeChange(type, mode){
+  // 1. Auto-fill OBJ / VAR / QII / CLASS from TYPE_AUTOFILL table
+  const fill = TYPE_AUTOFILL[type];
+  if(fill){
+    Object.entries(fill).forEach(([col,val])=>{
+      const id = 'nf_' + col.replace(/\W/g,'_');
+      const el = document.getElementById(id);
+      if(el) el.value = val;
+    });
+  }
+
+  // 2. Update descriptor helper hint
+  updateDescriptorHint();
+
+  // 3. Show/hide STATE fields hint based on type
+  const isDI = type==='DI'||type==='DI2';
+  const isSBO = type==='SBO'||type==='DO';
+  const helper = document.getElementById('descHelper');
+  if(helper){
+    if(isDI)        helper.textContent = '← auto from State 0 / State 1';
+    else if(isSBO)  helper.textContent = '← auto from State Close / State Trip';
+    else            helper.textContent = '';
+  }
+
+  // 4. For DI: wire STATE_CLOSE / STATE_TRIP visibility
+  //    For SBO: wire STATE_0/1 hint instead
+  const stateFields = ['STATE_0','STATE_1','STATE_2','STATE_3'];
+  const ctrlFields  = ['STATE_CLOSE','STATE_TRIP'];
+  [...stateFields,...ctrlFields].forEach(f=>{
+    const el=document.getElementById('nf_'+f.replace(/\W/g,'_'));
+    if(!el) return;
+    el.removeEventListener('input',updateDescriptorHint);
+    el.addEventListener('input',updateDescriptorHint);
+  });
+}
+
+function updateDescriptorHint(){
+  const typeEl = document.getElementById('nf_DNP3_0_TYPE');
+  const descEl = document.getElementById('nf_SPECIFICATION_DESCRIPTOR');
+  if(!typeEl||!descEl) return;
+  const type = typeEl.value;
+
+  let hint = '';
+  if(type==='DI'||type==='DI2'){
+    const s0 = (document.getElementById('nf_STATE_0')||{}).value||'';
+    const s1 = (document.getElementById('nf_STATE_1')||{}).value||'';
+    if(s0||s1) hint = [s0,s1].filter(Boolean).join(' / ');
+  } else if(type==='SBO'||type==='DO'){
+    const sc = (document.getElementById('nf_STATE_CLOSE')||{}).value||'';
+    const st = (document.getElementById('nf_STATE_TRIP')||{}).value||'';
+    if(sc||st) hint = [sc,st].filter(Boolean).join(' / ');
+  }
+
+  // Only auto-fill descriptor if user hasn't typed their own value
+  if(hint && descEl.dataset.userEdited!=='1'){
+    descEl.value = hint;
+  }
+
+  // Mark as user-edited if they type manually
+  if(!descEl._listenerAdded){
+    descEl._listenerAdded=true;
+    descEl.addEventListener('input',()=>{ descEl.dataset.userEdited='1'; });
+    // reset flag when modal closes so next open starts fresh
+    descEl.addEventListener('blur',()=>{});
+  }
+}
+
 function confirmClearAll(){
   const d=currentMode==='feeder'?fds():ds();
   if(!d.rows.length){alert('No rows to clear.');return;}
@@ -2431,10 +2536,33 @@ function openFeederAddRow(){
   const defaults=feederDefaultsMap[currentFeederType]||{};
   document.getElementById('addFields').innerHTML=c.map(col=>{
     const def=defaults[col]??'';
+    if(col==='DNP3.0_TYPE'){
+      const types=Object.keys(TYPE_AUTOFILL);
+      return `<div class="frow"><label>${col}</label>
+        <select id="nf_DNP3_0_TYPE" onchange="onAddRowTypeChange(this.value,'feeder')"
+          style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%">
+          ${types.map(t=>`<option value="${t}" ${t===def?'selected':''}>${t}</option>`).join('')}
+          <option value="">— custom —</option>
+        </select></div>`;
+    }
+    if(col==='SPECIFICATION_DESCRIPTOR'){
+      return `<div class="frow"><label>${col} <span id="descHelper" style="font-size:10px;color:var(--accent);font-family:var(--mono);font-weight:400;text-transform:none;letter-spacing:0"></span></label>
+        <input type="text" id="nf_SPECIFICATION_DESCRIPTOR" placeholder="${col}" value="${def}" style="width:100%"></div>`;
+    }
     return `<div class="frow"><label>${col}</label><input type="text" id="nf_${col.replace(/\W/g,'_')}" placeholder="${col}" value="${def}"></div>`;
   }).join('');
+
+  setTimeout(()=>{
+    ['STATE_0','STATE_1'].forEach(s=>{
+      const el=document.getElementById('nf_'+s.replace(/\W/g,'_'));
+      if(el) el.addEventListener('input',updateDescriptorHint);
+    });
+    onAddRowTypeChange(defaults['DNP3.0_TYPE']||'DI','feeder');
+  },0);
+
   document.getElementById('addModal').classList.add('open');
 }
+
 async function saveFeederNewRow(){
   const d=fds();const c=feederCols();
   const row={};c.forEach(col=>{row[col]=(document.getElementById('nf_'+col.replace(/\W/g,'_'))||{value:''}).value||'';});
