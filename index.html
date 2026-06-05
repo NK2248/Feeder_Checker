@@ -8,13 +8,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
-  --bg:#0d0f17;--surface:#13161f;--surface2:#1c2030;--border:#252838;--border2:#323650;
-  --text:#dde2f0;--text2:#8a90aa;--text3:#4a5070;
-  --accent:#3a6fd8;--accent-light:#1a2440;--accent-text:#6a9ff0;
-  --amber:#c89030;--amber-bg:#1f1800;--amber-bdr:#806020;
-  --red:#c85050;--red-bg:#1f0a0a;--red-bdr:#803030;
-  --green:#40a870;--green-bg:#0a1f14;--green-bdr:#206040;
-  --blue:#76a1f7;--blue-bg:#0e1828;--blue-bdr:#2a4878;
+  --bg:#f5f6f8;--surface:#fff;--surface2:#f0f1f4;--border:#e2e4ea;--border2:#c8cad4;
+  --text:#16181f;--text2:#5a5d6b;--text3:#9ea1af;
+  --accent:#1a3a6b;--accent-light:#e8edf5;--accent-text:#0f2448;
+  --amber:#8a5f00;--amber-bg:#fff8e8;--amber-bdr:#e8c84a;
+  --red:#8b1a1a;--red-bg:#fff0f0;--red-bdr:#e8a0a0;
+  --green:#1a5c30;--green-bg:#edf7f0;--green-bdr:#80c898;
+  --blue:#1a4a7a;--blue-bg:#e8f0f8;--blue-bdr:#90b8e0;
   --r:8px;--rlg:12px;--font:'Instrument Sans',sans-serif;--mono:'DM Mono',monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -156,6 +156,7 @@ tr.origin-row td{background:#f8f8fa!important}
 tr.origin-row td.locked-cell{color:var(--text3);background:#f0f1f4!important;cursor:not-allowed;user-select:none;font-style:italic}
 tr.origin-row td.editable-cell{background:#fff!important;cursor:text;color:var(--text);font-style:normal;border-left:2px solid var(--green-bdr)}
 tr.origin-row td.locked-cell:focus{background:#f0f1f4!important;box-shadow:none;outline:none}
+td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1px var(--blue-bdr)}
 .origin-badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:20px;font-weight:500;white-space:nowrap;font-family:var(--mono);background:#ede8f8;color:#5a3d8a;border:1px solid #c8a8e8}
 .cmp-tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--rlg);max-height:420px;overflow-y:auto}
 .cmp-tbl-wrap table{width:100%;border-collapse:collapse;font-size:11px;table-layout:auto}
