@@ -2963,6 +2963,7 @@ function isRowLikelyNewHeader(row, existingHeaderCols){
 }
 
 function detectAllTables(allRows){
+  if(!allRows || !allRows.length) return [];
   const HEADER_KEYWORDS = [
     'FEEDER_NAME','FEEDER NAME','BAY_NAME','SPECIFICATION_POINT_NAME',
     'POINT NAME','DNP3.0_ADDRESS','ADDRESS','DESCRIPTOR',
@@ -3364,8 +3365,8 @@ function colMapLoadSheet(sheetName){
     allRawRows.push(row);
   }
 
-  COLMAP.allRawRows  = allRawRows;  // full sheet
-  COLMAP.rawRows     = allRawRows.slice(0, 80); // preview shows first 80
+  COLMAP.allRawRows  = allRawRows.length ? allRawRows : [[]];
+  COLMAP.rawRows     = COLMAP.allRawRows.slice(0, 80);
   COLMAP.fullRange   = range;
   COLMAP.ws          = ws;
   COLMAP.headerRowIdx  = null;
@@ -3455,7 +3456,13 @@ function renderColMapPreview(){
     return;
   }
 
-  const maxCols = Math.max(...rows.map(r=>r.length));
+  const nonEmptyRows = rows.filter(r=>r.length > 0);
+  if(!nonEmptyRows.length){
+    document.getElementById('colMapPreview').innerHTML=
+      '<div class="empty" style="padding:1rem">No data found in this sheet</div>';
+    return;
+  }
+  const maxCols = Math.max(...nonEmptyRows.map(r=>r.length));
   const boundary = COLMAP.activeTableBoundary;
 
   const HDR_COLORS = [
@@ -3480,17 +3487,16 @@ function renderColMapPreview(){
     const pastEnd = boundary && ri > boundary.dataEnd && role==='data';
 
     // row styling
-    const isManualSkip = COLMAP.manualSkipRows.has(ri);
-    const effectiveEnd = COLMAP.manualDataEnd ?? (boundary ? boundary.dataEnd : null);
+    const isManualSkip = COLMAP.manualSkipRows?.has(ri) || false;
+    const effectiveEnd = (COLMAP.manualDataEnd ?? (boundary ? boundary.dataEnd : null));
     const isBoundaryRow = ri === effectiveEnd;
-    const isAutoSkip = !isHdr && (role==='blank'||role==='unwanted');
     const isPastBound = effectiveEnd !== null && !isHdr && ri > effectiveEnd;
 
-    let rowBg   = ri%2===0 ? 'background:var(--surface)' : 'background:var(--bg)';
+    let rowBg  = ri%2===0 ? 'background:var(--surface)' : 'background:var(--bg)';
     let opacity = '1';
-    let badge   = '';
+    let badge  = '';
     let rightBadge = '';
-    let title   = COLMAP.previewMode==='header'
+    let title  = COLMAP.previewMode==='header'
       ? 'Click to toggle as header row'
       : 'Left-click: set as bottom boundary | Right-click / Ctrl+click: skip/unskip row';
 
@@ -3498,57 +3504,54 @@ function renderColMapPreview(){
       const hc = HDR_COLORS[hdrPos] || HDR_COLORS[2];
       rowBg = `background:${hc.bg}`;
       badge = `<span style="display:inline-block;font-size:9px;font-family:var(--mono);background:${hc.badge};color:#fff;border-radius:3px;padding:1px 5px">${hc.label}</span>`;
-
     } else if(isManualSkip){
-      rowBg  = 'background:#fff0f0';
+      rowBg   = 'background:#fff0f0';
       opacity = '0.5';
-      badge  = `<span style="display:inline-block;font-size:9px;font-family:var(--mono);background:var(--red);color:#fff;border-radius:3px;padding:1px 5px">skip ✕</span>`;
-      title  = 'Manually skipped — right-click to unskip';
-
+      badge   = `<span style="display:inline-block;font-size:9px;font-family:var(--mono);background:var(--red-bdr);color:#fff;border-radius:3px;padding:1px 5px">skip ✕</span>`;
+      title   = 'Manually skipped — right-click to unskip';
     } else if(isPastBound){
       rowBg   = 'background:var(--surface2)';
       opacity = '0.3';
       badge   = `<span style="display:inline-block;font-size:9px;font-family:var(--mono);background:var(--border2);color:var(--text2);border-radius:3px;padding:1px 5px">out</span>`;
       title   = 'Outside table boundary — will not be imported';
-
     } else if(role==='blank'){
       rowBg   = 'background:var(--surface2)';
       opacity = '0.4';
       badge   = `<span style="font-size:9px;font-family:var(--mono);color:var(--text3)">blank</span>`;
       title   = 'Blank row — will be skipped';
-
     } else if(role==='unwanted'){
       rowBg   = 'background:#fff8f0';
       opacity = '0.55';
-      badge   = `<span style="display:inline-block;font-size:9px;font-family:var(--mono);background:var(--amber-bdr);color:#000;border-radius:3px;padding:1px 5px">auto-skip</span>`;
-      title   = 'Auto-skipped label/note row — right-click to force-include';
-
+      badge   = `<span style="display:inline-block;font-size:9px;font-family:var(--mono);background:var(--amber-bdr);color:#333;border-radius:3px;padding:1px 5px">auto-skip</span>`;
+      title   = 'Auto-skipped — right-click to force-include';
     } else if(role==='pre-header'){
       opacity = '0.4';
       badge   = `<span style="font-size:9px;font-family:var(--mono);color:var(--text3)">pre</span>`;
-
-    } else if(role==='data'){
-      badge = `<span style="font-size:9px;font-family:var(--mono);color:var(--text3)">data</span>`;
+    } else {
+      badge   = `<span style="font-size:9px;font-family:var(--mono);color:var(--text3)">data</span>`;
     }
 
-    // boundary end indicator
     if(isBoundaryRow && !isPastBound){
-      const isManual = COLMAP.manualDataEnd === ri;
-      rightBadge = `<span style="display:inline-block;font-size:9px;font-family:var(--mono);background:${isManual?'var(--accent)':'var(--green)'};color:#fff;border-radius:3px;padding:1px 6px;margin-left:4px">${isManual?'▼ end (manual)':'▼ end (auto)'}</span>`;
+      const isManualBdr = COLMAP.manualDataEnd === ri;
+      rightBadge = `<span style="display:inline-block;font-size:9px;font-family:var(--mono);background:${isManualBdr?'var(--accent)':'var(--green)'};color:#fff;border-radius:3px;padding:1px 6px;margin-left:4px">${isManualBdr?'▼ end (manual)':'▼ end (auto)'}</span>`;
     }
 
-    // boundary mode: highlight row on hover more clearly
-    const isManual = COLMAP.manualDataEnd === ri;
+    const isManualBdr2 = COLMAP.manualDataEnd === ri;
     const borderStyle = isBoundaryRow
-      ? `border-bottom:3px solid ${isManual?'var(--accent)':'var(--green)'}`
+      ? `border-bottom:3px solid ${isManualBdr2?'var(--accent)':'var(--green)'}`
       : '';
 
-    return `<tr style="${rowBg};cursor:pointer;${borderStyle}" 
-      onclick="onPreviewRowClick(${ri},event)" 
-      oncontextmenu="onPreviewRowClick(${ri},event);return false;" 
+    // build cells AFTER opacity is set
+    const cells = Array.from({length:maxCols},(_,ci)=>
+      `<td style="padding:4px 8px;font-size:11px;border-bottom:1px solid var(--border);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;opacity:${opacity};font-family:${isHdr?'var(--mono)':'inherit'};font-weight:${isHdr?'600':'400'}">${(row[ci]??'').toString().replace(/</g,'&lt;')}</td>`
+    ).join('');
+
+    return `<tr style="${rowBg};cursor:pointer;${borderStyle}"
+      onclick="onPreviewRowClick(${ri},event)"
+      oncontextmenu="onPreviewRowClick(${ri},event);return false;"
       title="${title}">
       <td style="padding:4px 8px;font-size:10px;font-family:var(--mono);color:var(--text3);border-bottom:1px solid var(--border);white-space:nowrap;opacity:${opacity}">${ri+1}</td>
-      <td style="padding:4px 8px;border-bottom:1px solid var(--border);white-space:nowrap;text-align:center;min-width:100px">${badge}${rightBadge}</td>
+      <td style="padding:4px 8px;border-bottom:1px solid var(--border);white-space:nowrap;text-align:center;min-width:110px">${badge}${rightBadge}</td>
       ${cells}
     </tr>`;
   }).join('');
@@ -3640,7 +3643,8 @@ function buildFileColumnsAndMap(){
   if(!h.length) return;
 
   const rows = h.map(idx => COLMAP.rawRows[idx] || []);
-  const maxCols = Math.max(...rows.map(r=>r.length));
+  const maxCols = rows.length ? Math.max(...rows.map(r=>r.length), 0) : 0;
+  if(maxCols === 0){ showImportToast('⚠ Header rows appear empty.'); return; }
 
   COLMAP.fileColumns = [];
   COLMAP.colStartIdx = {};
