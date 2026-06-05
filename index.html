@@ -1588,24 +1588,64 @@ async function saveNewRow(){
   showLoading('Saving…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
 }
 function confirmClearAll(){
-  const rowCount=currentMode==='feeder'?fds().rows.length:ds().rows.length;
-  if(!rowCount){alert('No rows to clear.');return;}
-  document.getElementById('confirmMsg').textContent=`Remove all ${rowCount} rows from this dataset? This cannot be undone.`;
-  document.getElementById('confirmOkBtn').onclick=doClearAll;
+  const d=currentMode==='feeder'?fds():ds();
+  if(!d.rows.length){alert('No rows to clear.');return;}
+  const originCount=d.originCount||0;
+  const addedCount=d.rows.length-originCount;
+
   document.getElementById('confirmModal').classList.add('open');
+  document.querySelector('#confirmModal h3').textContent='Clear rows?';
+
+  if(originCount>0 && addedCount>0){
+    document.getElementById('confirmMsg').innerHTML=
+      `<div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
+        <button class="btn danger" style="justify-content:flex-start;padding:12px 16px;height:auto;flex-direction:column;align-items:flex-start;gap:3px;width:100%" onclick="doClearAll('added');closeModal('confirmModal')">
+          <span style="font-weight:600;font-size:13px">🗑 Clear added rows only</span>
+          <span style="font-size:11px;opacity:.75;font-weight:400">Remove ${addedCount} added row${addedCount>1?'s':''} — keeps ${originCount} origin row${originCount>1?'s':''} intact</span>
+        </button>
+        <button class="btn" style="justify-content:flex-start;padding:12px 16px;height:auto;flex-direction:column;align-items:flex-start;gap:3px;width:100%;border-color:var(--red-bdr);background:var(--red-bg);color:var(--red)" onclick="doClearAll('all');closeModal('confirmModal')">
+          <span style="font-weight:600;font-size:13px">💥 Clear everything</span>
+          <span style="font-size:11px;opacity:.75;font-weight:400">Remove all ${d.rows.length} rows including ${originCount} origin row${originCount>1?'s':''}</span>
+        </button>
+      </div>`;
+    document.getElementById('confirmOkBtn').style.display='none';
+  } else {
+    document.getElementById('confirmMsg').textContent=`Remove all ${d.rows.length} rows from this dataset? This cannot be undone.`;
+    document.getElementById('confirmOkBtn').style.display='';
+    document.getElementById('confirmOkBtn').onclick=()=>doClearAll('all');
+  }
 }
-async function doClearAll(){
+async function doClearAll(scope='all'){
   if(currentMode==='feeder'){
     const d=fds();
-    d.rows=[];d.dbIds=[];d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
+    if(scope==='added'){
+      const keep=d.rows.slice(0,d.originCount||0);
+      d.rows=keep;
+      d.manuallyAdded=new Set();
+    } else {
+      d.rows=[];d.dbIds=[];d.manuallyAdded=new Set();d.originCount=0;
+    }
+    d.dupInfo={};d.checked=false;
     selected=new Set();hideDupAlert();
-    closeModal('confirmModal');renderFeederTable();renderFeederStats();
+    closeModal('confirmModal');
+    // restore confirmOkBtn visibility for next time
+    document.getElementById('confirmOkBtn').style.display='';
+    renderFeederTable();renderFeederStats();
     showLoading('Clearing data…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();
   } else {
     const d=ds();
-    d.rows=[];d.dbIds=[];d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
+    if(scope==='added'){
+      const keep=d.rows.slice(0,d.originCount||0);
+      d.rows=keep;
+      d.manuallyAdded=new Set();
+    } else {
+      d.rows=[];d.dbIds=[];d.manuallyAdded=new Set();d.originCount=0;
+    }
+    d.dupInfo={};d.checked=false;
     selected=new Set();hideDupAlert();
-    closeModal('confirmModal');renderAll();
+    closeModal('confirmModal');
+    document.getElementById('confirmOkBtn').style.display='';
+    renderAll();
     showLoading('Clearing data…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
   }
 }
