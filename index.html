@@ -2928,11 +2928,15 @@ function isRowUnwanted(row, ri){
   if(COLMAP_CONFIG.skipRowPatterns.some(p=>p.test(first))) return true;
 
   // single cell that looks like a section title / label (all caps or very short)
+  // single cell that looks like a section title / label
   if(nonEmpty.length === 1){
     const upper = first.toUpperCase();
     const isAllCaps = first === upper && first.length >= COLMAP_CONFIG.sectionTitleMinLen;
-    const isShortLabel = first.length <= 30 && !/\d{3,}/.test(first); // no long numbers
-    if(isAllCaps && isShortLabel) return true;
+    const hasNoDigits = !/\d/.test(first);           // no digits at all
+    const hasNoSlash  = !/[\/\\|]/.test(first);      // no separators typical of point names
+    const isShortEnough = first.length <= 40;
+    // only skip if: all caps AND no digits AND no separators AND short enough
+    if(isAllCaps && hasNoDigits && hasNoSlash && isShortEnough) return true;
   }
 
   // row has fewer non-empty cells than minimum
@@ -3099,13 +3103,25 @@ function detectAllTables(allRows){
                                firstVal.toLowerCase().startsWith(kn.toLowerCase().substring(0,4))
                              );
 
+      // check if this is the last row before the next blank/header/end
+      const isLastRow = r === allRows.length - 1;
+      const nextRow   = allRows[r+1] || [];
+      const nextIsBlankOrHeader = isLastRow ||
+        isRowBlank(nextRow) ||
+        (rowHeaderScore(nextRow) >= 2 && isRowLikelyNewHeader(nextRow, hdrCols));
+
+      const forceInclude = nextIsBlankOrHeader && !isRowBlank(row) && !isRowRepeatedHeader(row);
+
       if(!isRowUnwanted(row, r) && !isRowNonNumericItem(row, r)){
         dataEnd = r;
         dataRowCount++;
-        // add to known point names for pattern matching
         if(pointVal && knownPointNames.size < 20) knownPointNames.add(pointVal);
       } else if(isContinuation && !isRowBlank(row)){
-        // even if flagged unwanted, if it looks like a point name row — keep it
+        dataEnd = r;
+        dataRowCount++;
+        if(pointVal && knownPointNames.size < 20) knownPointNames.add(pointVal);
+      } else if(forceInclude){
+        // last row before boundary — include it regardless of label detection
         dataEnd = r;
         dataRowCount++;
         if(pointVal && knownPointNames.size < 20) knownPointNames.add(pointVal);
@@ -3489,6 +3505,16 @@ function classifyRow(row, ri){
   if(ri < (h[0]??0)) return 'pre-header';
   if(ri > lastHdr){
     if(isRowBlank(row)) return 'blank';
+
+    // never classify the boundary end row as unwanted
+    const effectiveEnd = COLMAP.manualDataEnd ??
+      (COLMAP.activeTableBoundary ? COLMAP.activeTableBoundary.dataEnd : null);
+    if(effectiveEnd !== null && ri === effectiveEnd) return 'data';
+
+    // never classify the last row of any detected table as unwanted
+    const isAnyTableEnd = COLMAP.detectedTables?.some(t => t.dataEnd === ri);
+    if(isAnyTableEnd) return 'data';
+
     if(isRowNonNumericItem(row, ri)) return 'unwanted';
     if(isRowUnwanted(row, ri)) return 'unwanted';
     return 'data';
@@ -4250,12 +4276,20 @@ function buildMappedRows(){
       }
       consecutiveBlank = 0;
 
-      // skip repeated header rows (same columns as the main header)
+      // skip repeated header rows
       if(isRowRepeatedHeader(rawRow)) continue;
 
+      // manual skip always wins
       if(COLMAP.manualSkipRows.has(rowIdx)) continue;
-      if(isRowNonNumericItem(rawRow, rowIdx)) continue;
-      if(isRowUnwanted(rawRow, rowIdx)) continue;
+
+      // check if this is the boundary end row — always include it
+      const effectiveEndRow = COLMAP.manualDataEnd ?? (COLMAP.activeTableBoundary ? COLMAP.activeTableBoundary.dataEnd : null);
+      const isBoundaryEndRow = effectiveEndRow !== null && rowIdx === effectiveEndRow;
+
+      if(!isBoundaryEndRow){
+        if(isRowNonNumericItem(rawRow, rowIdx)) continue;
+        if(isRowUnwanted(rawRow, rowIdx)) continue;
+      }
 
       const obj = {};
       let hasValue = false;
