@@ -3041,12 +3041,32 @@ function detectAllTables(allRows){
       }
     }
 
+    // find which column index is the point name column in this header
+    const hdrRowCells = allRows[hdrStart] || [];
+    const normH = s => s.toUpperCase().replace(/[^A-Z0-9]/g,'_');
+    const POINT_NAME_KEYWORDS = [
+      'SPECIFICATION_POINT_NAME','POINT_NAME','POINTNAME','POINT NAME',
+      'DESCRIPTION','DESCRIPTOR','SPECIFICATION_DESCRIPTOR'
+    ];
+    let pointNameColIdx = -1;
+    for(let ci=0; ci<hdrRowCells.length; ci++){
+      const h = normH(hdrRowCells[ci]||'');
+      if(POINT_NAME_KEYWORDS.some(kw=>h===normH(kw)||h.includes(normH(kw)))){
+        pointNameColIdx = ci;
+        break;
+      }
+    }
+
     // collect data rows after header
     let dataStart = hdrEnd + 1;
     let dataEnd   = dataStart - 1;
     let consecutiveBlank = 0;
     let dataRowCount = 0;
     const hdrCols = allRows[hdrStart].filter(c=>c!=='');
+
+    // build a set of known point name values from the first 5 data rows
+    // so we can recognise continuation rows that look like labels
+    const knownPointNames = new Set();
 
     for(let r=dataStart; r<allRows.length && dataRowCount<COLMAP_CONFIG.maxDataRows; r++){
       const row = allRows[r];
@@ -3056,15 +3076,39 @@ function detectAllTables(allRows){
         if(consecutiveBlank >= COLMAP_CONFIG.maxConsecutiveBlank) break;
         continue;
       }
-
       consecutiveBlank = 0;
 
-      // new table header detected → stop
+      // new table header → stop
       if(rowHeaderScore(row) >= 2 && isRowLikelyNewHeader(row, hdrCols)) break;
+
+      // check if first non-empty cell is a point name continuation
+      const firstVal = String(row.find(c=>String(c||'').trim()!=='')||'').trim();
+      const pointVal = pointNameColIdx >= 0 ? String(row[pointNameColIdx]||'').trim() : '';
+
+      // treat row as data if:
+      // 1. point name column has a value, OR
+      // 2. first cell looks like a point name (mixed case, slash, dot, space)
+      // 3. first cell value was already seen as a point name prefix
+      const looksLikePointName = /[a-z]/.test(firstVal) ||     // mixed case
+                                  /[\/\.\-_]/.test(firstVal) || // has separator chars
+                                  firstVal.length > 20;          // long label
+
+      const isContinuation = pointVal !== '' ||
+                             looksLikePointName ||
+                             [...knownPointNames].some(kn =>
+                               firstVal.toLowerCase().startsWith(kn.toLowerCase().substring(0,4))
+                             );
 
       if(!isRowUnwanted(row, r) && !isRowNonNumericItem(row, r)){
         dataEnd = r;
         dataRowCount++;
+        // add to known point names for pattern matching
+        if(pointVal && knownPointNames.size < 20) knownPointNames.add(pointVal);
+      } else if(isContinuation && !isRowBlank(row)){
+        // even if flagged unwanted, if it looks like a point name row — keep it
+        dataEnd = r;
+        dataRowCount++;
+        if(pointVal && knownPointNames.size < 20) knownPointNames.add(pointVal);
       }
     }
 
@@ -3562,7 +3606,7 @@ function colMapLoadSheet(sheetName){
   }
 
   COLMAP.allRawRows  = allRawRows.length ? allRawRows : [[]];
-  COLMAP.rawRows     = COLMAP.allRawRows.slice(0, 120);
+  COLMAP.rawRows     = COLMAP.allRawRows; // show all rows in preview
   COLMAP.fullRange   = range;
   COLMAP.ws          = ws;
   COLMAP.headerRowIdx  = null;
@@ -3727,8 +3771,21 @@ function renderColMapPreview(){
     } else if(role==='pre-header'){
       opacity = '0.4';
       badge   = `<span style="font-size:9px;font-family:var(--mono);color:var(--text3)">pre</span>`;
-    } else {
-      badge   = `<span style="font-size:9px;font-family:var(--mono);color:var(--text3)">data</span>`;
+    } else if(role==='data'){
+      // check if this row is in the active table or a different detected table
+      const inActiveTable = boundary && ri >= boundary.dataStart && ri <= (COLMAP.manualDataEnd ?? boundary.dataEnd);
+      const otherTable = !inActiveTable && COLMAP.detectedTables.find((t,ti)=>
+        !COLMAP.mergedTableIdxs?.has(ti) && ri >= t.dataStart && ri <= t.dataEnd
+      );
+      if(otherTable){
+        rowBg   = ri%2===0 ? 'background:#f0f4ff' : 'background:#e8eeff';
+        badge   = `<span style="font-size:9px;font-family:var(--mono);background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bdr);border-radius:3px;padding:1px 5px">other table</span>`;
+        title   = `Row belongs to a different detected table — click to include it in merge`;
+      } else if(inActiveTable){
+        badge   = `<span style="font-size:9px;font-family:var(--mono);color:var(--green)">✓ data</span>`;
+      } else {
+        badge   = `<span style="font-size:9px;font-family:var(--mono);color:var(--text3)">data</span>`;
+      }
     }
 
     if(isBoundaryRow && !isPastBound){
@@ -3746,7 +3803,20 @@ function renderColMapPreview(){
       `<td style="padding:4px 8px;font-size:11px;border-bottom:1px solid var(--border);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;opacity:${opacity};font-family:${isHdr?'var(--mono)':'inherit'};font-weight:${isHdr?'600':'400'}">${(row[ci]??'').toString().replace(/</g,'&lt;')}</td>`
     ).join('');
 
-    return `<tr style="${rowBg};cursor:pointer;${borderStyle}"
+    // draw a divider line between detected tables
+    let tableMarker = '';
+    const tableStartMatch = COLMAP.detectedTables.find(t => t.hdrRows[0] === ri);
+    if(tableStartMatch && !isHdr && ri > 0){
+      const tIdx = COLMAP.detectedTables.indexOf(tableStartMatch);
+      const isInMerge = COLMAP.mergedTableIdxs?.has(tIdx);
+      tableMarker = `<tr>
+        <td colspan="${maxCols+2}" style="padding:2px 8px;background:${isInMerge?'var(--accent-light)':'var(--surface2)'};font-size:9px;font-family:var(--mono);color:${isInMerge?'var(--accent)':'var(--text3)'};border-top:2px solid ${isInMerge?'var(--accent)':'var(--border2)'};border-bottom:1px solid var(--border)">
+          ▶ Table ${tIdx+1} starts here ${isInMerge?'· <strong>included in merge</strong>':''}
+        </td>
+      </tr>`;
+    }
+
+    return tableMarker + `<tr style="${rowBg};cursor:pointer;${borderStyle}"
       onclick="onPreviewRowClick(${ri},event)"
       oncontextmenu="onPreviewRowClick(${ri},event);return false;"
       title="${title}">
@@ -3758,6 +3828,26 @@ function renderColMapPreview(){
 
   document.getElementById('colMapPreview').innerHTML =
     `<table style="width:100%;border-collapse:collapse"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+}
+
+function scrollPreviewToRow(rowIdx){
+  if(rowIdx == null || rowIdx < 0) return;
+  const preview = document.getElementById('colMapPreview');
+  if(!preview) return;
+  // find the tr for this row index (row idx+1 in the # column)
+  const rows = preview.querySelectorAll('tbody tr');
+  for(const tr of rows){
+    const numCell = tr.querySelector('td:first-child');
+    if(numCell && parseInt(numCell.textContent.trim()) === rowIdx+1){
+      tr.scrollIntoView({block:'center',behavior:'smooth'});
+      // flash highlight
+      const orig = tr.style.outline;
+      tr.style.outline = '2px solid var(--accent)';
+      tr.style.outlineOffset = '-2px';
+      setTimeout(()=>{ tr.style.outline=orig; tr.style.outlineOffset=''; }, 1500);
+      break;
+    }
+  }
 }
 
 function onPreviewRowClick(ri, evt){
@@ -4246,7 +4336,20 @@ function applyColumnMapping(){
     <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:6px;min-height:18px" id="colMapHeaderHint">No header selected yet</div>
 
     <!-- Raw preview table -->
-    <div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--r);max-height:200px;overflow-y:auto;margin-bottom:14px" id="colMapPreview"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:4px">
+      <span style="font-size:10px;font-family:var(--mono);color:var(--text3)">all sheet rows shown · click to select headers or jump between tables</span>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        <button class="btn" style="font-size:10px;padding:2px 8px" onclick="scrollPreviewToRow(COLMAP.headerRows[0]??0)">
+          <svg viewBox="0 0 24 24" style="width:10px;height:10px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="5 12 12 5 19 12"/></svg>
+          jump to header
+        </button>
+        <button class="btn" style="font-size:10px;padding:2px 8px" onclick="scrollPreviewToRow(COLMAP.activeTableBoundary?.dataStart??0)">
+          <svg viewBox="0 0 24 24" style="width:10px;height:10px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="5 12 12 19 19 12"/></svg>
+          jump to data
+        </button>
+      </div>
+    </div>
+    <div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--r);max-height:280px;overflow-y:auto;margin-bottom:14px" id="colMapPreview"></div>
 
     <!-- Column mapping -->
     <div id="colMapSection" style="display:none">
