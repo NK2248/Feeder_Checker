@@ -2977,8 +2977,9 @@ function isRowRepeatedHeader(row){
   const matches = rowNorms.filter((v,i) => v && v === hdrNorms[i]).length;
   const nonEmpty = rowNorms.filter(v => v).length;
 
-  // if 70%+ of non-empty cells match the header → it's a repeated header
-  return nonEmpty > 0 && (matches / nonEmpty) >= 0.7;
+  // if 90%+ of non-empty cells match the header exactly → it's a repeated header
+  // using a high threshold to avoid false-positives on data rows
+  return nonEmpty >= 3 && (matches / nonEmpty) >= 0.9;
 }
 
 function isRowLikelyNewHeader(row, existingHeaderCols){
@@ -3061,8 +3062,11 @@ function detectAllTables(allRows){
       }
     }
 
-    // collect data rows after header
+    // skip any blank rows immediately after header to find true first data row
     let dataStart = hdrEnd + 1;
+    while(dataStart < allRows.length && isRowBlank(allRows[dataStart])){
+      dataStart++;
+    }
     let dataEnd   = dataStart - 1;
     let consecutiveBlank = 0;
     let dataRowCount = 0;
@@ -3361,9 +3365,15 @@ function applyMergedTables(){
   const allDataEnds = selected.map(i => tables[i].dataEnd);
   const overallEnd  = Math.max(...allDataEnds);
   COLMAP.activeTableBoundary = {
-    dataStart: firstTable.dataStart,
-    dataEnd:   overallEnd,
-    mergedIdxs: selected
+    dataStart:   firstTable.dataStart,
+    dataEnd:     overallEnd,
+    mergedIdxs:  selected,
+    // store each table's exact data range for buildMappedRows
+    tableRanges: selected.map(i => ({
+      start: tables[i].dataStart,
+      end:   tables[i].dataEnd,
+      hdrRows: tables[i].hdrRows
+    }))
   };
 
   renderColMapPreview();
@@ -4356,8 +4366,13 @@ function buildMappedRows(){
   const ranges = [];
   const boundary = COLMAP.activeTableBoundary;
 
-  if(COLMAP.useMergeMode && boundary?.mergedIdxs?.length > 1){
-    // multiple tables — collect each table's data range separately
+  if(COLMAP.useMergeMode && boundary?.tableRanges?.length > 1){
+    // use precise per-table ranges stored during applyMergedTables
+    boundary.tableRanges.forEach(tr => {
+      ranges.push({ start: tr.start, end: tr.end });
+    });
+  } else if(COLMAP.useMergeMode && boundary?.mergedIdxs?.length > 1){
+    // fallback: build from detectedTables directly
     boundary.mergedIdxs.forEach(idx => {
       const t = COLMAP.detectedTables[idx];
       if(t) ranges.push({ start: t.dataStart, end: t.dataEnd });
@@ -4383,11 +4398,13 @@ function buildMappedRows(){
       }
       consecutiveBlank = 0;
 
-      // skip repeated header rows
-      if(isRowRepeatedHeader(rawRow)) continue;
-
       // manual skip always wins
       if(COLMAP.manualSkipRows.has(rowIdx)) continue;
+
+      // skip repeated header rows — but only if this is NOT the first row of a table range
+      // (the first row of a merged sub-table should never be skipped as a repeated header)
+      const isFirstRowOfRange = rowIdx === start;
+      if(!isFirstRowOfRange && isRowRepeatedHeader(rawRow)) continue;
 
       // check if this is the boundary end row — always include it
       const effectiveEndRow = COLMAP.manualDataEnd ?? (COLMAP.activeTableBoundary ? COLMAP.activeTableBoundary.dataEnd : null);
@@ -4417,7 +4434,8 @@ function buildMappedRows(){
 
     if(dataRows.length >= COLMAP_CONFIG.maxDataRows) break;
   }
-
+  // debug: log ranges being processed (remove after confirming fix)
+  console.log('[buildMappedRows] ranges:', ranges.map(r=>`${r.start}–${r.end}`).join(', '));
   return dataRows;
 }
 
