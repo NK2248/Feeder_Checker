@@ -1938,7 +1938,8 @@ async function exportAllExcel(){
 
   const ws = XLSX.utils.aoa_to_sheet(allSheetData);
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  XLSX.writeFile(wb, currentDevice + '_export.xlsx');
+  const stamp = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, currentDevice + '_' + stamp + '_export.xlsx');
 }
 
 function exportDeviceTCD(){
@@ -1950,7 +1951,8 @@ function exportDeviceTCD(){
   ];
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/plain' }));
-  a.download = currentKey() + '.tcd';
+  const stamp = new Date().toISOString().slice(0,10);
+  a.download = currentKey() + '_' + new Date().toISOString().slice(0,10) + '.tcd';
   a.click();
 }
 
@@ -2872,7 +2874,8 @@ function exportFeederCSV(){
   const lines=[c.join(','),...d.rows.map(r=>c.map(col=>'"'+(String(r[col]??'').replace(/"/g,'""'))+'"').join(','))];
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'}));
-  a.download=currentSubstation+'_'+currentFeeder+'_'+currentFeederType+'.csv';
+  const stamp = new Date().toISOString().slice(0,10);
+  a.download = currentSubstation+'_'+currentFeeder+'_'+currentFeederType+'_'+stamp+'.csv';
   a.click();
 }
 
@@ -2935,7 +2938,8 @@ async function exportAllSubstation(){
   }
 
   hideLoading();
-  XLSX.writeFile(wb, sub.replace(/[\\/*?:[\]\s&()]/g,'_') + '_full_export.xlsx');
+  const stamp = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, sub.replace(/[\\/*?:[\]\s&()]/g,'_') + '_' + stamp + '_export.xlsx');
 }
 
 // ── Compare ───────────────────────────────────────────────────────────────────
