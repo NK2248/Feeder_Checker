@@ -471,6 +471,11 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
           <span style="font-weight:600;font-size:13px">🔍 Check other column</span>
           <span style="font-size:11px;opacity:.8;font-weight:400">Pick any column to check for duplicates</span>
         </button>
+        <button class="btn" onclick="openCrossFeederCheck()"
+          style="justify-content:flex-start;padding:12px 16px;height:auto;flex-direction:column;align-items:flex-start;gap:3px;border-color:var(--green-bdr);background:var(--green-bg);color:var(--green)">
+          <span style="font-weight:600;font-size:13px">🔗 Check all feeders in substation</span>
+          <span style="font-size:11px;opacity:.8;font-weight:400">Find DNP3.0_ADDRESS conflicts across feeders in <span id="crossFeederSubLabel"></span></span>
+        </button>
       </div>
     </div>
 
@@ -1381,6 +1386,7 @@ function openDupCheckModal(){
   document.getElementById('dupCheckFooter').style.display = 'flex';
   _dupCheckSelectedCol = 'SPECIFICATION_POINT_NAME';
   document.getElementById('dupCheckModal').classList.add('open');
+  document.getElementById('crossFeederSubLabel').textContent = currentSubstation;
 }
 
 function dupCheckChoose(type){
@@ -4938,6 +4944,200 @@ async function applyRenumber(){
   }
 }
 
+// store results globally for re-filtering
+let _crossFeederResults = [];
+
+async function openCrossFeederCheck(){
+  // update substation label in button
+  document.getElementById('crossFeederSubLabel').textContent = currentSubstation;
+  closeModal('dupCheckModal');
+
+  document.getElementById('crossFeederSubTitle').textContent =
+    'Substation: ' + currentSubstation + ' — checking all feeders and types';
+  document.getElementById('crossFeederSummary').innerHTML =
+    '<div style="font-size:12px;font-family:var(--mono);color:var(--text3)">Loading all feeder datasets…</div>';
+  document.getElementById('crossFeederTable').innerHTML = '';
+  document.getElementById('crossFeederFooter').innerHTML = '';
+  document.getElementById('crossFeederFilterBar').style.display = 'none';
+  document.getElementById('crossFeederModal').classList.add('open');
+
+  showLoading('Fetching all feeder data for ' + currentSubstation + '…');
+
+  // collect all address entries across every feeder / main / type
+  const addressMap = new Map(); // address → array of {feeder, main, type, rowIdx}
+  const feeders = getFeederNames(currentSubstation);
+  let totalRows = 0;
+  let totalDatasets = 0;
+
+  for(const feed of feeders){
+    const mains = getMainNames(currentSubstation, feed);
+    const subsets = getSubsetNames(currentSubstation, feed);
+
+    for(const main of mains){
+      for(const subset of subsets){
+        for(const type of FEEDER_SUBSETS){
+          const k = feederKey(currentSubstation, feed, subset, main, type);
+          try{
+            const data = await sbFetch('GET',
+              TABLE + '?dataset_key=eq.' + encodeURIComponent(k) + '&order=row_index.asc'
+            );
+            if(!data || !data.length) continue;
+            totalDatasets++;
+            data.forEach((rec, i) => {
+              const addr = String(rec.data['DNP3.0_ADDRESS'] ?? '').trim();
+              if(!addr || addr === '') return;
+              totalRows++;
+              if(!addressMap.has(addr)) addressMap.set(addr, []);
+              addressMap.get(addr).push({
+                feeder: feed,
+                main,
+                type,
+                rowIdx: i + 1,
+                pointName: rec.data['SPECIFICATION_POINT_NAME'] ?? '',
+                descriptor: rec.data['SPECIFICATION_DESCRIPTOR'] ?? rec.data['SPECIFICATION_UNIT'] ?? ''
+              });
+            });
+          } catch(e){
+            console.error('Error loading ' + k, e);
+          }
+        }
+      }
+    }
+  }
+
+  hideLoading();
+
+  // build results — separate conflicts from clean
+  _crossFeederResults = [];
+  addressMap.forEach((entries, addr) => {
+    _crossFeederResults.push({
+      addr,
+      entries,
+      isConflict: entries.length > 1
+    });
+  });
+
+  // sort: conflicts first, then by address numerically
+  _crossFeederResults.sort((a, b) => {
+    if(a.isConflict !== b.isConflict) return a.isConflict ? -1 : 1;
+    return (parseInt(a.addr) || 0) - (parseInt(b.addr) || 0);
+  });
+
+  const conflictCount = _crossFeederResults.filter(r => r.isConflict).length;
+  const cleanCount    = _crossFeederResults.filter(r => !r.isConflict).length;
+
+  // summary pills
+  document.getElementById('crossFeederSummary').innerHTML = `
+    <span class="stat-pill ${conflictCount > 0 ? 'pill-diff' : 'pill-same'}">
+      ${conflictCount > 0 ? '⚠ ' : '✓ '}${conflictCount} conflict${conflictCount !== 1 ? 's' : ''}
+    </span>
+    <span class="stat-pill pill-same">${cleanCount} unique addresses</span>
+    <span class="stat-pill pill-a">${totalRows} total rows scanned</span>
+    <span class="stat-pill" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border2)">${totalDatasets} datasets loaded</span>
+    <span class="stat-pill" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border2)">${feeders.length} feeders</span>
+  `;
+
+  document.getElementById('crossFeederFilterBar').style.display = 'flex';
+  document.getElementById('crossFeederSearch').value = '';
+  document.getElementById('chkConflictOnly').checked = conflictCount > 0;
+
+  renderCrossFeederTable();
+
+  document.getElementById('crossFeederFooter').textContent =
+    'Scanned ' + feeders.length + ' feeder(s) · ' +
+    totalDatasets + ' dataset(s) · ' +
+    totalRows + ' rows · ' +
+    currentSubstation;
+}
+
+function renderCrossFeederTable(){
+  const q = (document.getElementById('crossFeederSearch')?.value || '').toLowerCase();
+  const conflictOnly = document.getElementById('chkConflictOnly')?.checked ?? true;
+
+  const filtered = _crossFeederResults.filter(r => {
+    if(conflictOnly && !r.isConflict) return false;
+    if(q){
+      const inAddr = r.addr.toLowerCase().includes(q);
+      const inFeeder = r.entries.some(e =>
+        e.feeder.toLowerCase().includes(q) ||
+        e.type.toLowerCase().includes(q) ||
+        e.pointName.toLowerCase().includes(q)
+      );
+      return inAddr || inFeeder;
+    }
+    return true;
+  });
+
+  if(!filtered.length){
+    document.getElementById('crossFeederTable').innerHTML = `
+      <div class="empty">
+        <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <p>${conflictOnly ? 'No address conflicts found' : 'No results'}</p>
+        <span>${conflictOnly ? 'All DNP3.0 addresses are unique across feeders ✓' : 'Try adjusting your filter'}</span>
+      </div>`;
+    return;
+  }
+
+  const thead = `<tr>
+    <th style="padding:7px 10px;background:var(--surface2);font-size:10px;font-family:var(--mono);border-bottom:1px solid var(--border);position:sticky;top:0;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">Address</th>
+    <th style="padding:7px 10px;background:var(--surface2);font-size:10px;font-family:var(--mono);border-bottom:1px solid var(--border);position:sticky;top:0;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">Status</th>
+    <th style="padding:7px 10px;background:var(--surface2);font-size:10px;font-family:var(--mono);border-bottom:1px solid var(--border);position:sticky;top:0;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">Feeder</th>
+    <th style="padding:7px 10px;background:var(--surface2);font-size:10px;font-family:var(--mono);border-bottom:1px solid var(--border);position:sticky;top:0;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">Main</th>
+    <th style="padding:7px 10px;background:var(--surface2);font-size:10px;font-family:var(--mono);border-bottom:1px solid var(--border);position:sticky;top:0;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">Type</th>
+    <th style="padding:7px 10px;background:var(--surface2);font-size:10px;font-family:var(--mono);border-bottom:1px solid var(--border);position:sticky;top:0;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">Point Name</th>
+    <th style="padding:7px 10px;background:var(--surface2);font-size:10px;font-family:var(--mono);border-bottom:1px solid var(--border);position:sticky;top:0;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">Row #</th>
+  </tr>`;
+
+  const tbody = filtered.map(r => {
+    const isConflict = r.isConflict;
+    const rowSpan = r.entries.length;
+
+    return r.entries.map((e, ei) => {
+      const bg = isConflict
+        ? (ei % 2 === 0 ? 'background:#fff0f0' : 'background:#fde8e8')
+        : (ei % 2 === 0 ? 'background:var(--surface)' : 'background:var(--bg)');
+
+      const addrCell = ei === 0
+        ? `<td rowspan="${rowSpan}" style="padding:7px 10px;font-size:13px;font-family:var(--mono);font-weight:700;border-bottom:1px solid var(--border);vertical-align:middle;border-left:3px solid ${isConflict ? 'var(--red-bdr)' : 'var(--green-bdr)'};color:${isConflict ? 'var(--red)' : 'var(--green)'}">${r.addr}</td>`
+        : '';
+
+      const statusCell = ei === 0
+        ? `<td rowspan="${rowSpan}" style="padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle;text-align:center">
+            ${isConflict
+              ? `<span class="badge dup">conflict ×${rowSpan}</span>`
+              : `<span class="badge orig">unique</span>`
+            }
+           </td>`
+        : '';
+
+      return `<tr style="${bg}">
+        ${addrCell}
+        ${statusCell}
+        <td style="padding:7px 10px;font-size:12px;font-family:var(--mono);border-bottom:1px solid var(--border);white-space:nowrap;font-weight:${isConflict?'600':'400'}">${e.feeder}</td>
+        <td style="padding:7px 10px;font-size:12px;font-family:var(--mono);border-bottom:1px solid var(--border);white-space:nowrap">${e.main}</td>
+        <td style="padding:7px 10px;font-size:12px;font-family:var(--mono);border-bottom:1px solid var(--border);white-space:nowrap">
+          <span style="font-size:10px;padding:2px 6px;border-radius:3px;
+            background:${e.type==='Status Point'?'var(--blue-bg)':e.type==='Control Output'?'var(--amber-bg)':'var(--green-bg)'};
+            color:${e.type==='Status Point'?'var(--blue)':e.type==='Control Output'?'var(--amber)':'var(--green)'};
+            border:1px solid ${e.type==='Status Point'?'var(--blue-bdr)':e.type==='Control Output'?'var(--amber-bdr)':'var(--green-bdr)'}">
+            ${e.type}
+          </span>
+        </td>
+        <td style="padding:7px 10px;font-size:12px;border-bottom:1px solid var(--border);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${e.pointName}">${e.pointName}</td>
+        <td style="padding:7px 10px;font-size:12px;font-family:var(--mono);border-bottom:1px solid var(--border);text-align:center;color:var(--text3)">${e.rowIdx}</td>
+      </tr>`;
+    }).join('');
+  }).join('');
+
+  document.getElementById('crossFeederTable').innerHTML = `
+    <div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--rlg);max-height:440px;overflow-y:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>${thead}</thead>
+        <tbody>${tbody}</tbody>
+      </table>
+    </div>`;
+}
+
 </script>
 
 <!-- Column Mapper Modal -->
@@ -5240,6 +5440,39 @@ async function applyRenumber(){
         Apply
       </button>
     </div>
+  </div>
+</div>
+<div class="overlay" id="crossFeederModal">
+  <div class="modal" style="width:98vw;max-width:900px;max-height:92vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">
+      <div>
+        <h3 style="margin:0">Cross-Feeder Address Conflict Check</h3>
+        <div style="font-size:11px;font-family:var(--mono);color:var(--text3);margin-top:4px" id="crossFeederSubTitle"></div>
+      </div>
+      <button class="btn" onclick="closeModal('crossFeederModal')">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        close
+      </button>
+    </div>
+
+    <!-- Summary pills -->
+    <div id="crossFeederSummary" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"></div>
+
+    <!-- Filter bar -->
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap" id="crossFeederFilterBar" style="display:none">
+      <div class="srch" style="flex:1;min-width:150px">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="crossFeederSearch" placeholder="Filter by address or feeder…" oninput="renderCrossFeederTable()">
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-family:var(--mono);color:var(--text2);cursor:pointer">
+        <input type="checkbox" id="chkConflictOnly" checked onchange="renderCrossFeederTable()" style="cursor:pointer;accent-color:var(--accent)">
+        conflicts only
+      </label>
+    </div>
+
+    <div id="crossFeederTable"></div>
+
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;font-family:var(--mono);color:var(--text3)" id="crossFeederFooter"></div>
   </div>
 </div>
 </body>
