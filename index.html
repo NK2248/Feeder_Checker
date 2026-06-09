@@ -421,17 +421,18 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
     </button>
   </div>
   <!-- Right: export actions -->
-  <div class="action-bar">
-    <button class="abtn export-main" id="btnExportAll" onclick="currentMode==='feeder'?exportAllSubstation():exportAllExcel()">
-      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      <span id="lblExportAll">export substation</span>
-    </button>
-    <div class="ab-divider"></div>
-    <button class="abtn info" id="btnExportTCD" onclick="currentMode==='feeder'?exportFeederCSV():exportDeviceTCD()" style="display:none">
-      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-      TCD
-    </button>
-  </div>
+  <div class="action-bar" id="exportActionBar">
+  <button class="abtn" id="btnExportAll" onclick="currentMode==='feeder'?exportAllSubstation():exportAllExcel()"
+    style="color:#fff;background:var(--green);transition:background .2s">
+    <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    <span id="lblExportAll">export substation</span>
+  </button>
+  <div class="ab-divider"></div>
+  <button class="abtn info" id="btnExportTCD" onclick="currentMode==='feeder'?exportFeederCSV():exportDeviceTCD()" style="display:none">
+    <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    TCD
+  </button>
+</div>
 </div>
 </div><!-- end .page -->
 </div><!-- close margin-top wrapper -->
@@ -2371,14 +2372,20 @@ function switchMode(mode){
   selected=new Set();hideDupAlert();
   document.getElementById('searchBox').value='';
 
+  const btnAll = document.getElementById('btnExportAll');
   const lblAll = document.getElementById('lblExportAll');
   const btnTCD = document.getElementById('btnExportTCD');
-  if(mode==='feeder'){
-    lblAll.textContent='export substation';
-    btnTCD.style.display='none';
+
+  if(mode === 'feeder'){
+    lblAll.textContent = 'export substation';
+    btnAll.style.background = 'var(--green)';
+    btnAll.style.color = '#fff';
+    btnTCD.style.display = 'none';
   } else {
-    lblAll.textContent='export device';
-    btnTCD.style.display='inline-flex';
+    lblAll.textContent = 'export device';
+    btnAll.style.background = 'var(--blue)';
+    btnAll.style.color = '#fff';
+    btnTCD.style.display = 'inline-flex';
   }
 
   if(mode==='feeder'){
