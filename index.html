@@ -424,6 +424,9 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       history
     </button>
+    <div id="tableSaveStamp" style="font-size:10px;font-family:var(--mono);color:var(--text3);padding:4px 8px;text-align:right;margin-top:4px">
+      Last saved: —
+    </div>
   </div>
   <!-- Right: export actions -->
   <div class="action-bar" id="exportActionBar">
@@ -872,6 +875,7 @@ async function loadDataset(key){
     d.originCount = savedOriginD;
     d.rows = d.rows.map(r=>{ const {__originCount,...rest}=r; return rest; });
     setSyncStatus('synced','synced');
+    updateSaveStamp();
   }catch(e){
     setSyncStatus('error','sync error');
     console.error('Load error:',e);
@@ -899,6 +903,7 @@ async function saveDataset(key){
       d.dbIds=[];
     }
     setSyncStatus('synced','synced ✓');
+    if(key === currentKey()) updateSaveStamp();
   }catch(e){
     setSyncStatus('error','save failed');
     console.error('Save error:',e);
@@ -2558,6 +2563,7 @@ async function loadFeederDataset(){
     d.originCount=savedOrigin;
     d.rows=d.rows.map(r=>{const{__originCount,...rest}=r;return rest;});
     setSyncStatus('synced','synced');
+    updateSaveStamp();
   }catch(e){
     setSyncStatus('error','sync error');console.error('Feeder load error:',e);
   }
@@ -2575,6 +2581,7 @@ async function saveFeederDataset(){
       d.dbIds=res.map(r=>r.id);
     } else {d.dbIds=[];}
     setSyncStatus('synced','synced ✓');
+    updateSaveStamp();
   }catch(e){setSyncStatus('error','save failed');console.error('Feeder save error:',e);}
 }
 
@@ -5143,6 +5150,12 @@ function renderCrossFeederTable(){
         <tbody>${tbody}</tbody>
       </table>
     </div>`;
+}
+
+function updateSaveStamp(){
+  const el = document.getElementById('tableSaveStamp');
+  if(!el) return;
+  el.textContent = 'Last saved: ' + fmtStamp(new Date().toISOString()) + ' by ' + currentUser();
 }
 
 </script>
