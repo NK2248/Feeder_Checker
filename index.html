@@ -2385,6 +2385,7 @@ function switchMode(mode){
   } else {
     renderAll();
   }
+  updateBreadcrumb();
 }
 
 function renderSubstationTabs(){
@@ -2445,6 +2446,7 @@ async function switchSubset(s){
   selected=new Set();hideDupAlert();
   renderSubsetTabs();renderMainTabs();renderFeederTypeTabs();
   await loadFeederDataset();
+  updateBreadcrumb();
 }
 
 function openAddSubsetTab(){
@@ -2456,6 +2458,7 @@ function openAddSubsetTab(){
   FEEDER_STRUCTURE[currentSubstation].feeders[currentFeeder].subsets.push(trimmed);
   currentSubset=trimmed;
   saveFeederConfig();renderSubsetTabs();renderFeederTypeTabs();loadFeederDataset();
+  updateBreadcrumb();
 }
 
 function renderMainTabs(){
