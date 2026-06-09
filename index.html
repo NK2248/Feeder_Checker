@@ -1326,6 +1326,25 @@ function toggleKey(col){
   d.dupInfo={};d.checked=false;hideDupAlert();renderKeyChips();renderTable();
 }
 
+// ── String similarity (Levenshtein ratio) ─────────────────────────────────────
+function levenshtein(a, b){
+  const m=a.length, n=b.length;
+  const dp=Array.from({length:m+1},(_,i)=>Array.from({length:n+1},(_,j)=>i===0?j:j===0?i:0));
+  for(let i=1;i<=m;i++) for(let j=1;j<=n;j++)
+    dp[i][j] = a[i-1]===b[j-1] ? dp[i-1][j-1] : 1+Math.min(dp[i-1][j-1],dp[i-1][j],dp[i][j-1]);
+  return dp[m][n];
+}
+function stringSimilarity(a, b){
+  a=String(a||'').toLowerCase().trim();
+  b=String(b||'').toLowerCase().trim();
+  if(a===b) return 1;
+  if(!a||!b) return 0;
+  const maxLen=Math.max(a.length,b.length);
+  return (maxLen-levenshtein(a,b))/maxLen;
+}
+const FUZZY_THRESHOLD = 0.9;
+const FUZZY_COLS = new Set(['SPECIFICATION_POINT_NAME']);
+
 // ── Dup Check Modal ───────────────────────────────────────────────────────────
 let _dupCheckSelectedCol = 'SPECIFICATION_POINT_NAME';
 
@@ -1365,7 +1384,7 @@ function dupCheckChoose(type){
         onchange="dupCheckSelectCol('${c.replace(/'/g,"\\'")}',this)"
         style="accent-color:var(--accent);cursor:pointer">
       <span style="font-size:12px;font-family:var(--mono);color:var(--text)">${c}</span>
-      ${c==='SPECIFICATION_POINT_NAME'?'<span style="font-size:10px;font-family:var(--mono);background:var(--green-bg);color:var(--green);border:1px solid var(--green-bdr);border-radius:3px;padding:1px 6px;margin-left:auto">default</span>':''}
+      ${c==='SPECIFICATION_POINT_NAME'?'<span style="font-size:10px;font-family:var(--mono);background:var(--green-bg);color:var(--green);border:1px solid var(--green-bdr);border-radius:3px;padding:1px 6px;margin-left:auto">default · fuzzy 90%</span>':''}
       ${c==='DNP3.0_ADDRESS'?'<span style="font-size:10px;font-family:var(--mono);background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bdr);border-radius:3px;padding:1px 6px;margin-left:auto">address</span>':''}
     </label>
   `).join('');
@@ -1401,31 +1420,64 @@ function dupCheckRun(){
 function runDupCheck(col){
   col = col || 'DNP3.0_ADDRESS';
   const d=ds();if(!d.rows.length){alert('No rows to check.');return;}
-  const vm=new Map();
-  d.rows.forEach((r,i)=>{
-    const val=String(r[col]||'').toLowerCase().trim();
-    if(!val)return;
-    if(!vm.has(val))vm.set(val,[]);
-    vm.get(val).push(i);
-  });
-  const dupSet=new Set();let dg=0;
-  vm.forEach(idxs=>{if(idxs.length>1){dg++;idxs.slice(1).forEach(i=>dupSet.add(i));}});
+  const useFuzzy = FUZZY_COLS.has(col);
+  const dupSet=new Set();
+  const groupMap={};  // rowIdx → groupId
+  let dg=0;
+
+  if(useFuzzy){
+    // O(n²) fuzzy comparison — group rows with similarity ≥ FUZZY_THRESHOLD
+    const vals = d.rows.map(r=>String(r[col]||'').toLowerCase().trim());
+    const groups=[];  // each group: array of row indices
+    const assigned=new Array(vals.length).fill(-1);
+    for(let i=0;i<vals.length;i++){
+      if(!vals[i]||assigned[i]>=0) continue;
+      const grp=[i]; assigned[i]=groups.length;
+      for(let j=i+1;j<vals.length;j++){
+        if(!vals[j]||assigned[j]>=0) continue;
+        if(stringSimilarity(vals[i],vals[j])>=FUZZY_THRESHOLD){
+          grp.push(j); assigned[j]=groups.length;
+        }
+      }
+      if(grp.length>1){
+        grp.slice(1).forEach(idx=>dupSet.add(idx));
+        grp.forEach(idx=>groupMap[idx]=dg);
+        dg++;
+      }
+      groups.push(grp);
+    }
+  } else {
+    // exact match (fast path)
+    const vm=new Map();
+    d.rows.forEach((r,i)=>{
+      const val=String(r[col]||'').toLowerCase().trim();
+      if(!val)return;
+      if(!vm.has(val))vm.set(val,[]);
+      vm.get(val).push(i);
+    });
+    vm.forEach(idxs=>{
+      if(idxs.length>1){
+        idxs.slice(1).forEach(i=>dupSet.add(i));
+        idxs.forEach(i=>groupMap[i]=dg);
+        dg++;
+      }
+    });
+  }
+
   d.dupInfo={};let dr=0;
   d.rows.forEach((_,i)=>{
     if(dupSet.has(i)){d.dupInfo[i]='dup';dr++;}
-    else{
-      const val=String(d.rows[i][col]||'').toLowerCase().trim();
-      if(vm.has(val)&&vm.get(val).length>1&&vm.get(val)[0]===i) d.dupInfo[i]='orig';
-    }
+    else if(groupMap[i]!==undefined) d.dupInfo[i]='orig';
   });
   d.checked=true;
   document.getElementById('sDupG').textContent=dg;
   document.getElementById('sDupR').textContent=dr;
   const el=document.getElementById('dupAlert');el.style.display='block';
+  const fuzzyNote = useFuzzy ? ` <span style="font-size:11px;opacity:.7">(≥${Math.round(FUZZY_THRESHOLD*100)}% similarity)</span>` : '';
   if(dr===0){
-    el.innerHTML=`<div class="alert ok"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>No duplicates found on <strong>${col}</strong>.</span></div>`;
+    el.innerHTML=`<div class="alert ok"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>No duplicates found on <strong>${col}</strong>${fuzzyNote}.</span></div>`;
   }else{
-    el.innerHTML=`<div class="alert warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div><strong>${dr} duplicate(s)</strong> in <strong>${dg} group(s)</strong> on <strong>${col}</strong>.<br><span style="font-size:11px;margin-top:3px;display:block;opacity:.8">Green = original. Amber = duplicate. Select and remove as needed.</span></div></div>`;
+    el.innerHTML=`<div class="alert warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div><strong>${dr} duplicate(s)</strong> in <strong>${dg} group(s)</strong> on <strong>${col}</strong>${fuzzyNote}.<br><span style="font-size:11px;margin-top:3px;display:block;opacity:.8">Green = original. Amber = duplicate. Select and remove as needed.</span></div></div>`;
   }
   renderTable();
 }
@@ -2645,22 +2697,62 @@ async function saveFeederHistoryPoint(trigger='auto'){
 function runFeederDupCheck(col){
   col = col || 'DNP3.0_ADDRESS';
   const d=fds();if(!d.rows.length){alert('No rows to check.');return;}
-  const vm=new Map();
-  d.rows.forEach((r,i)=>{const val=String(r[col]||'').toLowerCase().trim();if(!val)return;if(!vm.has(val))vm.set(val,[]);vm.get(val).push(i);});
-  const dupSet=new Set();let dg=0;
-  vm.forEach(idxs=>{if(idxs.length>1){dg++;idxs.slice(1).forEach(i=>dupSet.add(i));}});
+  const useFuzzy = FUZZY_COLS.has(col);
+  const dupSet=new Set();
+  const groupMap={};
+  let dg=0;
+
+  if(useFuzzy){
+    const vals = d.rows.map(r=>String(r[col]||'').toLowerCase().trim());
+    const groups=[];
+    const assigned=new Array(vals.length).fill(-1);
+    for(let i=0;i<vals.length;i++){
+      if(!vals[i]||assigned[i]>=0) continue;
+      const grp=[i]; assigned[i]=groups.length;
+      for(let j=i+1;j<vals.length;j++){
+        if(!vals[j]||assigned[j]>=0) continue;
+        if(stringSimilarity(vals[i],vals[j])>=FUZZY_THRESHOLD){
+          grp.push(j); assigned[j]=groups.length;
+        }
+      }
+      if(grp.length>1){
+        grp.slice(1).forEach(idx=>dupSet.add(idx));
+        grp.forEach(idx=>groupMap[idx]=dg);
+        dg++;
+      }
+      groups.push(grp);
+    }
+  } else {
+    const vm=new Map();
+    d.rows.forEach((r,i)=>{
+      const val=String(r[col]||'').toLowerCase().trim();
+      if(!val)return;
+      if(!vm.has(val))vm.set(val,[]);
+      vm.get(val).push(i);
+    });
+    vm.forEach(idxs=>{
+      if(idxs.length>1){
+        idxs.slice(1).forEach(i=>dupSet.add(i));
+        idxs.forEach(i=>groupMap[i]=dg);
+        dg++;
+      }
+    });
+  }
+
   d.dupInfo={};let dr=0;
   d.rows.forEach((_,i)=>{
     if(dupSet.has(i)){d.dupInfo[i]='dup';dr++;}
-    else{const val=String(d.rows[i][col]||'').toLowerCase().trim();if(vm.has(val)&&vm.get(val).length>1&&vm.get(val)[0]===i)d.dupInfo[i]='orig';}
+    else if(groupMap[i]!==undefined) d.dupInfo[i]='orig';
   });
   d.checked=true;
-  document.getElementById('sDupG').textContent=dg;document.getElementById('sDupR').textContent=dr;
+  document.getElementById('sDupG').textContent=dg;
+  document.getElementById('sDupR').textContent=dr;
   const el=document.getElementById('dupAlert');el.style.display='block';
+  const fuzzyNote = useFuzzy ? ` <span style="font-size:11px;opacity:.7">(≥${Math.round(FUZZY_THRESHOLD*100)}% similarity)</span>` : '';
   if(dr===0){
-    el.innerHTML=`<div class="alert ok"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>No duplicates found on <strong>${col}</strong>.</span></div>`;
+    el.innerHTML=`<div class="alert ok"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>No duplicates found on <strong>${col}</strong>${fuzzyNote}.</span></div>`;
   }else{
-    el.innerHTML=`<div class="alert warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div><strong>${dr} duplicate(s)</strong> in <strong>${dg} group(s)</strong> on <strong>${col}</strong>.<br><span style="font-size:11px;margin-top:3px;display:block;opacity:.8">Green = original. Amber = duplicate.</span></div></div>`;
+    el.innerHTML=`<div class="alert warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div><strong>${dr} duplicate(s)</strong> in <strong>${dg} group(s)</strong> on <strong>${col}</strong>${fuzzyNote}.<br><span style="font-size:11px;margin-top:3px;display:block;opacity:.8">Green = original. Amber = duplicate.</span></div></div>`;
   }
   renderFeederTable();
 }
