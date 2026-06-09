@@ -1602,7 +1602,14 @@ function updateDescriptorHint(){
   if(type==='DI'||type==='DI2'){
     const s0 = (document.getElementById('nf_STATE_0')||{}).value||'';
     const s1 = (document.getElementById('nf_STATE_1')||{}).value||'';
-    if(s0||s1) hint = [s0,s1].filter(Boolean).join(' / ');
+    const s2 = (document.getElementById('nf_STATE_2')||{}).value||'';
+    // if STATE_0 is UNDEFINED (or empty), shift to STATE_1 / STATE_2
+    const s0IsUndefined = s0.trim().toUpperCase()==='UNDEFINED' || s0.trim()==='';
+    if(s0IsUndefined){
+      if(s1||s2) hint = [s1,s2].filter(Boolean).join(' / ');
+    } else {
+      if(s0||s1) hint = [s0,s1].filter(Boolean).join(' / ');
+    }
   } else if(type==='SBO'||type==='DO'){
     const sc = (document.getElementById('nf_STATE_CLOSE')||{}).value||'';
     const st = (document.getElementById('nf_STATE_TRIP')||{}).value||'';
