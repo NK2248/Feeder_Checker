@@ -433,7 +433,7 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
 <!-- Footer legend -->
 <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:10px;padding:6px 2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
   <svg viewBox="0 0 24 24" style="width:11px;height:11px;stroke:var(--text3);fill:none;stroke-width:2;flex-shrink:0"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-  origin rows are locked — only DNP3.0_ADDRESS and NOTE can be edited
+  origin rows are locked — only BAY_NAME, DNP3.0_ADDRESS, NOTE, SCALE_ACTUAL_DATA and SCALE_RAW_DATA can be edited
   <span style="color:var(--border2)">·</span>
   <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:2px;background:#c8a8e8;display:inline-block"></span> purple = locked origin</span>
   <span style="color:var(--border2)">·</span>
@@ -1418,7 +1418,7 @@ async function doDeleteOne(i){
 function editCell(idx,col,el){
   const d=ds();
   const isOrigin=idx<(d.originCount||0);
-  const alwaysEditable=['DNP3.0_ADDRESS','NOTE'];
+  const alwaysEditable=['DNP3.0_ADDRESS','NOTE','SCALE_ACTUAL_DATA','SCALE_RAW_DATA'];
   if(isOrigin && !alwaysEditable.includes(col)){
     el.innerText=d.rows[idx][col]??'';
     return;
@@ -1467,10 +1467,11 @@ function renderTable(){
     const cells=c.map((col,ci)=>{
       const isAddr=col==='DNP3.0_ADDRESS';
       const isNote=col==='NOTE';
-      const locked=isOrigin&&!isAddr&&!isNote;
+      const isScale=col==='SCALE_ACTUAL_DATA'||col==='SCALE_RAW_DATA';
+      const locked=isOrigin&&!isAddr&&!isNote&&!isScale;
       let cls=ci===0?'fl':'';
       if(isOrigin){
-        if(isAddr||isNote) cls+=(cls?' ':'')+'editable-cell';
+        if(isAddr||isNote||isScale) cls+=(cls?' ':'')+'editable-cell';
         else cls+=(cls?' ':'')+'locked-cell';
       }
       return `<td contenteditable="${!locked}" onblur="${locked?'':'editCell('+i+',\''+col.replace(/'/g,"\\'")+'\''+',this)'}" spellcheck="false" title="${String(r[col]??'').replace(/"/g,'&quot;')}"${cls?' class="'+cls+'"':''}${locked?' tabindex="-1"':''}>${String(r[col]??'').replace(/</g,'&lt;')}</td>`;
@@ -2382,7 +2383,7 @@ function renderFeederTable(){
     const isFOrigin=i<(d.originCount||0);
     const fobadge=isFOrigin?`<span class="badge origin">origin</span>`:st==='dup'?`<span class="badge dup">duplicate</span>`:st==='orig'?`<span class="badge orig">original</span>`:isM?`<span class="badge new">added</span>`:'';
     const fcells=c.map((col,ci)=>{
-      const isAddr=col==='DNP3.0_ADDRESS';const isEditable=col==='NOTE'||col==='REMARK';
+      const isAddr=col==='DNP3.0_ADDRESS';const isEditable=col==='NOTE'||col==='REMARK'||col==='SCALE_ACTUAL_DATA'||col==='SCALE_RAW_DATA'||col==='BAY_NAME';
       const locked=isFOrigin&&!isAddr&&!isEditable;
       let cls='';
       if(ci===0) cls+='fl ';
@@ -2431,7 +2432,7 @@ let feederSyncTimer=null;
 function editFeederCell(idx,col,el){
   const d=fds();
   const isOrigin=idx<(d.originCount||0);
-  const alwaysEditable=['DNP3.0_ADDRESS','NOTE','REMARK'];
+  const alwaysEditable=['DNP3.0_ADDRESS','NOTE','REMARK','SCALE_ACTUAL_DATA','SCALE_RAW_DATA','BAY_NAME'];
   if(isOrigin&&!alwaysEditable.includes(col)){el.innerText=d.rows[idx][col]??'';return;}
   d.rows[idx][col]=el.innerText.trim();
   d.rows[idx].__edited_by=currentUser();d.rows[idx].__edited_at=nowISO();
