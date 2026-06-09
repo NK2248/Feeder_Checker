@@ -91,7 +91,7 @@ h1{font-size:22px;font-weight:600;letter-spacing:-.02em}
 /* ── FIX 1: Table — fixed layout, no column blowout ─────────────────── */
 .tbl-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;width:100%;box-sizing:border-box;max-width:100%;display:block;}
 .tbl-wrap{overflow-x:auto;max-height:440px;overflow-y:auto;width:100%;display:block;max-width:100%;}
-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;}
+table{width:100%;border-collapse:collapse;font-size:12px;table-layout:auto;}
 thead th{
   background:var(--surface2);padding:8px 10px;text-align:left;font-weight:600;font-size:10px;
   color:var(--text2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:2;
@@ -108,7 +108,7 @@ thead th.col-act{width:36px;min-width:36px}
 td{
   padding:7px 10px;border-bottom:1px solid var(--border);color:var(--text);
   vertical-align:middle;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;
   max-width:0; /* required with table-layout:fixed to make ellipsis work */
 }
 tbody tr:last-child td{border-bottom:none}
@@ -4533,11 +4533,8 @@ function buildMappedRows(){
 
       // protect the true first data row of each sub-table from the
       // repeated-header filter — only apply it from row 2 onward
-      if(!subDataStarted){
-        subDataStarted = true;
-      } else {
-        if(isRowRepeatedHeader(rawRow)) continue;
-      }
+      if(subDataStarted && isRowRepeatedHeader(rawRow)) continue;
+      subDataStarted = true;
 
       // check if this is the boundary end row — always include it
       const effectiveEndRow = COLMAP.manualDataEnd ?? (COLMAP.activeTableBoundary ? COLMAP.activeTableBoundary.dataEnd : null);
