@@ -5204,6 +5204,60 @@ function exportStamp(){
   // produces: "2026-06-09_14-30-05"
 }
 
+function initKeyboardShortcuts(){
+  document.addEventListener('keydown', e => {
+    // ignore if typing in input/textarea/contenteditable
+    const tag = document.activeElement.tagName.toLowerCase();
+    const isEditing = tag === 'input' || tag === 'textarea' || tag === 'select' ||
+      document.activeElement.getAttribute('contenteditable') === 'true';
+
+    // Esc — close any open modal
+    if(e.key === 'Escape'){
+      document.querySelectorAll('.overlay.open').forEach(m => m.classList.remove('open'));
+      return;
+    }
+
+    if(isEditing) return; // below shortcuts only fire when not typing
+
+    // Ctrl+F — focus search box
+    if(e.ctrlKey && e.key === 'f'){
+      e.preventDefault();
+      document.getElementById('searchBox').focus();
+      document.getElementById('searchBox').select();
+      return;
+    }
+
+    // Ctrl+S — manual save history point
+    if(e.ctrlKey && e.key === 's'){
+      e.preventDefault();
+      saveHistoryPoint('manual');
+      setSyncStatus('synced', 'history saved ✓');
+      return;
+    }
+
+    // Ctrl+N — add new row
+    if(e.ctrlKey && e.key === 'n'){
+      e.preventDefault();
+      currentMode === 'feeder' ? openFeederAddRow() : openAddRow();
+      return;
+    }
+
+    // Ctrl+D — duplicate check
+    if(e.ctrlKey && e.key === 'd'){
+      e.preventDefault();
+      openDupCheckModal();
+      return;
+    }
+
+    // Ctrl+E — export
+    if(e.ctrlKey && e.key === 'e'){
+      e.preventDefault();
+      currentMode === 'feeder' ? exportAllSubstation() : exportAllExcel();
+      return;
+    }
+  });
+}
+
 </script>
 
 <!-- Column Mapper Modal -->
