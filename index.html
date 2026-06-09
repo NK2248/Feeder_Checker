@@ -255,15 +255,17 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
 
   <!-- Mode tabs inline -->
   <div style="display:flex;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--rlg);padding:4px;gap:3px;margin-left:4px">
-    <button class="mode-tab active" id="modeTabFeeder" onclick="switchMode('feeder')"
-      style="padding:5px 16px;border-radius:var(--r);border:none;cursor:pointer;font-size:13px;font-family:var(--font);font-weight:500;transition:all .15s;white-space:nowrap;background:var(--accent);color:#fff">
-      Substation / Feeder
-    </button>
-    <button class="mode-tab" id="modeTabDevice" onclick="switchMode('device')"
-      style="padding:5px 16px;border-radius:var(--r);border:none;cursor:pointer;font-size:13px;font-family:var(--font);font-weight:500;transition:all .15s;white-space:nowrap;background:transparent;color:var(--text2)">
-      Device (AVR / LBS...)
-    </button>
-  </div>
+  <button class="mode-tab active" id="modeTabFeeder" onclick="switchMode('feeder')"
+    style="padding:5px 16px;border-radius:var(--r);border:none;cursor:pointer;font-size:13px;font-family:var(--font);font-weight:500;transition:all .15s;white-space:nowrap;background:var(--accent);color:#fff;display:flex;flex-direction:column;align-items:center;gap:1px">
+    <span>Substation / Feeder</span>
+    <span style="font-size:9px;font-weight:400;opacity:.75;font-family:var(--mono)">bay point lists</span>
+  </button>
+  <button class="mode-tab" id="modeTabDevice" onclick="switchMode('device')"
+    style="padding:5px 16px;border-radius:var(--r);border:none;cursor:pointer;font-size:13px;font-family:var(--font);font-weight:500;transition:all .15s;white-space:nowrap;background:transparent;color:var(--text2);display:flex;flex-direction:column;align-items:center;gap:1px">
+    <span>Device (AVR / LBS...)</span>
+    <span style="font-size:9px;font-weight:400;opacity:.75;font-family:var(--mono)">device template datasets</span>
+  </button>
+</div>
 
   <div style="flex:1"></div>
 
