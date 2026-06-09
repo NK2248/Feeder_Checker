@@ -340,6 +340,10 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   <input type="file" id="fileIn" accept=".csv,.xlsx,.xls" onchange="handleUpload(this)">
 </div>
 
+<div id="breadcrumbPill" style="font-size:11px;font-family:var(--mono);background:var(--accent);color:#fff;padding:4px 14px;border-radius:20px;margin-bottom:10px;display:inline-flex;align-items:center;gap:6px">
+  📍 <span id="breadcrumbText">—</span>
+</div>
+
 <div class="stats">
   <div class="stat"><div class="stat-lbl">total rows</div><div class="stat-val" id="sTotal">0</div></div>
   <div class="stat"><div class="stat-lbl">columns</div><div class="stat-val" id="sCols">0</div></div>
@@ -902,6 +906,17 @@ function hideLoading(){
   document.getElementById('loadingOverlay').style.display='none';
 }
 
+function updateBreadcrumb(){
+  const el = document.getElementById('breadcrumbText');
+  if(!el) return;
+  if(currentMode === 'feeder'){
+    el.textContent = [currentSubstation, currentFeeder, currentMain, currentFeederType]
+      .filter(Boolean).join(' › ');
+  } else {
+    el.textContent = currentDevice + ' › ' + currentType;
+  }
+}
+
 // ── Drag/drop upload ──────────────────────────────────────────────────────────
 function onDragOver(e){e.preventDefault();document.getElementById('dropZone').classList.add('drag');}
 function onDragLeave(){document.getElementById('dropZone').classList.remove('drag');}
@@ -1095,6 +1110,7 @@ function mrSwitchMode(mode) {
   document.getElementById('mrModeDevice').classList.toggle('active', mode === 'device');
   document.getElementById('mrFeederPanel').style.display = mode === 'feeder' ? 'block' : 'none';
   document.getElementById('mrDevicePanel').style.display = mode === 'device' ? 'block' : 'none';
+  updateBreadcrumb();
 }
 
 function mrUpdateFeeders() {
@@ -1295,11 +1311,13 @@ async function switchDevice(dev){
   selected=new Set();hideDupAlert();
   renderDevTabs();renderTypeTabs();
   await loadCurrentDataset();
+  updateBreadcrumb();
 }
 async function switchType(t){
   currentType=t;selected=new Set();hideDupAlert();
   renderTypeTabs();
   await loadCurrentDataset();
+  updateBreadcrumb();
 }
 
 // ── Key columns ───────────────────────────────────────────────────────────────
@@ -1953,6 +1971,7 @@ function renderAll(){
     await loadDataset(currentKey());
     renderAll();
     switchMode('feeder');
+    updateBreadcrumb();
   } catch(err){
     hideLoading();
     setSyncStatus('error','connection failed');
@@ -2388,6 +2407,7 @@ async function switchSubstation(s){
     document.getElementById('tableArea').innerHTML='<div class="empty"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg><p>No feeders in this substation</p><span>Add feeders using the + button.</span></div>';
     renderFeederStats();
   }
+  updateBreadcrumb();
 }
 
 function renderFeederTabs(){
@@ -2405,6 +2425,7 @@ async function switchFeeder(f){
   selected=new Set();hideDupAlert();
   renderFeederTabs();renderSubsetTabs();renderMainTabs();renderFeederTypeTabs();
   await loadFeederDataset();
+  updateBreadcrumb();
 }
 
 function renderSubsetTabs(){
@@ -2449,6 +2470,7 @@ async function switchMain(m){
   selected=new Set();hideDupAlert();
   renderMainTabs();renderFeederTypeTabs();
   await loadFeederDataset();
+  updateBreadcrumb();
 }
 
 function openAddMain(){
@@ -2491,6 +2513,7 @@ function renderFeederTypeTabs(){
 async function switchFeederType(t){
   currentFeederType=t;selected=new Set();hideDupAlert();
   renderFeederTypeTabs();await loadFeederDataset();
+  updateBreadcrumb();
 }
 
 async function loadFeederDataset(){
