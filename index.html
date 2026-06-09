@@ -3003,11 +3003,14 @@ async function openPresetModal(){
 }
 
 async function saveCurrentMappingAsPreset(){
-  const name = document.getElementById('newPresetName').value.trim();
+  // check both the modal input and the inline Step 3 input
+  const nameEl = document.getElementById('newPresetName') || document.getElementById('inlinePresetName');
+  const descEl = document.getElementById('newPresetDesc') || document.getElementById('inlinePresetDesc');
+  const name = (nameEl?.value || '').trim();
   if(!name){ alert('Enter a preset name.'); return; }
   const preset = {
     name,
-    description: document.getElementById('newPresetDesc').value.trim(),
+    description: (descEl?.value || '').trim(),
     mappings: {...COLMAP.mappings},
     created_by: currentUser(),
     created_at: new Date().toISOString()
@@ -3022,8 +3025,10 @@ async function saveCurrentMappingAsPreset(){
   }
   await saveColPresets(presets);
   window._colPresets = presets;
-  document.getElementById('newPresetName').value='';
-  document.getElementById('newPresetDesc').value='';
+  if(document.getElementById('newPresetName')) document.getElementById('newPresetName').value='';
+  if(document.getElementById('newPresetDesc')) document.getElementById('newPresetDesc').value='';
+  if(document.getElementById('inlinePresetName')) document.getElementById('inlinePresetName').value='';
+  if(document.getElementById('inlinePresetDesc')) document.getElementById('inlinePresetDesc').value='';
   renderPresetList(presets);
   showImportToast(`<strong>✓ Preset "${name}" saved</strong>`);
 }
@@ -3251,6 +3256,8 @@ function detectAllTables(allRows){
         dataRowCount++;
         if(pointVal && knownPointNames.size < 20) knownPointNames.add(pointVal);
       }
+    }
+      
 
     if(dataRowCount > 0){
       tables.push({
@@ -4787,9 +4794,9 @@ function applyColumnMapping(){
 
         <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span style="font-size:11px;font-family:var(--mono);color:var(--text2);white-space:nowrap">save mapping:</span>
-          <input type="text" id="newPresetName" placeholder='Preset name e.g. "ABB AVR Status"'
+          <input type="text" id="inlinePresetName" placeholder='Preset name e.g. "ABB AVR Status"'
             style="flex:1;min-width:120px;padding:5px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:12px;font-family:var(--font);background:var(--surface);color:var(--text);outline:none">
-          <input type="text" id="newPresetDesc" placeholder="Description (optional)"
+          <input type="text" id="inlinePresetDesc" placeholder="Description (optional)"
             style="flex:1;min-width:100px;padding:5px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:12px;font-family:var(--font);background:var(--surface);color:var(--text);outline:none">
           <button class="btn success" style="font-size:11px;flex-shrink:0" onclick="saveCurrentMappingAsPreset()">save preset</button>
         </div>
