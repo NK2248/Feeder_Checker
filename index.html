@@ -3229,6 +3229,11 @@ function detectAllTables(allRows){
 
       const forceInclude = nextIsBlankOrHeader && !isRowBlank(row) && !isRowRepeatedHeader(row);
 
+      // Grace pass: row immediately after a single blank should not be
+      // excluded just because item column looks non-numeric (e.g. "muts")
+      const prevRow = r > 0 ? (allRows[r-1] || []) : [];
+      const postBlankGrace = !isRowBlank(row) && isRowBlank(prevRow);
+
       if(!isRowUnwanted(row, r) && !isRowNonNumericItem(row, r)){
         dataEnd = r;
         dataRowCount++;
@@ -3237,13 +3242,15 @@ function detectAllTables(allRows){
         dataEnd = r;
         dataRowCount++;
         if(pointVal && knownPointNames.size < 20) knownPointNames.add(pointVal);
+      } else if(postBlankGrace){
+        dataEnd = r;
+        dataRowCount++;
+        if(pointVal && knownPointNames.size < 20) knownPointNames.add(pointVal);
       } else if(forceInclude){
-        // last row before boundary — include it regardless of label detection
         dataEnd = r;
         dataRowCount++;
         if(pointVal && knownPointNames.size < 20) knownPointNames.add(pointVal);
       }
-    }
 
     if(dataRowCount > 0){
       tables.push({
@@ -3357,7 +3364,9 @@ function renderTableSelector(){
 
       <div style="display:flex;flex-direction:column;gap:4px">
         ${tables.map((t,i) => {
-          const isSelected = COLMAP.mergedTableIdxs.has(i) || (!COLMAP.useMergeMode && COLMAP.selectedTableIdx === i);
+          const isSelected = COLMAP.useMergeMode
+            ? COLMAP.mergedTableIdxs.has(i)
+            : COLMAP.selectedTableIdx === i;
           const isSame = sameAsFirst[i];
           const structBadge = isSame
             ? `<span style="font-size:9px;font-family:var(--mono);background:var(--green-bg);color:var(--green);border:1px solid var(--green-bdr);border-radius:3px;padding:1px 5px">same structure</span>`
