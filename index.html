@@ -2387,16 +2387,23 @@ function switchMode(mode){
   const lblAll = document.getElementById('lblExportAll');
   const btnTCD = document.getElementById('btnExportTCD');
 
+  const breadcrumb = document.getElementById('breadcrumbPill');
+  const crossFeederBtn = document.querySelector('#dupCheckStep1 button[onclick="openCrossFeederCheck()"]');
+
   if(mode === 'feeder'){
     lblAll.textContent = 'export substation';
     btnAll.style.background = 'var(--green)';
     btnAll.style.color = '#fff';
     btnTCD.style.display = 'none';
+    breadcrumb.style.display = 'inline-flex';
+    if(crossFeederBtn) crossFeederBtn.style.display = 'flex';
   } else {
     lblAll.textContent = 'export device';
     btnAll.style.background = 'var(--blue)';
     btnAll.style.color = '#fff';
     btnTCD.style.display = 'inline-flex';
+    breadcrumb.style.display = 'none';
+    if(crossFeederBtn) crossFeederBtn.style.display = 'none';
   }
 
   if(mode==='feeder'){
