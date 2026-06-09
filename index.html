@@ -91,25 +91,18 @@ h1{font-size:22px;font-weight:600;letter-spacing:-.02em}
 /* ── FIX 1: Table — fixed layout, no column blowout ─────────────────── */
 .tbl-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;width:100%;box-sizing:border-box;max-width:100%;display:block;}
 .tbl-wrap{overflow-x:auto;max-height:440px;overflow-y:auto;width:100%;display:block;max-width:100%;}
-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:auto;}
+table{width:max-content;min-width:100%;border-collapse:collapse;font-size:12px;table-layout:auto;}
 thead th{
   background:var(--surface2);padding:8px 10px;text-align:left;font-weight:600;font-size:10px;
   color:var(--text2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:2;
   white-space:nowrap;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;
-  overflow:hidden;text-overflow:ellipsis;
-  width:120px;min-width:80px;
 }
-/* fixed-width special columns */
-thead th:first-child{width:32px;min-width:32px;text-align:center}
-thead th:nth-child(2){width:32px;min-width:32px}
-thead th.col-status{width:80px;min-width:80px}
-thead th.col-meta{width:120px;min-width:100px}
-thead th.col-act{width:36px;min-width:36px}
+thead th:first-child{width:32px;text-align:center}
+thead th:nth-child(2){width:32px}
 td{
   padding:7px 10px;border-bottom:1px solid var(--border);color:var(--text);
   vertical-align:middle;
   white-space:nowrap;
-  max-width:0; /* required with table-layout:fixed to make ellipsis work */
 }
 tbody tr:last-child td{border-bottom:none}
 tbody tr:hover td{background:var(--bg)}
@@ -3083,21 +3076,33 @@ function isRowNonNumericItem(row, ri){
 }
 
 function isRowRepeatedHeader(row){
-  // if a data row looks identical to the header row, skip it
-  // (handles repeated headers in merged tables)
   if(!COLMAP.headerRows.length) return false;
-  const hdrRow = COLMAP.allRawRows[COLMAP.headerRows[0]] || [];
   const norm = s => s.toUpperCase().replace(/[^A-Z0-9]/g,'_');
-
   const rowNorms = row.map(c => norm(String(c||'')));
-  const hdrNorms = hdrRow.map(c => norm(String(c||'')));
-
-  const matches = rowNorms.filter((v,i) => v && v === hdrNorms[i]).length;
   const nonEmpty = rowNorms.filter(v => v).length;
+  if(nonEmpty < 3) return false;
 
-  // if 90%+ of non-empty cells match the header exactly → it's a repeated header
-  // using a high threshold to avoid false-positives on data rows
-  return nonEmpty >= 3 && (matches / nonEmpty) >= 0.9;
+  // A row is a repeated header ONLY if it matches ALL header rows combined
+  // AND none of its cells look like data values (numbers, mixed-case strings)
+  const hasDataLikeValue = row.some(c => {
+    const s = String(c||'').trim();
+    if(!s) return false;
+    if(!isNaN(s)) return true;           // numeric = definitely data
+    if(/[a-z]/.test(s)) return true;     // mixed-case = likely data (e.g. "Normal/Fail")
+    if(/[\/\.\-]/.test(s)) return true;  // separators common in data values
+    return false;
+  });
+  if(hasDataLikeValue) return false;     // has data-like values → not a repeated header
+
+  // check against every header row — must match ALL of them
+  let totalMatches = 0;
+  for(const hdrIdx of COLMAP.headerRows){
+    const hdrRow = COLMAP.allRawRows[hdrIdx] || [];
+    const hdrNorms = hdrRow.map(c => norm(String(c||'')));
+    totalMatches += rowNorms.filter((v,i) => v && v === hdrNorms[i]).length;
+  }
+  // require 95% match AND no data-like values to confirm it's truly a repeated header
+  return (totalMatches / nonEmpty) >= 0.95;
 }
 
 function isRowLikelyNewHeader(row, existingHeaderCols){
