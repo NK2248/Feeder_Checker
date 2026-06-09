@@ -410,6 +410,11 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
       duplicate check
     </button>
     <div class="ab-divider"></div>
+    <button class="abtn" onclick="openRenumberModal()" style="color:var(--green)">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="5 12 12 19 19 12"/><line x1="5" y1="5" x2="19" y2="5"/></svg>
+      renumber
+    </button>
+    <div class="ab-divider"></div>
     <button class="abtn info" onclick="openCompare()">
       <svg viewBox="0 0 24 24"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
       compare
@@ -4842,6 +4847,97 @@ function applyColumnMapping(){
   showManualRouteModal(COLMAP.filename, pendingImportRoute);
 }
 
+function openRenumberModal(){
+  document.getElementById('rnPreview').style.display = 'none';
+  document.getElementById('rnStart').value = '0';
+  document.getElementById('rnStep').value = '1';
+  document.querySelector('input[name="rnScope"][value="all"]').checked = true;
+  document.getElementById('renumberModal').classList.add('open');
+}
+
+function getRenumberRows(){
+  const d = currentMode === 'feeder' ? fds() : ds();
+  const scope = document.querySelector('input[name="rnScope"]:checked').value;
+  const originCount = d.originCount || 0;
+
+  return d.rows.map((r, i) => ({
+    row: r,
+    idx: i,
+    editable: scope === 'all' ? true : i >= originCount
+  }));
+}
+
+function previewRenumber(){
+  const start  = parseInt(document.getElementById('rnStart').value) || 0;
+  const step   = parseInt(document.getElementById('rnStep').value)  || 1;
+  const entries = getRenumberRows();
+
+  let addr = start;
+  const preview = [];
+  entries.forEach(({row, editable}) => {
+    const oldVal = row['DNP3.0_ADDRESS'] ?? '';
+    const newVal = editable ? addr : oldVal;
+    preview.push({ old: oldVal, new: String(newVal), editable });
+    if(editable) addr += step;
+  });
+
+  const rows = preview.slice(0, 5);
+  const tbody = rows.map((p, i) =>
+    `<tr style="${i%2===0?'background:var(--surface)':'background:var(--bg)'}">
+      <td style="padding:5px 10px;font-size:12px;font-family:var(--mono);border-bottom:1px solid var(--border)">${i+1}</td>
+      <td style="padding:5px 10px;font-size:12px;font-family:var(--mono);border-bottom:1px solid var(--border);color:var(--red)">${p.old||'—'}</td>
+      <td style="padding:5px 10px;font-size:12px;font-family:var(--mono);border-bottom:1px solid var(--border);color:var(--green);font-weight:600">${p.editable?p.new:'<span style="color:var(--text3)">unchanged</span>'}</td>
+    </tr>`
+  ).join('');
+
+  document.getElementById('rnPreviewTable').innerHTML = `
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr>
+          <th style="padding:5px 10px;background:var(--surface2);font-size:10px;font-family:var(--mono);border-bottom:1px solid var(--border);text-align:left">#</th>
+          <th style="padding:5px 10px;background:var(--surface2);font-size:10px;font-family:var(--mono);border-bottom:1px solid var(--border);text-align:left;color:var(--red)">OLD</th>
+          <th style="padding:5px 10px;background:var(--surface2);font-size:10px;font-family:var(--mono);border-bottom:1px solid var(--border);text-align:left;color:var(--green)">NEW</th>
+        </tr>
+      </thead>
+      <tbody>${tbody}</tbody>
+    </table>`;
+
+  document.getElementById('rnPreview').style.display = 'block';
+}
+
+async function applyRenumber(){
+  const start   = parseInt(document.getElementById('rnStart').value) || 0;
+  const step    = parseInt(document.getElementById('rnStep').value)  || 1;
+  const entries = getRenumberRows();
+  const d = currentMode === 'feeder' ? fds() : ds();
+
+  let addr = start;
+  entries.forEach(({idx, editable}) => {
+    if(editable){
+      d.rows[idx]['DNP3.0_ADDRESS'] = String(addr);
+      d.rows[idx].__edited_by = currentUser();
+      d.rows[idx].__edited_at = nowISO();
+      addr += step;
+    }
+  });
+
+  closeModal('renumberModal');
+
+  if(currentMode === 'feeder'){
+    renderFeederTable(); renderFeederStats();
+    showLoading('Saving…');
+    await saveFeederDataset();
+    await saveFeederHistoryPoint('auto');
+    hideLoading();
+  } else {
+    renderAll();
+    showLoading('Saving…');
+    await saveDataset(currentKey());
+    await saveHistoryPoint('auto');
+    hideLoading();
+  }
+}
+
 </script>
 
 <!-- Column Mapper Modal -->
@@ -5099,6 +5195,50 @@ function applyColumnMapping(){
         <button class="btn" onclick="closeModal('colPresetModal')">cancel</button>
         <button class="btn primary" onclick="saveCurrentMappingAsPreset()">save preset</button>
       </div>
+    </div>
+  </div>
+</div>
+<div class="overlay" id="renumberModal">
+  <div class="modal" style="width:420px">
+    <h3>Renumber DNP3.0_ADDRESS</h3>
+    <div class="fgrid">
+      <div class="frow">
+        <label>Start Address</label>
+        <input type="number" id="rnStart" value="0" min="0" style="width:100%">
+      </div>
+      <div class="frow">
+        <label>Step</label>
+        <input type="number" id="rnStep" value="1" min="1" style="width:100%">
+      </div>
+      <div class="frow">
+        <label>Scope</label>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);text-transform:none;letter-spacing:0;font-weight:400;cursor:pointer">
+            <input type="radio" name="rnScope" value="all" checked style="width:auto;height:auto"> All rows
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);text-transform:none;letter-spacing:0;font-weight:400;cursor:pointer">
+            <input type="radio" name="rnScope" value="added" style="width:auto;height:auto"> Added rows only (keep origin unchanged)
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Preview table -->
+    <div id="rnPreview" style="display:none;margin-top:14px">
+      <div style="font-size:10px;font-family:var(--mono);color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Preview — first 5 rows</div>
+      <div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--r);max-height:180px;overflow-y:auto" id="rnPreviewTable"></div>
+    </div>
+
+    <div class="mfooter">
+      <button class="btn" onclick="closeModal('renumberModal')">Cancel</button>
+      <button class="btn" onclick="previewRenumber()">
+        <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        Preview
+      </button>
+      <button class="btn primary" onclick="applyRenumber()">
+        <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><polyline points="20 6 9 17 4 12"/></svg>
+        Apply
+      </button>
     </div>
   </div>
 </div>
