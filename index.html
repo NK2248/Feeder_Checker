@@ -399,7 +399,7 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
       clear
     </button>
     <div class="ab-divider"></div>
-    <button class="abtn warn" onclick="currentMode==='feeder'?runFeederDupCheck():runDupCheck()">
+    <button class="abtn warn" onclick="openDupCheckModal()">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       dup check
     </button>
@@ -440,7 +440,49 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:2px;background:var(--blue-bdr);display:inline-block"></span> blue = added</span>
 </div>
 
-<!-- Add Row Modal -->
+<!-- Dup Check Modal -->
+<div class="overlay" id="dupCheckModal">
+  <div class="modal" style="width:420px">
+    <h3>Duplicate Check</h3>
+    <p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:16px">What would you like to check for duplicates?</p>
+
+    <!-- Step 1: choice -->
+    <div id="dupCheckStep1">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button class="btn primary" onclick="dupCheckChoose('address')"
+          style="justify-content:flex-start;padding:12px 16px;height:auto;flex-direction:column;align-items:flex-start;gap:3px">
+          <span style="font-weight:600;font-size:13px">📍 Check DNP3.0_ADDRESS</span>
+          <span style="font-size:11px;opacity:.8;font-weight:400">Find rows with duplicate address values</span>
+        </button>
+        <button class="btn" onclick="dupCheckChoose('other')"
+          style="justify-content:flex-start;padding:12px 16px;height:auto;flex-direction:column;align-items:flex-start;gap:3px;border-color:var(--blue-bdr);background:var(--blue-bg);color:var(--blue)">
+          <span style="font-weight:600;font-size:13px">🔍 Check other column</span>
+          <span style="font-size:11px;opacity:.8;font-weight:400">Pick any column to check for duplicates</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 2: column picker (shown only for 'other') -->
+    <div id="dupCheckStep2" style="display:none">
+      <div style="font-size:11px;font-family:var(--mono);color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Select column to check</div>
+      <div id="dupCheckColList" style="display:flex;flex-direction:column;gap:5px;max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r);padding:8px"></div>
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:space-between">
+        <button class="btn" onclick="dupCheckBackToStep1()">
+          <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          back
+        </button>
+        <button class="btn primary" onclick="dupCheckRun()">
+          <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          run check
+        </button>
+      </div>
+    </div>
+
+    <div class="mfooter" id="dupCheckFooter">
+      <button class="btn" onclick="closeModal('dupCheckModal')">Cancel</button>
+    </div>
+  </div>
+</div>
 <div class="overlay" id="addModal">
   <div class="modal">
     <h3>Add new row</h3>
@@ -1284,10 +1326,81 @@ function toggleKey(col){
   d.dupInfo={};d.checked=false;hideDupAlert();renderKeyChips();renderTable();
 }
 
-// ── Duplicate check ───────────────────────────────────────────────────────────
-function runDupCheck(){
+// ── Dup Check Modal ───────────────────────────────────────────────────────────
+let _dupCheckSelectedCol = 'SPECIFICATION_POINT_NAME';
+
+function openDupCheckModal(){
+  // reset to step 1
+  document.getElementById('dupCheckStep1').style.display = 'block';
+  document.getElementById('dupCheckStep2').style.display = 'none';
+  document.getElementById('dupCheckFooter').style.display = 'flex';
+  _dupCheckSelectedCol = 'SPECIFICATION_POINT_NAME';
+  document.getElementById('dupCheckModal').classList.add('open');
+}
+
+function dupCheckChoose(type){
+  if(type === 'address'){
+    closeModal('dupCheckModal');
+    if(currentMode === 'feeder') runFeederDupCheck('DNP3.0_ADDRESS');
+    else runDupCheck('DNP3.0_ADDRESS');
+    return;
+  }
+  // show column picker
+  document.getElementById('dupCheckStep1').style.display = 'none';
+  document.getElementById('dupCheckFooter').style.display = 'none';
+  document.getElementById('dupCheckStep2').style.display = 'block';
+
+  const colList = currentMode === 'feeder' ? feederCols() : cols();
+  const defaultCol = colList.includes('SPECIFICATION_POINT_NAME')
+    ? 'SPECIFICATION_POINT_NAME'
+    : colList[0];
+  _dupCheckSelectedCol = defaultCol;
+
+  document.getElementById('dupCheckColList').innerHTML = colList.map(c => `
+    <label style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:var(--r);cursor:pointer;
+      border:1px solid ${c===_dupCheckSelectedCol?'var(--accent)':'var(--border)'};
+      background:${c===_dupCheckSelectedCol?'var(--accent-light)':'var(--surface)'};
+      transition:all .12s" id="dupColOpt_${c.replace(/[^a-z0-9]/gi,'_')}">
+      <input type="radio" name="dupColPick" value="${c}" ${c===defaultCol?'checked':''}
+        onchange="dupCheckSelectCol('${c.replace(/'/g,"\\'")}',this)"
+        style="accent-color:var(--accent);cursor:pointer">
+      <span style="font-size:12px;font-family:var(--mono);color:var(--text)">${c}</span>
+      ${c==='SPECIFICATION_POINT_NAME'?'<span style="font-size:10px;font-family:var(--mono);background:var(--green-bg);color:var(--green);border:1px solid var(--green-bdr);border-radius:3px;padding:1px 6px;margin-left:auto">default</span>':''}
+      ${c==='DNP3.0_ADDRESS'?'<span style="font-size:10px;font-family:var(--mono);background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bdr);border-radius:3px;padding:1px 6px;margin-left:auto">address</span>':''}
+    </label>
+  `).join('');
+}
+
+function dupCheckSelectCol(col, radio){
+  const prev = _dupCheckSelectedCol;
+  _dupCheckSelectedCol = col;
+  // update styling of all options
+  const colList = currentMode === 'feeder' ? feederCols() : cols();
+  colList.forEach(c => {
+    const el = document.getElementById('dupColOpt_'+c.replace(/[^a-z0-9]/gi,'_'));
+    if(!el) return;
+    const isSelected = c === col;
+    el.style.borderColor = isSelected ? 'var(--accent)' : 'var(--border)';
+    el.style.background  = isSelected ? 'var(--accent-light)' : 'var(--surface)';
+  });
+}
+
+function dupCheckBackToStep1(){
+  document.getElementById('dupCheckStep2').style.display = 'none';
+  document.getElementById('dupCheckStep1').style.display = 'block';
+  document.getElementById('dupCheckFooter').style.display = 'flex';
+}
+
+function dupCheckRun(){
+  const col = _dupCheckSelectedCol;
+  closeModal('dupCheckModal');
+  if(currentMode === 'feeder') runFeederDupCheck(col);
+  else runDupCheck(col);
+}
+
+function runDupCheck(col){
+  col = col || 'DNP3.0_ADDRESS';
   const d=ds();if(!d.rows.length){alert('No rows to check.');return;}
-  const col='DNP3.0_ADDRESS';
   const vm=new Map();
   d.rows.forEach((r,i)=>{
     const val=String(r[col]||'').toLowerCase().trim();
@@ -1310,9 +1423,9 @@ function runDupCheck(){
   document.getElementById('sDupR').textContent=dr;
   const el=document.getElementById('dupAlert');el.style.display='block';
   if(dr===0){
-    el.innerHTML=`<div class="alert ok"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>No duplicates found on <strong>DNP3.0_ADDRESS</strong>.</span></div>`;
+    el.innerHTML=`<div class="alert ok"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>No duplicates found on <strong>${col}</strong>.</span></div>`;
   }else{
-    el.innerHTML=`<div class="alert warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div><strong>${dr} duplicate(s)</strong> in <strong>${dg} group(s)</strong> on <strong>DNP3.0_ADDRESS</strong>.<br><span style="font-size:11px;margin-top:3px;display:block;opacity:.8">Green = original. Amber = duplicate. Select and remove as needed.</span></div></div>`;
+    el.innerHTML=`<div class="alert warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div><strong>${dr} duplicate(s)</strong> in <strong>${dg} group(s)</strong> on <strong>${col}</strong>.<br><span style="font-size:11px;margin-top:3px;display:block;opacity:.8">Green = original. Amber = duplicate. Select and remove as needed.</span></div></div>`;
   }
   renderTable();
 }
@@ -2529,9 +2642,10 @@ async function saveFeederHistoryPoint(trigger='auto'){
   }catch(e){console.error('Feeder history error:',e);}
 }
 
-function runFeederDupCheck(){
+function runFeederDupCheck(col){
+  col = col || 'DNP3.0_ADDRESS';
   const d=fds();if(!d.rows.length){alert('No rows to check.');return;}
-  const col='DNP3.0_ADDRESS';const vm=new Map();
+  const vm=new Map();
   d.rows.forEach((r,i)=>{const val=String(r[col]||'').toLowerCase().trim();if(!val)return;if(!vm.has(val))vm.set(val,[]);vm.get(val).push(i);});
   const dupSet=new Set();let dg=0;
   vm.forEach(idxs=>{if(idxs.length>1){dg++;idxs.slice(1).forEach(i=>dupSet.add(i));}});
@@ -2544,9 +2658,9 @@ function runFeederDupCheck(){
   document.getElementById('sDupG').textContent=dg;document.getElementById('sDupR').textContent=dr;
   const el=document.getElementById('dupAlert');el.style.display='block';
   if(dr===0){
-    el.innerHTML=`<div class="alert ok"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>No duplicates found on <strong>DNP3.0_ADDRESS</strong>.</span></div>`;
+    el.innerHTML=`<div class="alert ok"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>No duplicates found on <strong>${col}</strong>.</span></div>`;
   }else{
-    el.innerHTML=`<div class="alert warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div><strong>${dr} duplicate(s)</strong> in <strong>${dg} group(s)</strong> on <strong>DNP3.0_ADDRESS</strong>.<br><span style="font-size:11px;margin-top:3px;display:block;opacity:.8">Green = original. Amber = duplicate.</span></div></div>`;
+    el.innerHTML=`<div class="alert warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div><strong>${dr} duplicate(s)</strong> in <strong>${dg} group(s)</strong> on <strong>${col}</strong>.<br><span style="font-size:11px;margin-top:3px;display:block;opacity:.8">Green = original. Amber = duplicate.</span></div></div>`;
   }
   renderFeederTable();
 }
