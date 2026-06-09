@@ -2915,6 +2915,119 @@ const COLMAP_CONFIG = {
   sectionTitleMinLen: 3,
 };
 
+// ── Column Mapping Presets ────────────────────────────────────────────────────
+const PRESET_KEY = '__colmap_presets__';
+
+async function loadColPresets(){
+  try{
+    const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(PRESET_KEY)+'&order=row_index.asc');
+    return data.map(r => r.data);
+  }catch(e){ console.error('Preset load error:',e); return []; }
+}
+
+async function saveColPresets(presets){
+  await sbFetch('DELETE', TABLE+'?dataset_key=eq.'+encodeURIComponent(PRESET_KEY));
+  if(presets.length){
+    await sbFetch('POST', TABLE, presets.map((p,i)=>({dataset_key:PRESET_KEY,row_index:i,data:p})));
+  }
+}
+
+function renderPresetList(presets){
+  const el = document.getElementById('presetList');
+  if(!presets.length){
+    el.innerHTML='<div style="text-align:center;padding:1.5rem;color:var(--text3);font-size:13px">No presets saved yet</div>';
+    return;
+  }
+  el.innerHTML = presets.map((p,i)=>{
+    const mapped = Object.values(p.mappings||{}).filter(v=>v!=='— skip —').length;
+    const total  = Object.keys(p.mappings||{}).length;
+    const dt = p.created_at ? new Date(p.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);flex-wrap:wrap">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600">${p.name}</div>
+        ${p.description?`<div style="font-size:11px;color:var(--text2);margin-top:2px">${p.description}</div>`:''}
+        <div style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-top:3px">${mapped}/${total} columns mapped · ${p.created_by||''} ${dt}</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px">
+          ${Object.entries(p.mappings||{}).slice(0,6).map(([s,d])=>
+            d!=='— skip —'
+              ?`<span style="font-size:9px;font-family:var(--mono);background:var(--green-bg);color:var(--green);border:1px solid var(--green-bdr);border-radius:3px;padding:1px 5px">${s}→${d}</span>`
+              :``
+          ).join('')}
+          ${total>6?`<span style="font-size:9px;font-family:var(--mono);color:var(--text3)">+${total-6} more</span>`:''}
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="btn" style="font-size:11px;padding:4px 10px" onclick="applyPreset(${i})">apply</button>
+        <button class="btn danger" style="font-size:11px;padding:4px 10px" onclick="deletePreset(${i})">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function applyPreset(idx){
+  const p = window._colPresets[idx];
+  if(!p) return;
+  const allSchema = getAllSchemaColumns();
+  COLMAP.fileColumns.forEach(fc=>{
+    const saved = p.mappings[fc];
+    if(saved && allSchema.includes(saved)) COLMAP.mappings[fc] = saved;
+  });
+  renderColMapRows(); updateMappingPreview(); closeModal('colPresetModal');
+  showImportToast(`<strong>✓ Preset "${p.name}" applied</strong>`);
+}
+
+async function deletePreset(idx){
+  const p = window._colPresets[idx];
+  if(!p || !confirm(`Delete preset "${p.name}"?`)) return;
+  window._colPresets.splice(idx,1);
+  await saveColPresets(window._colPresets);
+  renderPresetList(window._colPresets);
+}
+
+async function openPresetModal(){
+  // populate preview chips of current mapping
+  const chipsEl = document.getElementById('presetPreviewChips');
+  if(chipsEl){
+    chipsEl.innerHTML = Object.entries(COLMAP.mappings||{}).map(([s,d])=>
+      d!=='— skip —'
+        ?`<span style="font-size:9px;font-family:var(--mono);background:var(--green-bg);color:var(--green);border:1px solid var(--green-bdr);border-radius:3px;padding:1px 5px">${s}→${d}</span>`
+        :``
+    ).join('') || '<span style="font-size:11px;color:var(--text3);font-family:var(--mono)">No columns mapped yet</span>';
+  }
+  document.getElementById('presetList').innerHTML =
+    '<div style="color:var(--text3);font-size:12px;font-family:var(--mono);padding:8px">Loading…</div>';
+  document.getElementById('colPresetModal').classList.add('open');
+  const presets = await loadColPresets();
+  window._colPresets = presets;
+  renderPresetList(presets);
+}
+
+async function saveCurrentMappingAsPreset(){
+  const name = document.getElementById('newPresetName').value.trim();
+  if(!name){ alert('Enter a preset name.'); return; }
+  const preset = {
+    name,
+    description: document.getElementById('newPresetDesc').value.trim(),
+    mappings: {...COLMAP.mappings},
+    created_by: currentUser(),
+    created_at: new Date().toISOString()
+  };
+  const presets = await loadColPresets();
+  const existIdx = presets.findIndex(p=>p.name.toLowerCase()===name.toLowerCase());
+  if(existIdx>=0){
+    if(!confirm(`Overwrite existing preset "${name}"?`)) return;
+    presets[existIdx] = preset;
+  } else {
+    presets.push(preset);
+  }
+  await saveColPresets(presets);
+  window._colPresets = presets;
+  document.getElementById('newPresetName').value='';
+  document.getElementById('newPresetDesc').value='';
+  renderPresetList(presets);
+  showImportToast(`<strong>✓ Preset "${name}" saved</strong>`);
+}
+
 function isRowBlank(row){
   return row.every(c=>String(c||'').trim()==='');
 }
@@ -4367,29 +4480,30 @@ function buildMappedRows(){
   const boundary = COLMAP.activeTableBoundary;
 
   if(COLMAP.useMergeMode && boundary?.tableRanges?.length > 1){
-    // use precise per-table ranges stored during applyMergedTables
     boundary.tableRanges.forEach(tr => {
-      ranges.push({ start: tr.start, end: tr.end });
+      ranges.push({ start: tr.start, end: tr.end, subHdrRows: new Set(tr.hdrRows||[]) });
     });
   } else if(COLMAP.useMergeMode && boundary?.mergedIdxs?.length > 1){
-    // fallback: build from detectedTables directly
     boundary.mergedIdxs.forEach(idx => {
       const t = COLMAP.detectedTables[idx];
-      if(t) ranges.push({ start: t.dataStart, end: t.dataEnd });
+      if(t) ranges.push({ start: t.dataStart, end: t.dataEnd, subHdrRows: new Set(t.hdrRows||[]) });
     });
   } else {
-    // single table or auto-detected
     const effectiveEnd = COLMAP.manualDataEnd ?? (boundary ? boundary.dataEnd : null);
     const dataStartR = Math.max(...COLMAP.headerRows) + 1;
     const dataEndR = effectiveEnd ?? (allRows.length - 1);
-    ranges.push({ start: dataStartR, end: dataEndR });
+    ranges.push({ start: dataStartR, end: dataEndR, subHdrRows: new Set() });
   }
 
-  for(const {start, end} of ranges){
+  for(const {start, end, subHdrRows} of ranges){
     let consecutiveBlank = 0;
+    let subDataStarted = false;
 
     for(let rowIdx = start; rowIdx <= end; rowIdx++){
       const rawRow = allRows[rowIdx] || [];
+
+      // skip sub-table header rows explicitly
+      if(subHdrRows && subHdrRows.has(rowIdx)) continue;
 
       if(isRowBlank(rawRow)){
         consecutiveBlank++;
@@ -4401,10 +4515,13 @@ function buildMappedRows(){
       // manual skip always wins
       if(COLMAP.manualSkipRows.has(rowIdx)) continue;
 
-      // skip repeated header rows — but only if this is NOT the first row of a table range
-      // (the first row of a merged sub-table should never be skipped as a repeated header)
-      const isFirstRowOfRange = rowIdx === start;
-      if(!isFirstRowOfRange && isRowRepeatedHeader(rawRow)) continue;
+      // protect the true first data row of each sub-table from the
+      // repeated-header filter — only apply it from row 2 onward
+      if(!subDataStarted){
+        subDataStarted = true;
+      } else {
+        if(isRowRepeatedHeader(rawRow)) continue;
+      }
 
       // check if this is the boundary end row — always include it
       const effectiveEndRow = COLMAP.manualDataEnd ?? (COLMAP.activeTableBoundary ? COLMAP.activeTableBoundary.dataEnd : null);
@@ -4434,8 +4551,6 @@ function buildMappedRows(){
 
     if(dataRows.length >= COLMAP_CONFIG.maxDataRows) break;
   }
-  // debug: log ranges being processed (remove after confirming fix)
-  console.log('[buildMappedRows] ranges:', ranges.map(r=>`${r.start}–${r.end}`).join(', '));
   return dataRows;
 }
 
@@ -4631,6 +4746,10 @@ function applyColumnMapping(){
       <div id="cmStep3" style="display:none">
 
         <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
+          <button class="btn" style="font-size:11px" onclick="openPresetModal()">
+            <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            presets
+          </button>
           <button class="btn" style="font-size:11px" onclick="autoMapColumns()">
             <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
             auto-match all
@@ -4657,6 +4776,15 @@ function applyColumnMapping(){
           <div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--r);max-height:160px;overflow-y:auto" id="colMapDataPreviewTable"></div>
         </div>
 
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-size:11px;font-family:var(--mono);color:var(--text2);white-space:nowrap">save mapping:</span>
+          <input type="text" id="newPresetName" placeholder='Preset name e.g. "ABB AVR Status"'
+            style="flex:1;min-width:120px;padding:5px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:12px;font-family:var(--font);background:var(--surface);color:var(--text);outline:none">
+          <input type="text" id="newPresetDesc" placeholder="Description (optional)"
+            style="flex:1;min-width:100px;padding:5px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:12px;font-family:var(--font);background:var(--surface);color:var(--text);outline:none">
+          <button class="btn success" style="font-size:11px;flex-shrink:0" onclick="saveCurrentMappingAsPreset()">save preset</button>
+        </div>
+
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);flex-wrap:wrap;gap:8px">
           <button class="btn" onclick="colMapGoStep(2)">
             <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
@@ -4672,6 +4800,38 @@ function applyColumnMapping(){
         </div>
       </div>
 
+    </div>
+  </div>
+</div>
+<div class="overlay" id="colPresetModal">
+  <div class="modal" style="width:660px;max-width:98vw;max-height:88vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div>
+        <h3 style="margin:0">Column Mapping Presets</h3>
+        <p style="font-size:12px;color:var(--text3);font-family:var(--mono);margin-top:4px">Shared across all users · stored in Supabase</p>
+      </div>
+      <button class="btn" onclick="closeModal('colPresetModal')">close</button>
+    </div>
+    <div style="font-size:11px;font-family:var(--mono);color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Saved presets</div>
+    <div id="presetList" style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto;margin-bottom:16px"></div>
+    <div style="border-top:1px solid var(--border);padding-top:14px">
+      <div style="font-size:11px;font-family:var(--mono);color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Save current mapping</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div class="frow"><label>Name</label>
+          <input type="text" id="newPresetName" placeholder='e.g. "ABB AVR Status"'
+            style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);outline:none;width:100%"></div>
+        <div class="frow"><label>Description (optional)</label>
+          <input type="text" id="newPresetDesc" placeholder='e.g. "ABB REF630 export, 2-row header"'
+            style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);outline:none;width:100%"></div>
+      </div>
+      <div style="margin-top:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px">
+        <div style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-bottom:6px">CURRENT MAPPING</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap" id="presetPreviewChips"></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:12px;gap:8px">
+        <button class="btn" onclick="closeModal('colPresetModal')">cancel</button>
+        <button class="btn primary" onclick="saveCurrentMappingAsPreset()">save preset</button>
+      </div>
     </div>
   </div>
 </div>
