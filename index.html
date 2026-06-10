@@ -575,9 +575,10 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
       </button>
     </div>
     <div style="font-size:12px;color:var(--text3);font-family:var(--mono);margin-bottom:14px" id="histSubLabel"></div>
-    <button class="btn success" style="width:100%;justify-content:center;margin-bottom:14px" onclick="saveHistoryPoint('manual')">
+    <button class="btn success" style="width:100%;justify-content:center;margin-bottom:14px" 
+    onclick="currentMode==='feeder'?saveFeederHistoryPoint('manual').then(()=>{setSyncStatus('synced','checkpoint saved ✓');renderHistList();}):saveHistoryPoint('manual').then(()=>{setSyncStatus('synced','checkpoint saved ✓');renderHistList();})">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      💾 save checkpoint now
+        💾 save checkpoint now
     </button>
     <div class="hist-list" id="histList"></div>
     <div style="border-top:1px solid var(--border);padding-top:12px;display:flex;justify-content:flex-end">
@@ -1827,6 +1828,13 @@ function renderTable(){
     <th class="col-meta">edited</th>
     <th class="col-act"></th>
   </tr>`;
+  const countEl = document.getElementById('searchCount');
+    if(q && countEl){
+      countEl.style.display = 'block';
+      countEl.textContent = filtered.length + ' match' + (filtered.length !== 1 ? 'es' : '');
+    } else if(countEl){
+      countEl.style.display = 'none';
+    }
   const tbody=filtered.map(({r,i})=>{
     const st=d.dupInfo[i];const isM=d.manuallyAdded.has(i);const isSel=selected.has(i);
     const isOrigin=i<(d.originCount||0);
@@ -1844,14 +1852,6 @@ function renderTable(){
       }
       return `<td contenteditable="${!locked}" onblur="${locked?'':'editCell('+i+',\''+col.replace(/'/g,"\\'")+'\''+',this)'}" spellcheck="false" title="${String(r[col]??'').replace(/"/g,'&quot;')}"${cls?' class="'+cls+'"':''}${locked?' tabindex="-1"':''}>${highlightText(r[col], q)}</td>`;
     }).join('');
-    // in renderTable() after filtered is built
-    const countEl = document.getElementById('searchCount');
-    if(q && countEl){
-      countEl.style.display = 'block';
-      countEl.textContent = filtered.length + ' match' + (filtered.length !== 1 ? 'es' : '');
-    } else if(countEl){
-      countEl.style.display = 'none';
-    }
     const addedCell=`<td class="meta-cell"><span class="who">${r.__added_by||''}</span><span>${fmtStamp(r.__added_at)}</span></td>`;
     const editedCell=`<td class="meta-cell"><span class="who">${r.__edited_by||''}</span><span>${fmtStamp(r.__edited_at)}</span></td>`;
     return `<tr class="${rc}${isSel?' sel':''}${isOrigin?' origin-row':''}">
@@ -2826,6 +2826,14 @@ function renderFeederTable(){
     <th class="col-act"></th>
   </tr>`;
 
+  const countEl = document.getElementById('searchCount');
+    if(q && countEl){
+      countEl.style.display = 'block';
+      countEl.textContent = filtered.length + ' match' + (filtered.length !== 1 ? 'es' : '');
+    } else if(countEl){
+      countEl.style.display = 'none';
+    }
+
   const tbody=filtered.map(({r,i})=>{
     const st=d.dupInfo[i];const isM=d.manuallyAdded.has(i);const isSel=selected.has(i);
     const rc=st==='dup'?'dup':st==='orig'?'orig':'';
@@ -2839,14 +2847,6 @@ function renderFeederTable(){
       if(isFOrigin){ if(isAddr||isEditable) cls+='editable-cell'; else cls+='locked-cell'; }
       return `<td contenteditable="${!locked}" onblur="${locked?'':'editFeederCell('+i+',\''+col.replace(/'/g,"\\'")+'\''+',this)'}" spellcheck="false" title="${String(r[col]??'').replace(/"/g,'&quot;')}" class="${cls.trim()}"${locked?' tabindex="-1"':''}>${highlightText(r[col], q)}</td>`;
     }).join('');
-    // same in renderFeederTable() after filtered is built
-    const countEl = document.getElementById('searchCount');
-    if(q && countEl){
-      countEl.style.display = 'block';
-      countEl.textContent = filtered.length + ' match' + (filtered.length !== 1 ? 'es' : '');
-    } else if(countEl){
-      countEl.style.display = 'none';
-    }
     const fAddedCell=`<td class="meta-cell"><span class="who">${r.__added_by||''}</span><span>${fmtStamp(r.__added_at)}</span></td>`;
     const fEditedCell=`<td class="meta-cell"><span class="who">${r.__edited_by||''}</span><span>${fmtStamp(r.__edited_at)}</span></td>`;
     return `<tr class="${rc}${isSel?' sel':''}${isFOrigin?' origin-row':''}">
@@ -4404,6 +4404,7 @@ function colMapLoadSheet(sheetName){
   COLMAP.previewMode       = 'header';
   COLMAP.itemColIdx        = null;
   COLMAP.useItemColCheck   = true;
+  COLMAP._mergeInitialized = false;
   COLMAP.mergedTableIdxs   = new Set([0]);  // which detected tables to merge
   COLMAP.useMergeMode      = false;         // whether merge mode is active
 
@@ -4826,7 +4827,7 @@ function renderItemColIndicator(result){
     el.id = 'itemColIndicator';
     el.style.cssText = 'margin-bottom:8px;';
     // insert before colMapSection
-    const sec = document.getElementById('colMapSection');
+    const sec = document.getElementById('colMapRows');
     sec.parentNode.insertBefore(el, sec);
   }
 
@@ -5682,7 +5683,7 @@ window.addEventListener('beforeunload', e => {
             style="flex:1;min-width:120px;padding:5px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:12px;font-family:var(--font);background:var(--surface);color:var(--text);outline:none">
           <input type="text" id="inlinePresetDesc" placeholder="Description (optional)"
             style="flex:1;min-width:100px;padding:5px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:12px;font-family:var(--font);background:var(--surface);color:var(--text);outline:none">
-          <button class="btn success" style="width:100%;justify-content:center;margin-bottom:14px" onclick="currentMode==='feeder'?saveFeederHistoryPoint('manual').then(()=>{setSyncStatus('synced','checkpoint saved ✓');renderHistList();}):saveHistoryPoint('manual')">
+          <button class="btn success" style="font-size:11px;flex-shrink:0" onclick="saveCurrentMappingAsPreset()">save preset</button>
         </div>
 
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);flex-wrap:wrap;gap:8px">
