@@ -916,6 +916,11 @@ async function loadDataset(key){
 }
 
 async function loadCurrentDataset(){
+  const d = ds();
+  if(d._countOnly){
+    d._countOnly = false;
+    d.rows = [];
+  }
   showLoading('Loading data…');
   await loadDataset(currentKey());
   hideLoading();
@@ -1353,10 +1358,94 @@ function renderDevTabs(){
   ).join('');
 }
 function renderTypeTabs(){
-  document.getElementById('typeTabs').innerHTML=Object.keys(GROUPS[currentDevice]).map(t=>
-    `<button class="type-tab${t===currentType?' active':''}" onclick="switchType('${t}')">${t}</button>`
-  ).join('');
+  document.getElementById('typeTabs').innerHTML = Object.keys(GROUPS[currentDevice]).map(t => {
+    const key = GROUPS[currentDevice][t];
+    const d = DATASETS[key];
+    const count = d ? d.rows.length : null;
+    const isActive = t === currentType;
+    const badge = count !== null
+      ? `<span style="font-size:10px;font-family:var(--mono);padding:1px 7px;border-radius:20px;
+          background:${isActive?'rgba(0,0,0,.2)':'var(--surface2)'};
+          color:${isActive?'#fff':'var(--text2)'};
+          border:1px solid ${isActive?'rgba(0,0,0,.15)':'var(--border2)'}">
+          ${count}
+         </span>`
+      : `<span style="font-size:10px;font-family:var(--mono);color:var(--text3)">—</span>`;
+
+    return `<button class="type-tab${isActive?' active':''}" 
+      onclick="switchType('${t}')"
+      style="display:flex;align-items:center;gap:6px">
+      ${t}${badge}
+    </button>`;
+  }).join('');
 }
+
+async function preloadAllCounts(){
+  // feeder counts — load all types for current substation/feeder/main
+  if(currentFeeder){
+    const feeders = getFeederNames(currentSubstation);
+    for(const feed of feeders){
+      const mains = getMainNames(currentSubstation, feed);
+      const subsets = getSubsetNames(currentSubstation, feed);
+      for(const main of mains){
+        for(const subset of subsets){
+          for(const type of FEEDER_SUBSETS){
+            const k = feederKey(currentSubstation, feed, subset, main, type);
+            if(!FEEDER_DATASETS[k] || !FEEDER_DATASETS[k].rows.length){
+              try{
+                const data = await sbFetch('GET',
+                  TABLE+'?dataset_key=eq.'+encodeURIComponent(k)+
+                  '&select=id,origin_count&order=row_index.asc'
+                );
+                if(!FEEDER_DATASETS[k]){
+                  FEEDER_DATASETS[k] = {
+                    rows: [],dbIds:[],manuallyAdded:new Set(),
+                    originCount:0,dupInfo:{},
+                    keyColumns:new Set(FEEDER_DEFAULT_KEYS),checked:false
+                  };
+                }
+                // only store count — fetch full rows when user clicks
+                FEEDER_DATASETS[k].rows = new Array(data.length);
+                FEEDER_DATASETS[k]._countOnly = true;
+              }catch(e){ console.error('Preload error:',k,e); }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // device counts — all devices and types
+  for(const dev of Object.keys(GROUPS)){
+    for(const [type, key] of Object.entries(GROUPS[dev])){
+      if(!DATASETS[key] || !DATASETS[key].rows.length){
+        try{
+          const data = await sbFetch('GET',
+            TABLE+'?dataset_key=eq.'+encodeURIComponent(key)+
+            '&select=id&order=row_index.asc'
+          );
+          if(!DATASETS[key]){
+            DATASETS[key] = {
+              rows:[],dbIds:[],manuallyAdded:new Set(),
+              originCount:0,dupInfo:{},
+              keyColumns:new Set(['SPECIFICATION_POINT_NAME','DNP3.0_ADDRESS']
+                .filter(k=>(DEFAULT_COLUMNS[key]||[]).includes(k))),
+              checked:false
+            };
+          }
+          DATASETS[key].rows = new Array(data.length);
+          DATASETS[key]._countOnly = true;
+        }catch(e){ console.error('Preload count error:',key,e); }
+      }
+    }
+  }
+
+  // refresh tabs with counts
+  renderFeederTypeTabs();
+  renderTypeTabs();
+  renderDevTabs();
+}
+
 async function switchDevice(dev){
   currentDevice=dev;currentType=Object.keys(GROUPS[dev])[0];
   selected=new Set();hideDupAlert();
@@ -2039,6 +2128,7 @@ function renderAll(){
     renderAll();
     switchMode('feeder');
     initKeyboardShortcuts();
+    preloadAllCounts();
     updateBreadcrumb();
   } catch(err){
     hideLoading();
@@ -2585,12 +2675,12 @@ function renderFeederTypeTabs(){
       const count = d ? d.rows.length : null;
       const badge = count !== null
         ? `<span style="font-size:10px;font-family:var(--mono);padding:1px 7px;border-radius:20px;
-            background:${t===currentFeederType?'rgba(255,255,255,.25)':'var(--surface2)'};
-            color:${t===currentFeederType?'#fff':'var(--text3)'};
-            border:1px solid ${t===currentFeederType?'rgba(255,255,255,.3)':'var(--border2)'}">
-            ${count}
-           </span>`
-        : `<span style="font-size:10px;font-family:var(--mono);color:${t===currentFeederType?'rgba(255,255,255,.5)':'var(--text3)'}">—</span>`;
+          background:${t===currentFeederType?'rgba(0,0,0,.2)':'var(--surface2)'};
+          color:${t===currentFeederType?'#fff':'var(--text2)'};
+          border:1px solid ${t===currentFeederType?'rgba(0,0,0,.15)':'var(--border2)'}">
+          ${count}
+          </span>`
+        : `<span style="font-size:10px;font-family:var(--mono);color:${t===currentFeederType?'rgba(255,255,255,.6)':'var(--text3)'}">—</span>`;
 
       return `<button onclick="switchFeederType('${t}')"
         style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
@@ -2615,7 +2705,12 @@ async function switchFeederType(t){
 }
 
 async function loadFeederDataset(){
-  const k=currentFeederKey();
+  const k = currentFeederKey();
+  const d = fds();
+  if(d._countOnly){
+    d._countOnly = false;
+    d.rows = [];
+  }
   try{
     setSyncStatus('syncing','loading…');
     const data=await sbFetch('GET',TABLE+'?dataset_key=eq.'+encodeURIComponent(k)+'&order=row_index.asc');
