@@ -1612,7 +1612,7 @@ async function doDeleteFeederSelected(){
   });
   selected=new Set();d.dupInfo={};d.checked=false;hideDupAlert();
   closeModal('confirmModal');renderFeederTable();renderFeederStats();
-  showLoading('Saving…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();
+  showLoading('Saving…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();renderFeederTypeTabs();
 }
 function confirmDeleteOne(i){
   document.getElementById('confirmMsg').textContent='Remove this row? This cannot be undone.';
@@ -1909,7 +1909,7 @@ async function doClearAll(scope='all'){
     // restore confirmOkBtn visibility for next time
     document.getElementById('confirmOkBtn').style.display='';
     renderFeederTable();renderFeederStats();
-    showLoading('Clearing data…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();
+    showLoading('Clearing data…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();renderFeederTypeTabs();
   } else {
     const d=ds();
     if(scope==='added'){
@@ -2579,20 +2579,33 @@ async function saveNewMain(){
 
 function renderFeederTypeTabs(){
   document.getElementById('feederTypeTabs').innerHTML =
-    FEEDER_SUBSETS.map(t=>
-      `<button onclick="switchFeederType('${t}')"
+    FEEDER_SUBSETS.map(t => {
+      const k = feederKey(currentSubstation, currentFeeder, currentSubset, currentMain, t);
+      const d = FEEDER_DATASETS[k];
+      const count = d ? d.rows.length : null;
+      const badge = count !== null
+        ? `<span style="font-size:10px;font-family:var(--mono);padding:1px 7px;border-radius:20px;
+            background:${t===currentFeederType?'rgba(255,255,255,.25)':'var(--surface2)'};
+            color:${t===currentFeederType?'#fff':'var(--text3)'};
+            border:1px solid ${t===currentFeederType?'rgba(255,255,255,.3)':'var(--border2)'}">
+            ${count}
+           </span>`
+        : `<span style="font-size:10px;font-family:var(--mono);color:${t===currentFeederType?'rgba(255,255,255,.5)':'var(--text3)'}">—</span>`;
+
+      return `<button onclick="switchFeederType('${t}')"
         style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
                padding:14px 10px;border-radius:var(--rlg);cursor:pointer;font-size:13px;
                font-family:var(--font);font-weight:600;transition:all .15s;white-space:nowrap;
                border:1px solid ${t===currentFeederType?'var(--accent)':'var(--border2)'};
                background:${t===currentFeederType?'var(--accent-light)':'var(--surface)'};
                color:${t===currentFeederType?'var(--accent-text)':'var(--text2)'}">
-          <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round">
-            <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/>
-          </svg>
-          ${t}
-        </button>`
-    ).join('');
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round">
+          <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/>
+        </svg>
+        ${t}
+        ${badge}
+      </button>`;
+    }).join('');
 }
 
 async function switchFeederType(t){
@@ -2617,7 +2630,7 @@ async function loadFeederDataset(){
   }catch(e){
     setSyncStatus('error','sync error');console.error('Feeder load error:',e);
   }
-  renderFeederTable();renderFeederStats();renderFeederKeyChips();
+  renderFeederTable();renderFeederStats();renderFeederKeyChips();renderFeederTypeTabs();
 }
 
 async function saveFeederDataset(){
@@ -2736,7 +2749,7 @@ async function doDeleteFeederOne(i){
   selected.delete(i);const ns=new Set();selected.forEach(x=>ns.add(x>i?x-1:x));selected=ns;
   d.manuallyAdded=new Set([...d.manuallyAdded].filter(x=>x!==i).map(x=>x>i?x-1:x));
   closeModal('confirmModal');renderFeederTable();renderFeederStats();
-  showLoading('Saving…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();
+  showLoading('Saving…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();renderFeederTypeTabs();
 }
 
 function openFeederAddRow(){
@@ -2783,7 +2796,7 @@ async function saveFeederNewRow(){
   d.rows.push(row);d.manuallyAdded.add(d.rows.length-1);
   d.dupInfo={};d.checked=false;hideDupAlert();
   closeModal('addModal');renderFeederTable();renderFeederStats();
-  showLoading('Saving…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();
+  showLoading('Saving…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();renderFeederTypeTabs();
 }
 
 async function saveFeederHistoryPoint(trigger='auto'){
