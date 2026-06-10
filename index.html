@@ -346,8 +346,10 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   📍 <span id="breadcrumbText">—</span>
 </div>
 
-<div class="stats">
+<div class="stats" style="grid-template-columns:repeat(6,minmax(0,1fr))">
   <div class="stat"><div class="stat-lbl">total rows</div><div class="stat-val" id="sTotal">0</div></div>
+  <div class="stat"><div class="stat-lbl">origin rows</div><div class="stat-val" id="sOrigin" style="color:#5a3d8a">0</div></div>
+  <div class="stat"><div class="stat-lbl">added rows</div><div class="stat-val" id="sAdded" style="color:var(--blue)">0</div></div>
   <div class="stat"><div class="stat-lbl">columns</div><div class="stat-val" id="sCols">0</div></div>
   <div class="stat"><div class="stat-lbl">duplicate groups</div><div class="stat-val amber" id="sDupG">—</div></div>
   <div class="stat"><div class="stat-lbl">duplicate rows</div><div class="stat-val red" id="sDupR">—</div></div>
@@ -1751,15 +1753,25 @@ function editCell(idx,col,el){
   d.rows[idx].__edited_by=currentUser();
   d.rows[idx].__edited_at=nowISO();
   d.dupInfo={};d.checked=false;hideDupAlert();
-  document.getElementById('sTotal').textContent=d.rows.length;
+  ddocument.getElementById('sTotal').textContent  = d.rows.length;
+  document.getElementById('sOrigin').textContent = d.originCount || 0;
+  document.getElementById('sAdded').textContent  = Math.max(0, d.rows.length - (d.originCount || 0));
   debounceSave();
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
 function renderStats(){
-  document.getElementById('sTotal').textContent=ds().rows.length;
-  document.getElementById('sCols').textContent=cols().length;
-  if(!ds().checked){document.getElementById('sDupG').textContent='—';document.getElementById('sDupR').textContent='—';}
+  const d = ds();
+  const originCount = d.originCount || 0;
+  const addedCount = d.rows.length - originCount;
+  document.getElementById('sTotal').textContent  = d.rows.length;
+  document.getElementById('sOrigin').textContent = originCount;
+  document.getElementById('sAdded').textContent  = Math.max(0, addedCount);
+  document.getElementById('sCols').textContent   = cols().length;
+  if(!d.checked){
+    document.getElementById('sDupG').textContent = '—';
+    document.getElementById('sDupR').textContent = '—';
+  }
 }
 
 // ── Table ─────────────────────────────────────────────────────────────────────
@@ -2796,10 +2808,17 @@ function renderFeederTable(){
 }
 
 function renderFeederStats(){
-  const d=fds();
-  document.getElementById('sTotal').textContent=d.rows.length;
-  document.getElementById('sCols').textContent=feederCols().length;
-  if(!d.checked){document.getElementById('sDupG').textContent='—';document.getElementById('sDupR').textContent='—';}
+  const d = fds();
+  const originCount = d.originCount || 0;
+  const addedCount = d.rows.length - originCount;
+  document.getElementById('sTotal').textContent  = d.rows.length;
+  document.getElementById('sOrigin').textContent = originCount;
+  document.getElementById('sAdded').textContent  = Math.max(0, addedCount);
+  document.getElementById('sCols').textContent   = feederCols().length;
+  if(!d.checked){
+    document.getElementById('sDupG').textContent = '—';
+    document.getElementById('sDupR').textContent = '—';
+  }
 }
 
 function renderFeederKeyChips(){
@@ -2827,7 +2846,9 @@ function editFeederCell(idx,col,el){
   d.rows[idx][col]=el.innerText.trim();
   d.rows[idx].__edited_by=currentUser();d.rows[idx].__edited_at=nowISO();
   d.dupInfo={};d.checked=false;hideDupAlert();
-  document.getElementById('sTotal').textContent=d.rows.length;
+  document.getElementById('sTotal').textContent  = d.rows.length;
+  document.getElementById('sOrigin').textContent = d.originCount || 0;
+  document.getElementById('sAdded').textContent  = Math.max(0, d.rows.length - (d.originCount || 0));
   clearTimeout(feederSyncTimer);feederSyncTimer=setTimeout(()=>saveFeederDataset(),800);
 }
 
