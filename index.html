@@ -885,6 +885,7 @@ let currentDevice=Object.keys(GROUPS)[0];
 let currentType=Object.keys(Object.values(GROUPS)[0])[0];
 let selected=new Set();
 let syncTimer=null;
+let isDirty = false;
 
 function currentKey(){return GROUPS[currentDevice][currentType];}
 function ds(){return DATASETS[currentKey()];}
@@ -895,6 +896,18 @@ function setSyncStatus(state,text){
   const el=document.getElementById('syncStatus');
   el.className='sync-status '+state;
   document.getElementById('syncText').textContent=text;
+}
+
+function setDirty(val){
+  isDirty = val;
+  const stamp = document.getElementById('tableSaveStamp');
+  if(!stamp) return;
+  if(val){
+    stamp.style.color = 'var(--amber)';
+    stamp.style.borderColor = 'var(--amber-bdr)';
+    stamp.style.background = 'var(--amber-bg)';
+    stamp.textContent = '⚠ unsaved changes…';
+  }
 }
 
 // ── Load from Supabase ────────────────────────────────────────────────────────
@@ -1449,6 +1462,7 @@ async function preloadAllCounts(){
 }
 
 async function switchDevice(dev){
+  if(!confirmIfDirty('Switch device? Unsaved changes may be lost.')) return;
   currentDevice=dev;currentType=Object.keys(GROUPS[dev])[0];
   selected=new Set();hideDupAlert();
   renderDevTabs();renderTypeTabs();
@@ -1456,10 +1470,16 @@ async function switchDevice(dev){
   updateBreadcrumb();
 }
 async function switchType(t){
+  if(!confirmIfDirty('Switch type? Unsaved changes may be lost.')) return;
   currentType=t;selected=new Set();hideDupAlert();
   renderTypeTabs();
   await loadCurrentDataset();
   updateBreadcrumb();
+}
+
+function confirmIfDirty(message){
+  if(!isDirty) return true;
+  return confirm(message || 'You have unsaved changes. The auto-save will complete shortly.\n\nSwitch anyway?');
 }
 
 // ── Key columns ───────────────────────────────────────────────────────────────
@@ -1703,7 +1723,7 @@ async function doDeleteFeederSelected(){
   });
   selected=new Set();d.dupInfo={};d.checked=false;hideDupAlert();
   closeModal('confirmModal');renderFeederTable();renderFeederStats();
-  showLoading('Saving…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();renderFeederTypeTabs();
+  showLoading('Saving…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();renderFeederTypeTabs();setDirty(false);
 }
 function confirmDeleteOne(i){
   document.getElementById('confirmMsg').textContent='Remove this row? This cannot be undone.';
@@ -1720,7 +1740,7 @@ async function doDeleteSelected(){
   });
   selected=new Set();d.dupInfo={};d.checked=false;hideDupAlert();
   closeModal('confirmModal');renderAll();
-  showLoading('Saving…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
+  showLoading('Saving…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();setDirty(false);
 }
 async function doDeleteOne(i){
   if(currentMode==='feeder'){
@@ -1737,11 +1757,12 @@ async function doDeleteOne(i){
   d.manuallyAdded=new Set([...d.manuallyAdded].filter(x=>x!==i).map(x=>x>i?x-1:x));
   const nd={};Object.entries(d.dupInfo).forEach(([k,v])=>{const ki=parseInt(k);if(ki!==i)nd[ki>i?ki-1:ki]=v;});d.dupInfo=nd;
   closeModal('confirmModal');renderAll();
-  showLoading('Saving…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
+  showLoading('Saving…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();setDirty(false);
 }
 
 // ── Edit cell ─────────────────────────────────────────────────────────────────
 function editCell(idx,col,el){
+  setDirty(true);
   const d=ds();
   const isOrigin=idx<(d.originCount||0);
   const alwaysEditable=['DNP3.0_ADDRESS','NOTE','SCALE_ACTUAL_DATA','SCALE_RAW_DATA'];
@@ -1889,7 +1910,7 @@ async function saveNewRow(){
   d.rows.push(row);d.manuallyAdded.add(d.rows.length-1);
   d.dupInfo={};d.checked=false;hideDupAlert();
   closeModal('addModal');renderAll();
-  showLoading('Saving…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
+  showLoading('Saving…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();setDirty(false);
 }
 
 function onAddRowTypeChange(type, mode){
@@ -2010,7 +2031,7 @@ async function doClearAll(scope='all'){
     // restore confirmOkBtn visibility for next time
     document.getElementById('confirmOkBtn').style.display='';
     renderFeederTable();renderFeederStats();
-    showLoading('Clearing data…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();renderFeederTypeTabs();
+    showLoading('Clearing data…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();
   } else {
     const d=ds();
     if(scope==='added'){
@@ -2027,6 +2048,8 @@ async function doClearAll(scope='all'){
     renderAll();
     showLoading('Clearing data…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
   }
+  renderFeederTypeTabs();
+  setDirty(false);
 }
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 
@@ -2527,6 +2550,7 @@ function fds(){
 
 // ── Mode switcher ─────────────────────────────────────────────────────────────
 function switchMode(mode){
+  if(!confirmIfDirty('Switch mode? Unsaved changes may be lost.')) return;
   currentMode=mode;
   document.getElementById('feederSection').style.display  = mode==='feeder'?'block':'none';
   document.getElementById('deviceSection').style.display  = mode==='device'?'block':'none';
@@ -2580,6 +2604,7 @@ function renderSubstationTabs(){
 }
 
 async function switchSubstation(s){
+  if(!confirmIfDirty('Switch substation? Unsaved changes may be lost.')) return;
   currentSubstation=s;
   currentFeeder=getFeederNames(s)[0]||null;
   currentSubset=currentFeeder?(getSubsetNames(s,currentFeeder)[0]||'MAIN_01'):'MAIN_01';
@@ -2603,6 +2628,7 @@ function renderFeederTabs(){
 }
 
 async function switchFeeder(f){
+  if(!confirmIfDirty('Switch feeder? Unsaved changes may be lost.')) return;
   currentFeeder=f;
   currentSubset=getSubsetNames(currentSubstation,f)[0]||'MAIN_01';
   currentMain=getMainNames(currentSubstation,f)[0]||'MAIN_01';
@@ -2653,6 +2679,7 @@ function renderMainTabs(){
 }
 
 async function switchMain(m){
+  if(!confirmIfDirty('Switch main? Unsaved changes may be lost.')) return;
   currentMain=m;currentFeederType=FEEDER_SUBSETS[0];
   selected=new Set();hideDupAlert();
   renderMainTabs();renderFeederTypeTabs();
@@ -2711,6 +2738,7 @@ function renderFeederTypeTabs(){
 }
 
 async function switchFeederType(t){
+  if(!confirmIfDirty('Switch type? Unsaved changes may be lost.')) return;
   currentFeederType=t;selected=new Set();hideDupAlert();
   renderFeederTypeTabs();await loadFeederDataset();
   updateBreadcrumb();
@@ -2839,6 +2867,7 @@ function toggleFeederKey(col){
 
 let feederSyncTimer=null;
 function editFeederCell(idx,col,el){
+  setDirty(true);
   const d=fds();
   const isOrigin=idx<(d.originCount||0);
   const alwaysEditable=['DNP3.0_ADDRESS','NOTE','REMARK','SCALE_ACTUAL_DATA','SCALE_RAW_DATA','BAY_NAME'];
@@ -2865,7 +2894,7 @@ async function doDeleteFeederOne(i){
   selected.delete(i);const ns=new Set();selected.forEach(x=>ns.add(x>i?x-1:x));selected=ns;
   d.manuallyAdded=new Set([...d.manuallyAdded].filter(x=>x!==i).map(x=>x>i?x-1:x));
   closeModal('confirmModal');renderFeederTable();renderFeederStats();
-  showLoading('Saving…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();renderFeederTypeTabs();
+  showLoading('Saving…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();renderFeederTypeTabs();setDirty(false);
 }
 
 function openFeederAddRow(){
@@ -2912,7 +2941,7 @@ async function saveFeederNewRow(){
   d.rows.push(row);d.manuallyAdded.add(d.rows.length-1);
   d.dupInfo={};d.checked=false;hideDupAlert();
   closeModal('addModal');renderFeederTable();renderFeederStats();
-  showLoading('Saving…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();renderFeederTypeTabs();
+  showLoading('Saving…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();renderFeederTypeTabs();setDirty(false);
 }
 
 async function saveFeederHistoryPoint(trigger='auto'){
@@ -5335,8 +5364,12 @@ function renderCrossFeederTable(){
 }
 
 function updateSaveStamp(){
+  isDirty = false;
   const el = document.getElementById('tableSaveStamp');
   if(!el) return;
+  el.style.color = 'var(--text3)';
+  el.style.borderColor = 'var(--border2)';
+  el.style.background = 'var(--surface)';
   el.textContent = 'Last saved: ' + fmtStamp(new Date().toISOString()) + ' by ' + currentUser();
 }
 
@@ -5400,6 +5433,13 @@ function initKeyboardShortcuts(){
     }
   });
 }
+
+window.addEventListener('beforeunload', e => {
+  if(isDirty){
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
 
 </script>
 
