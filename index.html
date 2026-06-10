@@ -1774,7 +1774,7 @@ function editCell(idx,col,el){
   d.rows[idx].__edited_by=currentUser();
   d.rows[idx].__edited_at=nowISO();
   d.dupInfo={};d.checked=false;hideDupAlert();
-  ddocument.getElementById('sTotal').textContent  = d.rows.length;
+  document.getElementById('sTotal').textContent  = d.rows.length;
   document.getElementById('sOrigin').textContent = d.originCount || 0;
   document.getElementById('sAdded').textContent  = Math.max(0, d.rows.length - (d.originCount || 0));
   debounceSave();
@@ -5406,8 +5406,15 @@ function initKeyboardShortcuts(){
     // Ctrl+S — manual save history point
     if(e.ctrlKey && e.key === 's'){
       e.preventDefault();
-      saveHistoryPoint('manual');
-      setSyncStatus('synced', 'history saved ✓');
+      if(currentMode === 'feeder'){
+        saveFeederHistoryPoint('manual').then(()=>{
+        setSyncStatus('synced','history saved ✓');
+    });
+    } else {
+      saveHistoryPoint('manual').then(()=>{
+      setSyncStatus('synced','history saved ✓');
+      });
+    }
       return;
     }
 
@@ -5648,7 +5655,7 @@ window.addEventListener('beforeunload', e => {
             style="flex:1;min-width:120px;padding:5px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:12px;font-family:var(--font);background:var(--surface);color:var(--text);outline:none">
           <input type="text" id="inlinePresetDesc" placeholder="Description (optional)"
             style="flex:1;min-width:100px;padding:5px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:12px;font-family:var(--font);background:var(--surface);color:var(--text);outline:none">
-          <button class="btn success" style="font-size:11px;flex-shrink:0" onclick="saveCurrentMappingAsPreset()">save preset</button>
+          <button class="btn success" style="width:100%;justify-content:center;margin-bottom:14px" onclick="currentMode==='feeder'?saveFeederHistoryPoint('manual').then(()=>{setSyncStatus('synced','checkpoint saved ✓');renderHistList();}):saveHistoryPoint('manual')">
         </div>
 
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);flex-wrap:wrap;gap:8px">
