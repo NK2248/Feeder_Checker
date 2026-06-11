@@ -2615,7 +2615,6 @@ function switchMode(mode){
   } else {
     renderAll();
   }
-  updateBreadcrumb();
 }
 
 function renderSubstationTabs(){
@@ -3110,17 +3109,6 @@ async function loadFeederConfig(){
       });
     }
   }catch(e){console.error('Feeder config load error:',e);}
-}
-
-// ── Export ────────────────────────────────────────────────────────────────────
-function exportFeederCSV(){
-  const d=fds();const c=feederCols();
-  if(!d.rows.length){alert('No data to export.');return;}
-  const lines=[c.join(','),...d.rows.map(r=>c.map(col=>'"'+(String(r[col]??'').replace(/"/g,'""'))+'"').join(','))];
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'}));
-  a.download = currentSubstation+'_'+currentFeeder+'_'+currentFeederType+'_'+exportStamp()+'.csv';
-  a.click();
 }
 
 // ── Export (fixed: separate tables per type in one sheet, spaced 2 rows apart) ─
