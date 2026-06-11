@@ -969,7 +969,9 @@ async function saveDataset(key){
 
 function debounceSave(){
   clearTimeout(syncTimer);
-  syncTimer=setTimeout(()=>saveDataset(currentKey()),800);
+  syncTimer = setTimeout(()=>{
+    saveDataset(currentKey()).then(()=>updateSaveStamp());
+  }, 800);
 }
 
 // ── Loading overlay ───────────────────────────────────────────────────────────
@@ -1380,7 +1382,9 @@ function renderTypeTabs(){
   document.getElementById('typeTabs').innerHTML = Object.keys(GROUPS[currentDevice]).map(t => {
     const key = GROUPS[currentDevice][t];
     const d = DATASETS[key];
-    const count = d ? d.rows.length : null;
+    const count = d
+      ? (d._countOnly ? d._preloadCount ?? d.rows.length : d.rows.length)
+      : null;
     const isActive = t === currentType;
     const badge = count !== null
       ? `<span style="font-size:10px;font-family:var(--mono);padding:1px 7px;border-radius:20px;
@@ -1424,7 +1428,8 @@ async function preloadAllCounts(){
                   };
                 }
                 // only store count — fetch full rows when user clicks
-                FEEDER_DATASETS[k].rows = new Array(data.length);
+                FEEDER_DATASETS[k]._preloadCount = data.length;
+                FEEDER_DATASETS[k].rows = [];
                 FEEDER_DATASETS[k]._countOnly = true;
               }catch(e){ console.error('Preload error:',k,e); }
             }
@@ -2114,7 +2119,6 @@ async function exportAllExcel(){
 
   const ws = XLSX.utils.aoa_to_sheet(allSheetData);
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  const stamp = new Date().toISOString().slice(0,10);
   XLSX.writeFile(wb, currentDevice + '_' + exportStamp() + '_export.xlsx');
 }
 
@@ -2127,7 +2131,6 @@ function exportDeviceTCD(){
   ];
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/plain' }));
-  const stamp = new Date().toISOString().slice(0,10);
   a.download = currentKey() + '_' + exportStamp() + '.tcd';
   a.click();
 }
@@ -2726,11 +2729,17 @@ async function saveNewMain(){
 }
 
 function renderFeederTypeTabs(){
+  if(!currentFeeder){ 
+    document.getElementById('feederTypeTabs').innerHTML = '';
+    return; 
+  }
   document.getElementById('feederTypeTabs').innerHTML =
     FEEDER_SUBSETS.map(t => {
       const k = feederKey(currentSubstation, currentFeeder, currentSubset, currentMain, t);
       const d = FEEDER_DATASETS[k];
-      const count = d ? d.rows.length : null;
+      const count = d
+        ? (d._countOnly ? d._preloadCount : d.rows.length)
+        : null;
       const badge = count !== null
         ? `<span style="font-size:10px;font-family:var(--mono);padding:1px 7px;border-radius:20px;
           background:${t===currentFeederType?'rgba(0,0,0,.2)':'var(--surface2)'};
@@ -2905,7 +2914,10 @@ function editFeederCell(idx,col,el){
   document.getElementById('sTotal').textContent  = d.rows.length;
   document.getElementById('sOrigin').textContent = d.originCount || 0;
   document.getElementById('sAdded').textContent  = Math.max(0, d.rows.length - (d.originCount || 0));
-  clearTimeout(feederSyncTimer);feederSyncTimer=setTimeout(()=>saveFeederDataset(),800);
+ clearTimeout(feederSyncTimer);
+  feederSyncTimer = setTimeout(()=>{
+    saveFeederDataset().then(()=>updateSaveStamp());
+  }, 800);
 }
 
 function toggleFeederSelect(i,chk){if(chk)selected.add(i);else selected.delete(i);updateSelBar();renderFeederTable();}
@@ -3107,7 +3119,6 @@ function exportFeederCSV(){
   const lines=[c.join(','),...d.rows.map(r=>c.map(col=>'"'+(String(r[col]??'').replace(/"/g,'""'))+'"').join(','))];
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'}));
-  const stamp = new Date().toISOString().slice(0,10);
   a.download = currentSubstation+'_'+currentFeeder+'_'+currentFeederType+'_'+exportStamp()+'.csv';
   a.click();
 }
@@ -3171,7 +3182,6 @@ async function exportAllSubstation(){
   }
 
   hideLoading();
-  const stamp = new Date().toISOString().slice(0,10);
   XLSX.writeFile(wb, sub.replace(/[\\/*?:[\]\s&()]/g,'_') + '_' + exportStamp() + '_export.xlsx');
 
 }
@@ -4658,7 +4668,6 @@ function onPreviewRowClick(ri, evt){
     if(!COLMAP.headerRows.length){
       COLMAP.headerRowIdx=null;COLMAP.headerRowIdx2=null;COLMAP.headerRowIdx3=null;
       COLMAP.useDoubleHeader=false;COLMAP.fileColumns=[];COLMAP.mappings={};
-      document.getElementById('colMapSection').style.display='none';
       document.getElementById('colMapDataPreview').style.display='none';
       renderColMapPreview();
       document.getElementById('colMapHeaderHint').textContent=
