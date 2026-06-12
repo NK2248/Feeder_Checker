@@ -379,6 +379,13 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   <div id="searchCount" style="font-size:11px;font-family:var(--mono);color:var(--text3);white-space:nowrap;display:none">
     0 rows
   </div>
+  <div id="searchCount" style="font-size:11px;font-family:var(--mono);color:var(--text3);white-space:nowrap;display:none">
+  0 rows
+  </div>
+  <button id="btnToggleHidden" onclick="toggleHiddenColumns()"
+    style="font-size:11px;font-family:var(--mono);padding:4px 10px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);cursor:pointer;color:var(--text2);white-space:nowrap;transition:all .15s">
+    ▶ show all columns
+  </button>
   <div class="legend">
     <div class="leg"><div class="leg-dot" style="background:var(--amber-bdr)"></div><span>duplicate</span></div>
     <div class="leg"><div class="leg-dot" style="background:var(--green-bdr)"></div><span>original</span></div>
@@ -1797,7 +1804,12 @@ function renderStats(){
   document.getElementById('sTotal').textContent  = d.rows.length;
   document.getElementById('sOrigin').textContent = originCount;
   document.getElementById('sAdded').textContent  = Math.max(0, addedCount);
-  document.getElementById('sCols').textContent   = cols().length;
+  const allCols = cols();
+  const visCols = visibleCols(allCols);
+  document.getElementById('sCols').textContent = 
+    visCols.length < allCols.length 
+      ? visCols.length + '/' + allCols.length 
+      : allCols.length;
   if(!d.checked){
     document.getElementById('sDupG').textContent = '—';
     document.getElementById('sDupR').textContent = '—';
@@ -1814,7 +1826,7 @@ function highlightText(text, query){
 
 // ── Table ─────────────────────────────────────────────────────────────────────
 function renderTable(){
-  const d=ds();const c=cols();
+  const d=ds();const c=visibleCols(cols());
   const q=(document.getElementById('searchBox').value||'').toLowerCase();
   const area=document.getElementById('tableArea');
   if(!d.rows.length){
@@ -2374,19 +2386,58 @@ async function doClearHistory(){
 
 // ── Schema templates ──────────────────────────────────────────────────────────
 const SCHEMA_TEMPLATES = {
-  status:  ["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"],
-  control: ["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"],
-  analog:  ["SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","NOTE"]
+  status:  ["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","REMARK","NOTE","PANEL","TERMINAL_CONNECTION"],
+  control: ["SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","REMARK","NOTE","PANEL","TERMINAL_CONNECTION"],
+  analog:  ["SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","REMARK","NOTE","PANEL","TERMINAL_CONNECTION"]
 };
 
 const FEEDER_SCHEMA_TEMPLATES = {
-  status:  ["FEEDER_NAME","BAY_NAME","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","REMARK","NOTE","BAY_PROT.&BCU_NAME","IEC61850_PROT.&BCU_REFERENCE","BRCB/URCB"],
-  control: ["FEEDER_NAME","BAY_NAME","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","REMARK","NOTE","BAY_PROT.&BCU_NAME","IEC61850_PROT.&BCU_REFERENCE","BRCB/URCB"],
-  analog:  ["FEEDER_NAME","BAY_NAME","SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","REMARK","NOTE","BAY_PROT.&BCU_NAME","IEC61850_PROT.&BCU_REFERENCE","BRCB/URCB"]
+  status:  ["FEEDER_NAME","BAY_NAME","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_0","STATE_1","STATE_2","STATE_3","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","REMARK","NOTE",
+    "STATUS_INPUT_PROT.&BCU_INPUT","TERMINAL","STATUS_INTERNAL_PROT.&BCU_LOGIC","STATUS_INPUT_PROT.&BCU_GOOSE_INPUT","STATUS_OUTPUT_PROT.&BCU_INTERNAL_OUTPUT","GOOSE_PROT.&BCU_PUBLICING","LED_PROT.&BCU_PHYSICAL",
+    "BAY_PROT.&BCU_NAME","IEC61850_PROT.&BCU_REFERENCE","BRCB/URCB",
+    "IEC61850_PROT.&BCU_DATASET","IEC61850_PROT.&BCU_LD","IEC61850_PROT.&BCU_LN-PREFIX","IEC61850_PROT.&BCU_LN-CLASS","IEC61850_PROT.&BCU_LN-INST","IEC61850_PROT.&BCU_FC","IEC61850_PROT.&BCU_DO","IEC61850_PROT.&BCU_DA"],
+  control: ["FEEDER_NAME","BAY_NAME","SPECIFICATION_POINT_NAME","SPECIFICATION_DESCRIPTOR","STATE_CLOSE","STATE_TRIP","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","REMARK","NOTE",
+    "STATUS_INPUT_PROT.&BCU_INPUT","TERMINAL","STATUS_INTERNAL_PROT.&BCU_LOGIC","STATUS_INPUT_PROT.&BCU_GOOSE_INPUT","STATUS_OUTPUT_PROT.&BCU_INTERNAL_OUTPUT","GOOSE_PROT.&BCU_PUBLICING","LED_PROT.&BCU_PHYSICAL",
+    "BAY_PROT.&BCU_NAME","IEC61850_PROT.&BCU_REFERENCE","BRCB/URCB",
+    "IEC61850_PROT.&BCU_DATASET","IEC61850_PROT.&BCU_LD","IEC61850_PROT.&BCU_LN-PREFIX","IEC61850_PROT.&BCU_LN-CLASS","IEC61850_PROT.&BCU_LN-INST","IEC61850_PROT.&BCU_FC","IEC61850_PROT.&BCU_DO","IEC61850_PROT.&BCU_DA"],
+  analog:  ["FEEDER_NAME","BAY_NAME","SPECIFICATION_POINT_NAME","SPECIFICATION_UNIT","SCALE_ACTUAL_DATA","SCALE_RAW_DATA","DNP3.0_OBJ","DNP3.0_VAR","DNP3.0_QII","DNP3.0_CLASS","DNP3.0_TYPE","DNP3.0_ADDRESS","REMARK","NOTE",
+    "STATUS_INPUT_PROT.&BCU_INPUT","TERMINAL","STATUS_INTERNAL_PROT.&BCU_LOGIC","STATUS_INPUT_PROT.&BCU_GOOSE_INPUT","STATUS_OUTPUT_PROT.&BCU_INTERNAL_OUTPUT","GOOSE_PROT.&BCU_PUBLICING","LED_PROT.&BCU_PHYSICAL",  
+    "BAY_PROT.&BCU_NAME","IEC61850_PROT.&BCU_REFERENCE","BRCB/URCB",
+    "IEC61850_PROT.&BCU_DATASET","IEC61850_PROT.&BCU_LD","IEC61850_PROT.&BCU_LN-PREFIX","IEC61850_PROT.&BCU_LN-CLASS","IEC61850_PROT.&BCU_LN-INST","IEC61850_PROT.&BCU_FC","IEC61850_PROT.&BCU_DO","IEC61850_PROT.&BCU_DA"]
 };
 
 const FEEDER_DEFAULT_KEYS = ["FEEDER_NAME","BAY_NAME","SPECIFICATION_POINT_NAME","DNP3.0_ADDRESS"];
 const SCHEMA_TYPE_MAP = {"Status Point":"status","Control Output":"control","Analog Point":"analog"};
+
+const HIDDEN_COLUMNS_DEVICE = new Set([
+  'PANEL',
+  'TERMINAL_CONNECTION'
+]);
+const HIDDEN_COLUMNS = new Set([
+  'STATUS_INPUT_PROT.&BCU_INPUT','TERMINAL','STATUS_INTERNAL_PROT.&BCU_LOGIC','STATUS_INPUT_PROT.&BCU_GOOSE_INPUT','STATUS_OUTPUT_PROT.&BCU_INTERNAL_OUTPUT','GOOSE_PROT.&BCU_PUBLICING','LED_PROT.&BCU_PHYSICAL',
+  'BAY_PROT.&BCU_NAME','IEC61850_PROT.&BCU_REFERENCE','BRCB/URCB',
+  'IEC61850_PROT.&BCU_DATASET','IEC61850_PROT.&BCU_LD','IEC61850_PROT.&BCU_LN-PREFIX','IEC61850_PROT.&BCU_LN-CLASS','IEC61850_PROT.&BCU_LN-INST','IEC61850_PROT.&BCU_FC','IEC61850_PROT.&BCU_DO','IEC61850_PROT.&BCU_DA'
+]);
+
+let showHiddenColumns = false;
+
+function toggleHiddenColumns(){
+  showHiddenColumns = !showHiddenColumns;
+  const btn = document.getElementById('btnToggleHidden');
+  if(btn){
+    btn.style.background = showHiddenColumns ? 'var(--amber-bg)' : 'var(--surface)';
+    btn.style.borderColor = showHiddenColumns ? 'var(--amber-bdr)' : 'var(--border2)';
+    btn.style.color = showHiddenColumns ? 'var(--amber)' : 'var(--text2)';
+    btn.textContent = showHiddenColumns ? '▼ hide extra columns' : '▶ show all columns';
+  }
+  if(currentMode === 'feeder') renderFeederTable();
+  else renderTable();
+}
+
+function visibleCols(colList){
+  if(showHiddenColumns) return colList;
+  return colList.filter(c => !HIDDEN_COLUMNS.has(c));
+}
 
 // ── Config persistence ────────────────────────────────────────────────────────
 async function saveConfig(){
@@ -2811,7 +2862,7 @@ async function saveFeederDataset(){
 }
 
 function renderFeederTable(){
-  const d=fds();const c=feederCols();
+  const d=fds();const c = visibleCols(feederCols());;
   const q=(document.getElementById('searchBox').value||'').toLowerCase();
   const area=document.getElementById('tableArea');
 
@@ -2877,7 +2928,12 @@ function renderFeederStats(){
   document.getElementById('sTotal').textContent  = d.rows.length;
   document.getElementById('sOrigin').textContent = originCount;
   document.getElementById('sAdded').textContent  = Math.max(0, addedCount);
-  document.getElementById('sCols').textContent   = feederCols().length;
+  const allCols = feedercols();
+  const visCols = visibleCols(allCols);
+  document.getElementById('sCols').textContent = 
+    visCols.length < allCols.length 
+      ? visCols.length + '/' + allCols.length 
+      : allCols.length;
   if(!d.checked){
     document.getElementById('sDupG').textContent = '—';
     document.getElementById('sDupR').textContent = '—';
@@ -4186,6 +4242,8 @@ function getAllSchemaColumns(){
   Object.values(DEFAULT_COLUMNS).forEach(c=>c.forEach(col=>cols.add(col)));
   Object.values(FEEDER_SCHEMA_TEMPLATES).forEach(c=>c.forEach(col=>cols.add(col)));
   return ['— skip —', ...cols];
+  // note: hidden columns still appear in import mapping
+  // so users can still map them from source files
 }
 
 // Fuzzy match file column name to schema column
