@@ -3739,13 +3739,17 @@ function detectAllTables(allRows){
   let i = 0;
 
   while(i < allRows.length){
-    // find next header row (score >= 2)
     let hdrStart = null;
     while(i < allRows.length){
-      if(rowHeaderScore(allRows[i]) >= 2){ hdrStart = i; break; }
+      // NEW: manual split forces a table boundary here, even if score < 2
+      if(COLMAP.manualSplits?.has(i) || rowHeaderScore(allRows[i]) >= 2){
+        hdrStart = i; break;
+      }
       i++;
     }
     if(hdrStart === null) break;
+    // ... rest unchanged
+  
 
     // check if next 1-2 rows are also header-like (multi-row header)
     let hdrEnd = hdrStart;
@@ -4408,14 +4412,17 @@ function colMapGoStep(step){
 function updateModeInstructions(){
   const el = document.getElementById('colMapModeInstructions');
   if(!el) return;
+  const splitHint = `<span><strong style="color:var(--text)">Shift+click</strong> any row → mark/unmark as start of a new table</span>`;
   if(COLMAP.previewMode === 'header'){
     el.innerHTML = `
       <span><strong style="color:var(--text)">Left-click</strong> a row → set as header (click adjacent rows to add up to 3)</span>
-      <span><strong style="color:var(--text)">Click highlighted row</strong> → remove it from header</span>`;
+      <span><strong style="color:var(--text)">Click highlighted row</strong> → remove it from header</span>
+      ${splitHint}`;
   } else {
     el.innerHTML = `
       <span><strong style="color:var(--text)">Left-click</strong> a data row → set as bottom boundary (click again to clear)</span>
-      <span><strong style="color:var(--text)">Right-click</strong> (or Ctrl+click) → mark row as skip / unskip</span>`;
+      <span><strong style="color:var(--text)">Right-click</strong> (or Ctrl+click) → mark row as skip / unskip</span>
+      ${splitHint}`;
   }
 }
 
@@ -4514,6 +4521,7 @@ function colMapLoadSheet(sheetName){
   COLMAP._mergeInitialized = false;
   COLMAP.mergedTableIdxs   = new Set([0]);  // which detected tables to merge
   COLMAP.useMergeMode      = false;         // whether merge mode is active
+  COLMAP.manualSplits = new Set(); // row indices where a NEW table starts (manual override)
 
   renderColMapPreview();
   renderTableSelector();
@@ -4744,6 +4752,11 @@ function scrollPreviewToRow(rowIdx){
 }
 
 function onPreviewRowClick(ri, evt){
+  // NEW: Shift+click = toggle manual table split at this row
+  if(evt && evt.shiftKey){
+    toggleManualSplit(ri);
+    return;
+  }
   if(COLMAP.previewMode === 'boundary'){
     // right-click or ctrl+click = toggle skip
     if(evt && (evt.button===2 || evt.ctrlKey || evt.metaKey)){
@@ -4801,6 +4814,21 @@ function onPreviewRowClick(ri, evt){
   updateHeaderHint();
   buildFileColumnsAndMap();
 }
+
+function toggleManualSplit(ri){
+  if(COLMAP.manualSplits.has(ri)){
+    COLMAP.manualSplits.delete(ri);
+  } else {
+    COLMAP.manualSplits.add(ri);
+  }
+  COLMAP.detectedTables = detectAllTables(COLMAP.allRawRows);
+  renderColMapPreview();
+  renderTableSelector();
+  showImportToast(COLMAP.manualSplits.has(ri)
+    ? 'Table split added at row '+(ri+1)+'.'
+    : 'Table split removed.');
+}
+
 
 // keep headerRowIdx / headerRowIdx2 / headerRowIdx3 in sync
 function syncHeaderIdxFromRows(){
