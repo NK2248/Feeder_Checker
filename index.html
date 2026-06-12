@@ -2655,6 +2655,7 @@ function switchMode(mode){
   currentMode=mode;
   document.getElementById('feederSection').style.display  = mode==='feeder'?'block':'none';
   document.getElementById('deviceSection').style.display  = mode==='device'?'block':'none';
+  document.getElementById('btnToggleHidden').style.display = mode==='feeder' ? '' : 'none';
   const tf=document.getElementById('modeTabFeeder');
   const td=document.getElementById('modeTabDevice');
   tf.style.background=mode==='feeder'?'var(--accent)':'transparent';
@@ -3699,33 +3700,22 @@ function isRowRepeatedHeader(row){
   return (totalMatches / nonEmpty) >= 0.95;
 }
 
-function isRowLikelyNewHeader(row, existingHeaderCols){
-  // detects if a row looks like a new table header (signals end of current table)
-  const norm = s => s.toUpperCase().replace(/[^A-Z0-9]/g,'_');
-  const HEADER_KEYWORDS = [
-    'FEEDER_NAME','FEEDER NAME','BAY_NAME','SPECIFICATION_POINT_NAME',
-    'POINT NAME','DNP3.0_ADDRESS','ADDRESS','DESCRIPTOR','OBJ','VAR',
-    'QII','CLASS','TYPE','STATE_0','STATE_CLOSE','REMARK'
-  ];
-  const hits = row.filter(c=>c!==''&&
-    HEADER_KEYWORDS.some(kw=>norm(c)===norm(kw)||norm(c).includes(norm(kw)))
-  );
-  // if hits are different columns than existing header → new table
-  if(hits.length >= 2 && existingHeaderCols.length > 0){
-    const hitNorms = hits.map(norm);
-    const existNorms = existingHeaderCols.map(norm);
-    const overlap = hitNorms.filter(h=>existNorms.some(e=>e.includes(h)||h.includes(e)));
-    if(overlap.length < hits.length * 0.5) return true; // less than 50% overlap = new table
-  }
-  return false;
-}
+
 
 function detectAllTables(allRows){
   if(!allRows || !allRows.length) return [];
   const HEADER_KEYWORDS = [
     'FEEDER_NAME','FEEDER NAME','BAY_NAME','SPECIFICATION_POINT_NAME',
     'POINT NAME','DNP3.0_ADDRESS','ADDRESS','DESCRIPTOR',
-    'OBJ','VAR','QII','CLASS','TYPE','STATE_0','STATE_CLOSE','REMARK'
+    'OBJ','VAR','QII','CLASS','TYPE','REMARK',
+    'STATE_0','STATE_1','STATE_2','STATE_3',
+    'STATE_CLOSE','STATE_TRIP',
+    'SCALE_ACTUAL_DATA','SCALE_RAW_DATA','SPECIFICATION_UNIT'
+  ];
+  const TYPE_DISTINGUISHING_COLS = [
+    'STATE_0','STATE_1','STATE_2','STATE_3',
+    'STATE_CLOSE','STATE_TRIP',
+    'SCALE_ACTUAL_DATA','SCALE_RAW_DATA','SPECIFICATION_UNIT'
   ];
   const norm = s => s.toUpperCase().replace(/[^A-Z0-9]/g,'_');
 
@@ -3733,6 +3723,28 @@ function detectAllTables(allRows){
     return row.filter(c=>c!==''&&
       HEADER_KEYWORDS.some(kw=>norm(c)===norm(kw)||norm(c).includes(norm(kw)))
     ).length;
+  }
+
+  function isRowLikelyNewHeader(row, existingHeaderCols){
+    const hits = row.filter(c=>c!==''&&
+      HEADER_KEYWORDS.some(kw=>norm(c)===norm(kw)||norm(c).includes(norm(kw)))
+    );
+    if(hits.length < 2 || !existingHeaderCols.length) return false;
+
+    const hitNorms = hits.map(norm);
+    const existNorms = existingHeaderCols.map(norm);
+
+    // hard rule: introducing a type-distinguishing col not in current header = new table
+    const introducesNewTypeCol = TYPE_DISTINGUISHING_COLS.some(tc=>{
+      const tcN = norm(tc);
+      const inCandidate = hitNorms.some(h=>h===tcN||h.includes(tcN));
+      const inExisting  = existNorms.some(e=>e===tcN||e.includes(tcN));
+      return inCandidate && !inExisting;
+    });
+    if(introducesNewTypeCol) return true;
+
+    const overlap = hitNorms.filter(h=>existNorms.some(e=>e.includes(h)||h.includes(e)));
+    return overlap.length < hits.length * 0.5;
   }
 
   const tables = [];
@@ -4249,15 +4261,20 @@ function classifyRow(row, ri){
 
   if(h.includes(ri)) return 'header';
   if(ri < (h[0]??0)) return 'pre-header';
+
+  // NEW: if this row is a header row of ANY other detected table, mark it as such
+  const otherTableHdr = COLMAP.detectedTables?.find((t,ti)=>
+    t.hdrRows.includes(ri) && !t.hdrRows.some(hr=>h.includes(hr))
+  );
+  if(otherTableHdr) return 'other-header';
+
   if(ri > lastHdr){
     if(isRowBlank(row)) return 'blank';
 
-    // never classify the boundary end row as unwanted
     const effectiveEnd = COLMAP.manualDataEnd ??
       (COLMAP.activeTableBoundary ? COLMAP.activeTableBoundary.dataEnd : null);
     if(effectiveEnd !== null && ri === effectiveEnd) return 'data';
 
-    // never classify the last row of any detected table as unwanted
     const isAnyTableEnd = COLMAP.detectedTables?.some(t => t.dataEnd === ri);
     if(isAnyTableEnd) return 'data';
 
@@ -4299,27 +4316,23 @@ function getAllSchemaColumns(){
 }
 
 // Fuzzy match file column name to schema column
-function fuzzyMatchColumn(fileCol){
+function fuzzyMatchColumn(fileCol, allowedSchema){
   const norm = s => s.toUpperCase().replace(/[^A-Z0-9]/g,'_').replace(/_+/g,'_');
   const nf = norm(fileCol);
-  const allSchema = getAllSchemaColumns().slice(1); // skip "— skip —"
+  const allSchema = (allowedSchema || getAllSchemaColumns()).filter(s=>s!=='— skip —');
 
-  // Exact match first
   const exact = allSchema.find(s => norm(s) === nf);
   if(exact) return exact;
 
-  // Check HEADER_NAME_MAP
   const mapped = HEADER_NAME_MAP[fileCol.trim()];
-  if(mapped) return mapped;
+  if(mapped && allSchema.includes(mapped)) return mapped;
 
-  // Partial match
   const partial = allSchema.find(s => {
     const ns = norm(s);
     return ns.includes(nf) || nf.includes(ns);
   });
   if(partial) return partial;
 
-  // Keyword shortcuts
   const shortcuts = {
     'ADDR':'DNP3.0_ADDRESS','ADDRESS':'DNP3.0_ADDRESS',
     'POINT':'SPECIFICATION_POINT_NAME','POINTNAME':'SPECIFICATION_POINT_NAME',
@@ -4333,10 +4346,22 @@ function fuzzyMatchColumn(fileCol){
     'PROT':'BAY_PROT.&BCU_NAME','IEC':'IEC61850_PROT.&BCU_REFERENCE','BRCB':'BRCB/URCB'
   };
   for(const [kw, schema] of Object.entries(shortcuts)){
-    if(nf.includes(kw)) return schema;
+    if(nf.includes(kw) && allSchema.includes(schema)) return schema;
   }
 
   return '— skip —';
+}
+
+function autoMapColumns(){
+  const type = COLMAP.targetType || detectTypeFromHeaders(COLMAP.fileColumns);
+  const allowedSchema = getSchemaColumnsForType(type, COLMAP.targetMode);
+
+  COLMAP.mappings = {};
+  COLMAP.fileColumns.forEach(col=>{
+    COLMAP.mappings[col] = fuzzyMatchColumn(col, allowedSchema);
+  });
+  renderColMapRows();
+  updateMappingPreview();
 }
 
 // Open the mapper modal for a given file
@@ -4671,6 +4696,11 @@ function renderColMapPreview(targetId){
     } else if(role==='pre-header'){
       opacity = '0.4';
       badge   = `<span style="font-size:9px;font-family:var(--mono);color:var(--text3)">pre</span>`;
+    } else if(role==='other-header'){
+      rowBg   = 'background:#f0ebff';
+      opacity = '0.7';
+      badge   = `<span style="display:inline-block;font-size:9px;font-family:var(--mono);background:#ab85e7;color:#fff;border-radius:3px;padding:1px 5px">other table header</span>`;
+      title   = 'Header row of a different detected table — excluded from data';
     } else if(role==='data'){
       // check if this row is in the active table or a different detected table
       const inActiveTable = boundary && ri >= boundary.dataStart && ri <= (COLMAP.manualDataEnd ?? boundary.dataEnd);
@@ -5182,6 +5212,11 @@ function buildMappedRows(){
 
       // skip sub-table header rows explicitly
       if(subHdrRows && subHdrRows.has(rowIdx)) continue;
+
+      const isOtherTableHeader = COLMAP.detectedTables?.some(t =>
+      t.hdrRows.includes(rowIdx) && !subHdrRows.has(rowIdx) && !COLMAP.headerRows.includes(rowIdx)
+      );
+      if(isOtherTableHeader) continue;
 
       if(isRowBlank(rawRow)){
         consecutiveBlank++;
