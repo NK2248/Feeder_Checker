@@ -1804,12 +1804,12 @@ function renderStats(){
   document.getElementById('sTotal').textContent  = d.rows.length;
   document.getElementById('sOrigin').textContent = originCount;
   document.getElementById('sAdded').textContent  = Math.max(0, addedCount);
-  const allCols = cols();
-  const visCols = visibleCols(allCols);
+  const allColsList = cols();
+  const visColsList = visibleCols(allColsList);
   document.getElementById('sCols').textContent = 
-    visCols.length < allCols.length 
-      ? visCols.length + '/' + allCols.length 
-      : allCols.length;
+  visColsList.length < allColsList.length 
+    ? visColsList.length + '/' + allColsList.length 
+    : allColsList.length;
   if(!d.checked){
     document.getElementById('sDupG').textContent = '—';
     document.getElementById('sDupR').textContent = '—';
@@ -2928,12 +2928,12 @@ function renderFeederStats(){
   document.getElementById('sTotal').textContent  = d.rows.length;
   document.getElementById('sOrigin').textContent = originCount;
   document.getElementById('sAdded').textContent  = Math.max(0, addedCount);
-  const allCols = feedercols();
-  const visCols = visibleCols(allCols);
+  const allColsList = feederCols();
+  const visColsList = visibleCols(allColsList);
   document.getElementById('sCols').textContent = 
-    visCols.length < allCols.length 
-      ? visCols.length + '/' + allCols.length 
-      : allCols.length;
+  visColsList.length < allColsList.length 
+    ? visColsList.length + '/' + allColsList.length 
+    : allColsList.length;
   if(!d.checked){
     document.getElementById('sDupG').textContent = '—';
     document.getElementById('sDupR').textContent = '—';
