@@ -4266,6 +4266,13 @@ function getSchemaColumnsForType(type, mode){
   return ['— skip —', ...cols];
 }
 
+function getAllSchemaColumns(){
+  const cols = new Set();
+  Object.values(DEFAULT_COLUMNS).forEach(c=>c.forEach(col=>cols.add(col)));
+  Object.values(FEEDER_SCHEMA_TEMPLATES).forEach(c=>c.forEach(col=>cols.add(col)));
+  return ['— skip —', ...cols];
+}
+
 // Fuzzy match file column name to schema column
 function fuzzyMatchColumn(fileCol){
   const norm = s => s.toUpperCase().replace(/[^A-Z0-9]/g,'_').replace(/_+/g,'_');
@@ -5002,6 +5009,14 @@ function autoMapColumns(){
   COLMAP.fileColumns.forEach(col=>{
     COLMAP.mappings[col] = fuzzyMatchColumn(col);
   });
+
+  // sanitize against the currently selected target schema
+  const type = COLMAP.targetType || detectTypeFromHeaders(COLMAP.fileColumns);
+  const allowed = new Set(getSchemaColumnsForType(type, COLMAP.targetMode));
+  COLMAP.fileColumns.forEach(col=>{
+    if(!allowed.has(COLMAP.mappings[col])) COLMAP.mappings[col] = '— skip —';
+  });
+
   renderColMapRows();
   updateMappingPreview();
 }
