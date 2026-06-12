@@ -1121,9 +1121,14 @@ function showManualRouteModal(filename, partialRoute) {
     `<option value="${d}" ${partialRoute?.device === d ? 'selected' : ''}>${d}</option>`
   ).join('');
 
-  const typeOptions = ['Status Point','Control Output','Analog Point'].map(t =>
+  // CHANGED: build base type options, then prepend placeholder if no type detected
+  const baseTypeOptions = ['Status Point','Control Output','Analog Point'].map(t =>
     `<option value="${t}" ${partialRoute?.type === t ? 'selected' : ''}>${t}</option>`
   ).join('');
+
+  const typeOptions = partialRoute?.type
+    ? baseTypeOptions
+    : `<option value="" selected disabled>— select type —</option>` + baseTypeOptions;
 
   let note = '';
   if (!partialRoute || partialRoute.confidence === 'none') {
@@ -1169,6 +1174,8 @@ function showManualRouteModal(filename, partialRoute) {
     document.getElementById('mrTypeFeeder').value = partialRoute.type;
     document.getElementById('mrTypeDevice').value = partialRoute.type;
   }
+  // NOTE: when partialRoute.type is null, the placeholder "<option selected disabled>"
+  // is already the default selected state — no .value assignment needed
 
   mrUpdateFeeders();
 
@@ -1234,6 +1241,10 @@ async function doManualRouteImport(importMode) {
       alert(`Feeder "${feed}" not found in "${sub}". Please add it first using the + button.`);
       return;
     }
+    if (!type) {
+      alert('Please select a point type (Status Point / Control Output / Analog Point) before importing.');
+      return;
+    }
 
     route = {
       confidence: 'manual',
@@ -1242,14 +1253,23 @@ async function doManualRouteImport(importMode) {
       feeder:      feed,
       main:        document.getElementById('mrMain').value || 'MAIN_01',
       subset:      document.getElementById('mrMain').value || 'MAIN_01',
-      type:        document.getElementById('mrTypeFeeder').value,
+      type:        type,
     };
   } else {
+    const device = document.getElementById('mrDevice').value;
+    const type   = document.getElementById('mrTypeDevice').value;
+
+    // NEW: require type selection
+    if (!type) {
+      alert('Please select a point type (Status Point / Control Output / Analog Point) before importing.');
+      return;
+    }
+
     route = {
       confidence: 'manual',
       mode:        'device',
-      device:      document.getElementById('mrDevice').value,
-      type:        document.getElementById('mrTypeDevice').value,
+      device:      device,
+      type:        type,
     };
   }
 
@@ -2437,13 +2457,14 @@ function toggleHiddenColumns(){
     btn.style.color = showHiddenColumns ? 'var(--amber)' : 'var(--text2)';
     btn.textContent = showHiddenColumns ? '▼ hide extra columns' : '▶ show all columns';
   }
-  if(currentMode === 'feeder') renderFeederTable();
-  else renderTable();
+  if(currentMode === 'feeder'){ renderFeederTable(); renderFeederStats(); }
+  else { renderTable(); renderStats(); }
 }
 
 function visibleCols(colList){
   if(showHiddenColumns) return colList;
-  return colList.filter(c => !HIDDEN_COLUMNS.has(c));
+  const hideSet = currentMode === 'feeder' ? HIDDEN_COLUMNS : HIDDEN_COLUMNS_DEVICE;
+  return colList.filter(c => !hideSet.has(c));
 }
 
 // ── Config persistence ────────────────────────────────────────────────────────
