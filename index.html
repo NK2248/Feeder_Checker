@@ -3759,8 +3759,17 @@ function detectAllTables(allRows){
     const nonEmpty = row.filter(c=>String(c||'').trim()!=='');
     if(nonEmpty.length===0 || nonEmpty.length>3) return null;
     for(const cell of nonEmpty){
-      const norm = String(cell).toUpperCase().trim().replace(/\s+/g,' ');
+      // strip numbering ("1.", "1)", "A."), trailing colons, and surrounding punctuation
+      let norm = String(cell).toUpperCase().trim()
+        .replace(/^[\d]+[.)]\s*/, '')      // "1. STATUS POINT" -> "STATUS POINT"
+        .replace(/^[A-Z][.)]\s*/, '')      // "A) STATUS POINT" -> "STATUS POINT"
+        .replace(/[:：]\s*$/, '')           // trailing colon
+        .replace(/\s+/g,' ')
+        .trim();
       if(SECTION_LABEL_MAP[norm]) return SECTION_LABEL_MAP[norm];
+      // also try without spaces vs underscores collapsed
+      const collapsed = norm.replace(/[_\s]+/g,' ');
+      if(SECTION_LABEL_MAP[collapsed]) return SECTION_LABEL_MAP[collapsed];
     }
     return null;
   }
@@ -3843,6 +3852,11 @@ function detectAllTables(allRows){
         continue;
       }
       consecutiveBlank = 0;
+
+      const rowSectionType = getSectionLabelFromRow(row);
+      if(rowSectionType){
+        break;
+      }
 
       // new table header → stop
       if(rowHeaderScore(row) >= 2 && isRowLikelyNewHeader(row, hdrCols)) break;
