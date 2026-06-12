@@ -4244,13 +4244,26 @@ function classifyRow(row, ri){
 }
 
 // All possible schema columns across all types
-function getAllSchemaColumns(){
-  const cols = new Set();
-  Object.values(DEFAULT_COLUMNS).forEach(c=>c.forEach(col=>cols.add(col)));
-  Object.values(FEEDER_SCHEMA_TEMPLATES).forEach(c=>c.forEach(col=>cols.add(col)));
+function getSchemaColumnsForType(type, mode){
+  // type: 'Status Point' | 'Control Output' | 'Analog Point' | null
+  // mode: 'feeder' | 'device'
+  if(!type){
+    // unknown type — fall back to all columns for the given mode only
+    const cols = new Set();
+    if(mode === 'feeder'){
+      Object.values(FEEDER_SCHEMA_TEMPLATES).forEach(c=>c.forEach(col=>cols.add(col)));
+    } else {
+      Object.values(DEFAULT_COLUMNS).forEach(c=>c.forEach(col=>cols.add(col)));
+    }
+    return ['— skip —', ...cols];
+  }
+
+  const key = SCHEMA_TYPE_MAP[type]; // 'status' | 'control' | 'analog'
+  const cols = mode === 'feeder'
+    ? FEEDER_SCHEMA_TEMPLATES[key]
+    : SCHEMA_TEMPLATES[key];
+
   return ['— skip —', ...cols];
-  // note: hidden columns still appear in import mapping
-  // so users can still map them from source files
 }
 
 // Fuzzy match file column name to schema column
@@ -4396,6 +4409,9 @@ function openColumnMapper(filename, wb){
   COLMAP.fileColumns = [];
   COLMAP.mappings = {};
   COLMAP.sheetName = wb.SheetNames[0];
+  // In openColumnMapper, seed defaults:
+  COLMAP.targetMode = currentMode; // 'feeder' or 'device' — default to active tab
+  COLMAP.targetType = null;        // filled in after detection in buildFileColumnsAndMap
   colMapCurrentStep = 1;
 
   document.getElementById('colMapFilename').textContent = filename;
@@ -4997,7 +5013,9 @@ function clearAllMappings(){
 }
 
 function renderColMapRows(){
-  const allSchema = getAllSchemaColumns();
+  const type = COLMAP.targetType || detectTypeFromHeaders(Object.values(COLMAP.mappings).filter(v=>v!=='— skip —')) 
+                || detectTypeFromHeaders(COLMAP.fileColumns);
+  const allSchema = getSchemaColumnsForType(type, COLMAP.targetMode);
   const usedTargets = new Set(Object.values(COLMAP.mappings).filter(v=>v!=='— skip —'));
 
   document.getElementById('colMapRows').innerHTML = COLMAP.fileColumns.map((col,i)=>{
@@ -5723,6 +5741,20 @@ window.addEventListener('beforeunload', e => {
           </button>
           <div style="flex:1"></div>
           <div style="font-size:11px;color:var(--text3);font-family:var(--mono)" id="colMapMatchCount"></div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:11px;font-family:var(--mono);color:var(--text2)">target schema:</span>
+          <select id="cmTargetMode" onchange="COLMAP.targetMode=this.value;renderColMapRows();">
+            <option value="feeder" ${COLMAP.targetMode==='feeder'?'selected':''}>Substation / Feeder</option>
+            <option value="device" ${COLMAP.targetMode==='device'?'selected':''}>Device</option>
+          </select>
+          <select id="cmTargetType" onchange="COLMAP.targetType=this.value;renderColMapRows();">
+            <option value="">— auto-detect —</option>
+            <option value="Status Point">Status Point</option>
+            <option value="Control Output">Control Output</option>
+            <option value="Analog Point">Analog Point</option>
+          </select>
         </div>
 
         <!-- Column mapping grid header -->
