@@ -3026,7 +3026,30 @@ function openFeederAddRow(){
     'Control Output':{'DNP3.0_OBJ':'41','DNP3.0_VAR':'1','DNP3.0_QII':'echo of request','DNP3.0_CLASS':'0','DNP3.0_TYPE':'SBO'},
     'Analog Point':  {'DNP3.0_OBJ':'30','DNP3.0_VAR':'1','DNP3.0_QII':'17,28 or 00,01','DNP3.0_CLASS':'1','DNP3.0_TYPE':'AI'},
   };
-  const defaults=feederDefaultsMap[currentFeederType]||{};
+  const FEEDER_BAY_DEFAULTS = {
+  // substation → feeder → default BAY_NAME
+  // add your actual bay names here
+  'BR & A Half': {
+    'SSMN':       ['SSMN'],
+    'TP_01':      ['01YB-03', '01YS-05', '01YS-06', '01YS-08'], // example bays for TP_01
+    'LINE_01':    ['BAY_LINE01'],
+    'CENTER_01':  ['BAY_CTR01'],
+    'BUS_ZONE_01':['BAY_BZ01'],
+    'BUS_ZONE_02':['BAY_BZ02'],
+    'RCC_01':     ['BAY_RCC01'],
+  },
+  'DBSB': {
+    'SSMN':       ['BAY_SSMN'],
+    // ... fill in your actual bay names
+  },
+  // add other substations as needed
+};
+  const bayDefault = FEEDER_BAY_DEFAULTS[currentSubstation]?.[currentFeeder] || '';
+  const defaults= {
+    ...(feederDefaultsMap[currentFeederType] || {}),
+    'FEEDER_NAME': currentFeeder || '',
+    'BAY_NAME': bayDefault
+  };
   document.getElementById('addFields').innerHTML=c.map(col=>{
     const def=defaults[col]??'';
     if(col==='DNP3.0_TYPE'){
@@ -3042,8 +3065,20 @@ function openFeederAddRow(){
       return `<div class="frow"><label>${col} <span id="descHelper" style="font-size:10px;color:var(--accent);font-family:var(--mono);font-weight:400;text-transform:none;letter-spacing:0"></span></label>
         <input type="text" id="nf_SPECIFICATION_DESCRIPTOR" placeholder="${col}" value="${def}" style="width:100%"></div>`;
     }
+    // special handling for BAY_NAME — dropdown if multiple bays, text if none configured
+    if(col === 'BAY_NAME'){
+      const bays = FEEDER_BAY_DEFAULTS[currentSubstation]?.[currentFeeder] || [];
+      if(bays.length > 1){
+        return `<div class="frow"><label>${col}</label>
+          <select id="nf_BAY_NAME" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%">
+            <option value="">— select bay —</option>
+            ${bays.map(b=>`<option value="${b}">${b}</option>`).join('')}
+        </select></div>`;
+      }
+      return `<div class="frow"><label>${col}</label><input type="text" id="nf_BAY_NAME" placeholder="${col}" value="${bays[0]||def}"></div>`;
+    }
     return `<div class="frow"><label>${col}</label><input type="text" id="nf_${col.replace(/\W/g,'_')}" placeholder="${col}" value="${def}"></div>`;
-  }).join('');
+      }).join('');
 
   setTimeout(()=>{
     ['STATE_0','STATE_1'].forEach(s=>{
