@@ -2545,66 +2545,119 @@ async function saveNewDevice(){
 const FEEDER_STRUCTURE = {
   "BR & A Half": {
     feeders: {
-      "SSMN":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "TP_01":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "LINE_01":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "CENTER_01":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "BUS_ZONE_01":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "BUS_ZONE_02":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "RCC_01":{"subsets":["MAIN_01"],"mains":["MAIN_01"]}
+      "SSMN":  {"hasNumbers": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
+      "TP":    {"hasNumbers": true,
+                "numbers": {
+                  "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]},
+                "02": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}
+                }
+              },
+      "LINE":  {"hasNumbers": true,
+                "numbers": {
+                  "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]},
+                  "02": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}
+                }
+              },
+      "CENTER": {"hasNumbers": true, "numbers": {
+                  "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]},
+                }
+              },
+      "BUS_ZONE":{"hasnumbers": true, "numbers": {
+                  "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]},
+                  "02": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}
+                }
+              },
+      "RCC":   {"hasNumbers": true, "numbers": {
+                  "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]},
+                }
+              }
     }
   },
   "DBSB": {
     feeders: {
-      "SSMN":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "TP_01":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "LINE_01":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "BUS_COUPLER":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "BUS_ZONE":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "RCC_01":{"subsets":["MAIN_01"],"mains":["MAIN_01"]}
+      "SSMN" :{"hasNumbers": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
+      "TP" :{"hasNumbers": true, "numbers": {
+        "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]},
+        }
+      }, 
+      "LINE":{"hasNumbers": true, "numbers": {
+        "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]},
+        }
+      },
+      "BUS_COUPLER":{"hasNumbers": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
+      "BUS_ZONE":{"hasNumbers": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
+      "RCC":{"hasNumbers": true, "numbers": {
+        "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]},
+        }
+      }
     }
   },
   "H Scheme": {
     feeders: {
-      "SSMN":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "TP_01":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "LINE_01":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "BUS_TIE":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "RCC_01":{"subsets":["MAIN_01"],"mains":["MAIN_01"]}
+      "SSMN":{"hasNumbers": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
+      "TP":{"hasNumbers": true, "numbers": {
+        "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}},
+      },
+      "LINE":{"hasNumbers": true, "numbers": {
+        "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
+      "BUS_TIE":{"hasNumbers": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
+      "RCC":{"hasNumbers": true, "numbers": {
+        "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}}
     }
   },
   "Main & Transfer": {
     feeders: {
-      "SSMN":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "TP_01":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "LINE_01":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "BUS_TIE":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "RCC_01":{"subsets":["MAIN_01"],"mains":["MAIN_01"]}
+      "SSMN":{"hasNumbers": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
+      "TP":{"hasNumbers": true, "numbers": {
+        "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}},
+      },
+      "LINE":{"hasNumbers": true, "numbers": {
+        "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]},
+        "02": {"mains":["MAIN_01"], "subsets":["MAIN_01"]},
+      }},
+      "BUS_TIE":{"hasNumbers": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
+      "RCC":{"hasNumbers": true, "numbers": {
+        "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}}
     }
   },
   "AIS substation": {
     feeders: {
-      "SSMN":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "INC_01":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "BS1":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "OUT_01":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "TS_01(CB)":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "TS_01(LBS)":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "BUSPT_01":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "CAP_01":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "CAP_BANK_01":{"subsets":["MAIN_01"],"mains":["MAIN_01"]}
+      "SSMN":{"hasNumbers": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
+      "INC":{"hasNumbers": true, "numbers": {
+        "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
+      "BS":{"hasNumbers": true,"numbers": {
+        "1": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
+      "OUT":{"hasNumbers": true, "numbers": {
+        "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
+      "TS_CB":{"hasNumbers": true, "numbers": {
+        "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
+      "TS_LBS":{"hasNumbers": true, "numbers": {
+        "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
+      "BUSPT":{"hasNumbers": true,"numbers": {
+        "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
+      "CAP":{"hasNumbers": true, "numbers": {
+        "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
+      "CAP_BANK":{"hasNumbers": true, "numbers": {
+        "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
     }
   },
   "GIS substation": {
     feeders: {
-      "SSMN":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "INC_01":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "BS1":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "OUT_01":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "TS_01(CB)":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "BUSPT_01":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "CAP_01":{"subsets":["MAIN_01"],"mains":["MAIN_01"]},
-      "CAP_BANK_01":{"subsets":["MAIN_01"],"mains":["MAIN_01"]}
+      "SSMN":{"hasNumbers": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
+      "INC":{"hasNumbers": true, "numbers": {
+        "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
+      "BS":{"hasNumbers": true,"numbers": {
+        "1": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
+      "OUT":{"hasNumbers": true, "numbers": {
+        "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
+      "TS_CB":{"hasNumbers": true, "numbers": {
+        "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
+      "BUSPT":{"hasNumbers": true,"numbers": {
+        "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
+      "CAP":{"hasNumbers": true, "numbers": {
+        "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
+      "CAP_BANK":{"hasNumbers": true, "numbers": {
+        "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}}
     }
   }
 };
@@ -3026,6 +3079,17 @@ function openFeederAddRow(){
     'Control Output':{'DNP3.0_OBJ':'41','DNP3.0_VAR':'1','DNP3.0_QII':'echo of request','DNP3.0_CLASS':'0','DNP3.0_TYPE':'SBO'},
     'Analog Point':  {'DNP3.0_OBJ':'30','DNP3.0_VAR':'1','DNP3.0_QII':'17,28 or 00,01','DNP3.0_CLASS':'1','DNP3.0_TYPE':'AI'},
   };
+  const FEEDER_TYPE_CONFIG = {
+  // flat = single dataset, no number, no main
+  'SSMN':     { pattern: 'flat' },
+  'BUS_ZONE': { pattern: 'flat' },
+  'RCC':      { pattern: 'flat' },
+  
+  // numbered = has number + main selection
+  'TP':   { pattern: 'numbered' },
+  'LINE': { pattern: 'numbered' },
+  // add more here later yourself
+};
   const FEEDER_BAY_DEFAULTS = {
   // substation → feeder → default BAY_NAME
   // add your actual bay names here
