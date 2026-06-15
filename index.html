@@ -1408,7 +1408,7 @@ function renderTypeTabs(){
     const d = DATASETS[key];
     const count = d
       ? (d._countOnly ? d._preloadCount ?? d.rows.length : d.rows.length)
-      : null;
+      : 0;
     const isActive = t === currentType;
     const badge = count !== null
       ? `<span style="font-size:10px;font-family:var(--mono);padding:1px 7px;border-radius:20px;
@@ -2817,7 +2817,7 @@ function renderFeederTypeTabs(){
       const d = FEEDER_DATASETS[k];
       const count = d
         ? (d._countOnly ? (d._preloadCount ?? 0) : d.rows.length)
-        : null;
+        : 0;
       const badge = count !== null
         ? `<span style="font-size:10px;font-family:var(--mono);padding:1px 7px;border-radius:20px;
           background:${t===currentFeederType?'rgba(0,0,0,.2)':'var(--surface2)'};
