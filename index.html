@@ -1481,7 +1481,7 @@ async function preloadAllCounts(){
               checked:false
             };
           }
-          DATASETS[key].rows = new Array(data.length);
+          DATASETS[key]._preloadCount = data.length;
           DATASETS[key].rows = [];
           DATASETS[key]._countOnly = true;
         }catch(e){ console.error('Preload count error:',key,e); }
@@ -4427,16 +4427,6 @@ function colMapGoStep(step){
       showImportToast('⚠ No columns found — check your header selection.');
       return;
     }
-    // in colMapGoStep(), inside the step === 3 block:
-    else if(step === 3){
-      document.getElementById('colMapStepHint').textContent = 'Match file columns to dataset columns';
-      // sync selectors to current COLMAP state
-      const modeEl = document.getElementById('cmTargetMode');
-      const typeEl = document.getElementById('cmTargetType');
-      if(modeEl) modeEl.value = COLMAP.targetMode || 'feeder';
-      if(typeEl) typeEl.value = COLMAP.targetType || '';
-      updateMappingPreview();
-    }
   }
 
   colMapCurrentStep = step;
@@ -4486,6 +4476,10 @@ function colMapGoStep(step){
     updateStep2Summary();
   } else if(step === 3){
     document.getElementById('colMapStepHint').textContent = 'Match file columns to dataset columns';
+    const modeEl = document.getElementById('cmTargetMode');
+    const typeEl = document.getElementById('cmTargetType');
+    if(modeEl) modeEl.value = COLMAP.targetMode || 'feeder';
+    if(typeEl) typeEl.value = COLMAP.targetType || '';
     updateMappingPreview();
   }
 }
@@ -5139,22 +5133,6 @@ function selectHeaderRow(idx){
   buildFileColumnsAndMap();
 }
 
-function autoMapColumns(){
-  COLMAP.mappings = {};
-  COLMAP.fileColumns.forEach(col=>{
-    COLMAP.mappings[col] = fuzzyMatchColumn(col);
-  });
-
-  // sanitize against the currently selected target schema
-  const type = COLMAP.targetType || detectTypeFromHeaders(COLMAP.fileColumns);
-  const allowed = new Set(getSchemaColumnsForType(type, COLMAP.targetMode));
-  COLMAP.fileColumns.forEach(col=>{
-    if(!allowed.has(COLMAP.mappings[col])) COLMAP.mappings[col] = '— skip —';
-  });
-
-  renderColMapRows();
-  updateMappingPreview();
-}
 
 function clearAllMappings(){
   COLMAP.fileColumns.forEach(col=>{ COLMAP.mappings[col]='— skip —'; });
