@@ -2571,14 +2571,12 @@ const FEEDER_STRUCTURE = {
       "SSMN":  {"hasNumbers": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
       "TP":    {"hasNumbers": true,
                 "numbers": {
-                  "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]},
-                "02": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}
+                  "01": {"mains":["MAIN_01","MAIN_02"], "subsets":["MAIN_01","MAIN_02"]},
                 }
               },
       "LINE":  {"hasNumbers": true,
                 "numbers": {
-                  "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]},
-                  "02": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}
+                  "01": {"mains":["MAIN_01","MAIN_02"], "subsets":["MAIN_01","MAIN_02"]},
                 }
               },
       "CENTER": {"hasNumbers": true, "numbers": {
@@ -2586,8 +2584,8 @@ const FEEDER_STRUCTURE = {
                 }
               },
       "BUS_ZONE":{"hasnumbers": true, "numbers": {
-                  "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]},
-                  "02": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}
+                  "01": {"mains":["MAIN_01", "MAIN_02"], "subsets":["MAIN_01", "MAIN_02"]},
+                  "02": {"mains":["MAIN_01", "MAIN_02"], "subsets":["MAIN_01", "MAIN_02"]}
                 }
               },
       "RCC":   {"hasNumbers": true, "numbers": {
@@ -2689,13 +2687,13 @@ const FEEDER_SUBSETS = ["Status Point","Control Output","Analog Point"];
 
 function getFeederNames(sub){ return Object.keys(FEEDER_STRUCTURE[sub]?.feeders || {}); }
 function getSubsetNames(sub,feed){ return FEEDER_STRUCTURE[sub]?.feeders[feed]?.subsets || ["MAIN_01"]; }
-function getMainNames(sub,feed){
+function getMainNames(sub, feed){
   const f = FEEDER_STRUCTURE[sub]?.feeders[feed];
-  if(!f) return ["MAIN_01"];
+  if(!f) return ['MAIN_01'];
   if(f.hasNumbers){
-    return f.numbers[currentNumber]?.mains || ["MAIN_01"];
+    return f.numbers[currentNumber]?.mains || ['MAIN_01'];
   }
-  return f.mains || ["MAIN_01"];
+  return f.mains || ['MAIN_01'];
 }
 // same pattern for getSubsetNames
 
@@ -2713,12 +2711,12 @@ const FEEDER_DATASETS = {};
 
 let currentNumber = null; // e.g. "01", "02", or null for flat feeders
 
-function feederKey(sub,feed,subset,main,type){
-  const numPart = currentNumber ? '__'+currentNumber : '';
+function feederKey(sub, feed, subset, main, type, num){
+  const numPart = (num !== undefined ? num : currentNumber) ? '__'+(num !== undefined ? num : currentNumber) : '';
   return '__feeder__'+sub+'__'+feed+numPart+'__'+subset+'__'+main+'__'+type;
 }
 function currentFeederKey(){
-  return feederKey(currentSubstation,currentFeeder,currentSubset,currentMain,currentFeederType);
+  return feederKey(currentSubstation, currentFeeder, currentSubset, currentMain, currentFeederType, currentNumber);
 }
 function feederCols(){
   return FEEDER_SCHEMA_TEMPLATES[FEEDER_SCHEMA_MAP[currentFeederType]];
@@ -2901,9 +2899,13 @@ function renderNumberTabs(){
 async function switchNumber(n){
   if(!confirmIfDirty('Switch number? Unsaved changes may be lost.')) return;
   currentNumber = n;
-  currentMain = getMainNames(currentSubstation,currentFeeder)[0]||'MAIN_01';
-  selected=new Set(); hideDupAlert();
-  renderMainTabs(); renderFeederTypeTabs();
+  // get mains for this specific number
+  const feedCfg = FEEDER_STRUCTURE[currentSubstation]?.feeders[currentFeeder];
+  const mains = feedCfg?.numbers?.[n]?.mains || ['MAIN_01'];
+  currentMain = mains[0] || 'MAIN_01';
+  currentFeederType = FEEDER_SUBSETS[0];
+  selected = new Set(); hideDupAlert();
+  renderNumberTabs(); renderMainTabs(); renderFeederTypeTabs();
   await loadFeederDataset();
   updateBreadcrumb();
 }
@@ -3149,19 +3151,17 @@ function renderFeederTypeTabs(){
   }
   document.getElementById('feederTypeTabs').innerHTML =
     FEEDER_SUBSETS.map(t => {
-      const k = feederKey(currentSubstation, currentFeeder, currentSubset, currentMain, t);
+      const k = feederKey(currentSubstation, currentFeeder, currentSubset, currentMain, t, currentNumber);
       const d = FEEDER_DATASETS[k];
       const count = d
         ? (d._countOnly ? (d._preloadCount ?? 0) : d.rows.length)
         : 0;
-      const badge = count !== null
-        ? `<span style="font-size:10px;font-family:var(--mono);padding:1px 7px;border-radius:20px;
-          background:${t===currentFeederType?'rgba(0,0,0,.2)':'var(--surface2)'};
-          color:${t===currentFeederType?'#fff':'var(--text2)'};
-          border:1px solid ${t===currentFeederType?'rgba(0,0,0,.15)':'var(--border2)'}">
-          ${count}
-          </span>`
-        : `<span style="font-size:10px;font-family:var(--mono);color:${t===currentFeederType?'rgba(255,255,255,.6)':'var(--text3)'}">—</span>`;
+      const badge = `<span style="font-size:10px;font-family:var(--mono);padding:1px 7px;border-radius:20px;
+        background:${t===currentFeederType?'rgba(0,0,0,.2)':'var(--surface2)'};
+        color:${t===currentFeederType?'#fff':'var(--text2)'};
+        border:1px solid ${t===currentFeederType?'rgba(0,0,0,.15)':'var(--border2)'}">
+        ${count}
+        </span>`;
 
       return `<button onclick="switchFeederType('${t}')"
         style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
