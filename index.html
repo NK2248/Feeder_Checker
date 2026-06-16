@@ -299,10 +299,14 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </button>
 
-    <span style="color:var(--border2);margin:0 4px;font-size:16px">›</span>
-    <span style = "font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-right:4px">Number</span>
-    <div id="numberTabs"></div>
-    <button class="btn-icon" onclick="openAddNumber()">+</button>
+    <span style="color:var(--border2);margin:0 4px;font-size:16px" id="numberSeparator">›</span>
+    <div id="numberBarWrap" style="display:flex;align-items:center;gap:3px">
+      <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-right:4px">Number</span>
+      <div id="numberTabs" style="display:flex;gap:3px;flex-wrap:wrap"></div>
+      <button class="btn-icon" onclick="openAddNumber()" style="width:22px;height:22px">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+    </div>
 
     <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-right:4px">Main</span>
     <div id="mainTabs" style="display:flex;gap:3px;flex-wrap:wrap"></div>
@@ -2779,7 +2783,7 @@ async function switchSubstation(s){
   currentMain=currentFeeder?(getMainNames(s,currentFeeder)[0]||'MAIN_01'):'MAIN_01';
   currentFeederType=FEEDER_SUBSETS[0];
   selected=new Set();hideDupAlert();
-  renderSubstationTabs();renderFeederTabs();renderSubsetTabs();renderMainTabs();renderFeederTypeTabs();
+  renderSubstationTabs();renderFeederTabs();renderNumberTabs();renderSubsetTabs();renderMainTabs();renderFeederTypeTabs();
   if(currentFeeder) await loadFeederDataset();
   else {
     document.getElementById('tableArea').innerHTML='<div class="empty"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg><p>No feeders in this substation</p><span>Add feeders using the + button.</span></div>';
@@ -2798,11 +2802,16 @@ function renderFeederTabs(){
 async function switchFeeder(f){
   if(!confirmIfDirty('Switch feeder? Unsaved changes may be lost.')) return;
   currentFeeder=f;
+  currentNumber=null; // reset number
+  const feedCfg = FEEDER_STRUCTURE[currentSubstation]?.feeders[f];
+  if(feedCfg?.hasNumbers){
+    currentNumber = Object.keys(feedCfg.numbers)[0];
+  }
   currentSubset=getSubsetNames(currentSubstation,f)[0]||'MAIN_01';
   currentMain=getMainNames(currentSubstation,f)[0]||'MAIN_01';
   currentFeederType=FEEDER_SUBSETS[0];
   selected=new Set();hideDupAlert();
-  renderFeederTabs();renderSubsetTabs();renderMainTabs();renderFeederTypeTabs();
+  renderFeederTabs();renderNumberTabs();renderSubsetTabs();renderMainTabs();renderFeederTypeTabs();
   await loadFeederDataset();
   updateBreadcrumb();
 }
@@ -2841,9 +2850,16 @@ function openAddSubsetTab(){
 
 function renderNumberTabs(){
   const wrap = document.getElementById('numberBarWrap');
-  const feedCfg = FEEDER_STRUCTURE[currentSubstation].feeders[currentFeeder];
-  if(!feedCfg.hasNumbers){ wrap.style.display='none'; currentNumber=null; return; }
+  const sep  = document.getElementById('numberSeparator');
+  const feedCfg = FEEDER_STRUCTURE[currentSubstation]?.feeders[currentFeeder];
+  if(!feedCfg || !feedCfg.hasNumbers){
+    wrap.style.display='none';
+    if(sep) sep.style.display='none';
+    currentNumber=null;
+    return;
+  }
   wrap.style.display='flex';
+  if(sep) sep.style.display='';
   const nums = Object.keys(feedCfg.numbers);
   if(!currentNumber || !nums.includes(currentNumber)) currentNumber = nums[0];
   document.getElementById('numberTabs').innerHTML = nums.map(n=>
@@ -3419,13 +3435,9 @@ async function loadFeederConfig(){
     const data=await sbFetch('GET',TABLE+'?dataset_key=eq.__feeder_config__&limit=1');
     if(data&&data.length){
       const s=data[0].data.structure;
+      // REPLACE the entire structure from DB, don't just patch it
       Object.entries(s).forEach(([sub,val])=>{
-        if(!FEEDER_STRUCTURE[sub]) FEEDER_STRUCTURE[sub]={feeders:{}};
-        Object.entries(val.feeders||{}).forEach(([f,fval])=>{
-          if(!FEEDER_STRUCTURE[sub].feeders[f]) FEEDER_STRUCTURE[sub].feeders[f]={subsets:['MAIN_01'],mains:['MAIN_01']};
-          if(fval.mains&&fval.mains.length>0) FEEDER_STRUCTURE[sub].feeders[f].mains=fval.mains;
-          if(fval.subsets&&fval.subsets.length>0) FEEDER_STRUCTURE[sub].feeders[f].subsets=fval.subsets;
-        });
+        FEEDER_STRUCTURE[sub] = val; // full replace, preserves hasNumbers/numbers
       });
     }
   }catch(e){console.error('Feeder config load error:',e);}
