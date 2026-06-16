@@ -792,7 +792,7 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
       <div class="fgrid">
         <div class="frow"><label>Substation</label><select id="mrSubstation" onchange="mrUpdateFeeders()" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select></div>
         <div class="frow"><label>Feeder</label><select id="mrFeeder" onchange="mrUpdateMains()" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select></div>
-        <div class="frow"><label>Number</label><select id="mrNumber" onchange="mrUpdateMains()" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select></div>
+        <div class="frow" id="mrNumberRow"><label>Number</label><select id="mrNumber" onchange="mrUpdateMains()" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select></div>
         <div class="frow"><label>Main</label><select id="mrMain" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select></div>
         <div class="frow"><label>Type</label><select id="mrTypeFeeder" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select></div>
       </div>
@@ -1344,8 +1344,9 @@ async function doManualRouteImport(importMode) {
     return;
   }
 
+  // In doManualRouteImport, feeder branch — REORDER to this:
   if (route.mode === 'feeder') {
-    // Only update globals AFTER validation passes
+    // SET GLOBALS FIRST
     currentSubstation = route.substation;
     currentFeeder     = route.feeder;
     currentNumber     = route.number ?? null;
@@ -1353,12 +1354,14 @@ async function doManualRouteImport(importMode) {
     currentSubset     = route.subset;
     currentFeederType = route.type || 'Status Point';
 
+    // NOW safe to call fds() and feederCols()
     const d = fds();
     const c = feederCols();
 
     if (importMode === 'origin') {
       d.rows = []; d.manuallyAdded = new Set(); d.originCount = 0;
     }
+    // ... rest unchanged
     importData.forEach(r => {
       const row = {}; c.forEach(col => row[col] = r[col] !== undefined ? r[col] : '');
       d.rows.push(row);
@@ -1380,6 +1383,7 @@ async function doManualRouteImport(importMode) {
     await saveFeederDataset();
     await saveFeederHistoryPoint('auto');
     hideLoading();
+    updateBreadcrumb();
 
   } else {
     if (route.device && route.device !== currentDevice) {
