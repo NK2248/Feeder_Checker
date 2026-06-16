@@ -3445,15 +3445,19 @@ async function saveFeederConfig(){
 
 async function loadFeederConfig(){
   try{
-    const data=await sbFetch('GET',TABLE+'?dataset_key=eq.__feeder_config__&limit=1');
-    if(data&&data.length){
-      const s=data[0].data.structure;
-      // REPLACE the entire structure from DB, don't just patch it
-      Object.entries(s).forEach(([sub,val])=>{
-        FEEDER_STRUCTURE[sub] = val; // full replace, preserves hasNumbers/numbers
+    const data = await sbFetch('GET', TABLE+'?dataset_key=eq.__feeder_config__&limit=1');
+    if(data && data.length){
+      const s = data[0].data.structure;
+      // Only merge NEW substations/feeders not in hardcoded structure
+      Object.entries(s).forEach(([sub, val]) => {
+        if(!FEEDER_STRUCTURE[sub]){
+          // completely new substation added at runtime — keep it
+          FEEDER_STRUCTURE[sub] = val;
+        }
+        // existing substations: skip DB version, trust hardcoded structure
       });
     }
-  }catch(e){console.error('Feeder config load error:',e);}
+  } catch(e){ console.error('Feeder config load error:', e); }
 }
 
 // ── Export (fixed: separate tables per type in one sheet, spaced 2 rows apart) ─
