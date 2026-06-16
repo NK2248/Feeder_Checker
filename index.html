@@ -1017,16 +1017,16 @@ function onDragLeave(){document.getElementById('dropZone').classList.remove('dra
 function onDrop(e){e.preventDefault();document.getElementById('dropZone').classList.remove('drag');const f=e.dataTransfer.files[0];if(f)processFile(f);}
 function handleUpload(inp){const f=inp.files[0];if(f)processFile(f);inp.value='';}
 
-function parseFilenameForRouting(filename) {
+function parseFilenameForRouting(filename, sheetName) {
   const base = filename
     .replace(/\.(csv|xlsx|xls)$/i, '')
     .replace(/[-_ ]+export$/i, '')
     .replace(/[-_ ]+copy$/i, '')
     .replace(/\[\d+\]/g, '')
     .trim();
-
-  const norm  = s => s.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-  const normB = norm(base);
+  const combined = (filename + ' ' + (sheetName || '')).replace(/\.(csv|xlsx|xls)$/i, '');
+  const norm = s => s.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  const normB = norm(combined);
 
   const TYPE_KEYWORDS = [
     { keys: ['status_point', 'status point', 'statuspoint', '_sp_', '_sp'],         type: 'Status Point'   },
@@ -1042,6 +1042,9 @@ function parseFilenameForRouting(filename) {
   }
 
   const mainMatch = (base.match(/MAIN_\d+/i) || [])[0]?.toUpperCase() || 'MAIN_01';
+  const numMatch = (normB.match(/(?:^|_)(\d{2})(?:_|$)/) || 
+                    normB.match(/no[_\s]*(\d+)/i) || [])[1];
+  const detectedNumber = numMatch ? numMatch.padStart(2, '0') : null;
 
   for (const sub of Object.keys(FEEDER_STRUCTURE)) {
     for (const feed of getFeederNames(sub)) {
@@ -1070,7 +1073,8 @@ function parseFilenameForRouting(filename) {
         feeder: null,   // FIXED: was returning first feeder, causing wrong-dataset writes
         main: mainMatch,
         subset: mainMatch,
-        type: detectedType
+        type: detectedType,
+        number: detectedNumber
       };
     }
   }
@@ -5019,6 +5023,8 @@ function openColumnMapper(filename, wb){
   COLMAP.fileColumns = [];
   COLMAP.mappings = {};
   COLMAP.sheetName = wb.SheetNames[0];
+  // in openColumnMapper(), after setting COLMAP.sheetName:
+  const route = parseFilenameForRouting(filename, wb.SheetNames[0]);
   // In openColumnMapper, seed defaults:
   COLMAP.targetMode = currentMode; // 'feeder' or 'device' — default to active tab
   COLMAP.targetType = null;        // filled in after detection in buildFileColumnsAndMap
@@ -5811,7 +5817,7 @@ function applyColumnMapping(){
   // Try to detect type from mapped columns
   const detectedType = detectTypeFromHeaders(mappedCols);
 
-  const route = parseFilenameForRouting(COLMAP.filename);
+  const route = parseFilenameForRouting(COLMAP.filename, COLMAP.sheetName);
   pendingImportRoute = route.confidence !== 'none'
     ? {...route, type: detectedType || route.type}
     : { confidence:'none', mode:null, type: detectedType };
