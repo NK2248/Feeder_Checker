@@ -2889,17 +2889,19 @@ function renderFeederTabs(){
 
 async function switchFeeder(f){
   if(!confirmIfDirty('Switch feeder? Unsaved changes may be lost.')) return;
-  currentFeeder=f;
-  currentNumber=null; // reset number
+  currentFeeder = f;
+  currentNumber = null;
   const feedCfg = FEEDER_STRUCTURE[currentSubstation]?.feeders[f];
   if(feedCfg?.hasNumbers){
     currentNumber = Object.keys(feedCfg.numbers)[0];
   }
-  currentSubset=getSubsetNames(currentSubstation,f)[0]||'MAIN_01';
-  currentMain=getMainNames(currentSubstation,f)[0]||'MAIN_01';
-  currentFeederType=FEEDER_SUBSETS[0];
-  selected=new Set();hideDupAlert();
-  renderFeederTabs();renderNumberTabs();renderSubsetTabs();renderMainTabs();renderFeederTypeTabs();
+  // NOW safe — currentNumber is set before getMainNames uses it
+  currentSubset = getSubsetNames(currentSubstation, f)[0] || 'MAIN_01';
+  currentMain   = getMainNames(currentSubstation, f)[0]  || 'MAIN_01';
+  currentSubset = currentMain;  // ← keep in sync
+  currentFeederType = FEEDER_SUBSETS[0];
+  selected = new Set(); hideDupAlert();
+  renderFeederTabs(); renderNumberTabs(); renderSubsetTabs(); renderMainTabs(); renderFeederTypeTabs();
   await loadFeederDataset();
   updateBreadcrumb();
 }
@@ -3029,9 +3031,11 @@ function renderMainTabs(){
 
 async function switchMain(m){
   if(!confirmIfDirty('Switch main? Unsaved changes may be lost.')) return;
-  currentMain=m;currentFeederType=FEEDER_SUBSETS[0];
-  selected=new Set();hideDupAlert();
-  renderMainTabs();renderFeederTypeTabs();
+  currentMain = m;
+  currentSubset = m;  // ← ADD THIS — keep subset in sync
+  currentFeederType = FEEDER_SUBSETS[0];
+  selected = new Set(); hideDupAlert();
+  renderMainTabs(); renderFeederTypeTabs();
   await loadFeederDataset();
   updateBreadcrumb();
 }
@@ -3056,7 +3060,7 @@ async function saveNewMain(){
   if(!feedCfg.hasNumbers){
     if(!feedCfg.mains) feedCfg.mains = ['MAIN_01'];
     feedCfg.mains.push(name);
-    if(!feedCfg._userMains) feedCfg._userMains = [];   // ← track user-added
+    if(!feedCfg._userMains) feedCfg._userMains = [];
     feedCfg._userMains.push(name);
   } else {
     if(feedCfg.numbers[currentNumber]){
@@ -3067,26 +3071,44 @@ async function saveNewMain(){
     }
   }
 
-  currentMain = name;
   closeModal('addMainModal');
   await saveFeederConfig();
   renderMainTabs();
   renderFeederTypeTabs();
+
+  // FIX: set currentMain BEFORE loadFeederDataset so it loads the right key
+  currentMain = name;
+  currentSubset = name; // keep subset in sync with main
+
   await loadFeederDataset();
+
   showLoading('Copying data from '+prevMain+'…');
+  // FIX: capture number at time of copy, not from global later
+  const numAtCopy = currentNumber;
+  const subsetAtCopy = prevMain; // use prevMain as subset since subset mirrors main
+
   for(const type of FEEDER_SUBSETS){
-    const srcKey = feederKeyFor(currentSubstation,currentFeeder,currentNumber,currentSubset,prevMain,type);
-    const dstKey = feederKeyFor(currentSubstation,currentFeeder,currentNumber,currentSubset,name,type);
+    const srcKey = feederKeyFor(currentSubstation, currentFeeder, numAtCopy, subsetAtCopy, prevMain, type);
+    const dstKey = feederKeyFor(currentSubstation, currentFeeder, numAtCopy, subsetAtCopy, name, type);
     try{
       const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(srcKey)+'&order=row_index.asc');
       if(data.length){
         const ins = data.map((r,i)=>({dataset_key:dstKey, row_index:i, data:r.data, origin_count:r.origin_count||0}));
         await sbFetch('POST', TABLE, ins);
+        // FIX: update local cache so the newly loaded dataset reflects copied data
+        if(!FEEDER_DATASETS[dstKey]){
+          FEEDER_DATASETS[dstKey] = {rows:[],dbIds:[],manuallyAdded:new Set(),originCount:0,dupInfo:{},keyColumns:new Set(FEEDER_DEFAULT_KEYS),checked:false};
+        }
+        FEEDER_DATASETS[dstKey].rows = data.map(r=>r.data);
+        FEEDER_DATASETS[dstKey].originCount = data.length ? (data[0].origin_count||0) : 0;
       }
     }catch(e){ console.error('Copy error:', e); }
   }
   hideLoading();
-  currentMain = name;
+
+  // reload to show copied data in current type view
+  await loadFeederDataset();
+  renderFeederTypeTabs();
 }
 
 function confirmRemoveMain(name){
