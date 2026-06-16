@@ -3460,7 +3460,7 @@ function openFeederAddRow(){
   'BR & A Half': {
     'SSMN':       ['SSMN'],
     'TP':      ['01YB-03', '01YS-05', '01YS-06', '01YS-08'],
-    'LINE':    ['BAY_LINE01'],
+    'LINE':    ['01YB-01','01YS-01','01YS-02','01YS-07','01YG-07'],
     'CENTER':  ['BAY_CTR01'],
     'BUS_ZONE':['BAY_BZ01'],
     'RCC':     ['BAY_RCC01'],
@@ -4013,7 +4013,7 @@ const COLMAP = {
 
 // ── Table boundary detection ──────────────────────────────────────────────────
 const COLMAP_CONFIG = {
-  maxConsecutiveBlank: 2,    // stop reading data after N consecutive blank rows
+  maxConsecutiveBlank: 4,    // stop reading data after N consecutive blank rows
   maxDataRows: 2000,         // hard cap per table
   minNonEmptyCells: 1,       // row must have at least N non-empty cells to count as data
   skipRowPatterns: [         // regex patterns — rows matching any are skipped
@@ -4156,47 +4156,64 @@ function isRowBlank(row){
 
 function isRowUnwanted(row, ri){
   const nonEmpty = row.filter(c=>String(c||'').trim()!=='');
-  if(!nonEmpty.length) return true; // blank
+  if(!nonEmpty.length) return true;
 
-  // matches a skip pattern (check first non-empty cell)
   const first = String(nonEmpty[0]).trim();
   if(COLMAP_CONFIG.skipRowPatterns.some(p=>p.test(first))) return true;
 
-  // single cell that looks like a section title / label (all caps or very short)
-  // single cell that looks like a section title / label
   if(nonEmpty.length === 1){
     const upper = first.toUpperCase();
     const isAllCaps = first === upper && first.length >= COLMAP_CONFIG.sectionTitleMinLen;
-    const hasNoDigits = !/\d/.test(first);           // no digits at all
-    const hasNoSlash  = !/[\/\\|]/.test(first);      // no separators typical of point names
+    const hasNoDigits = !/\d/.test(first);
+    const hasNoSlash  = !/[\/\\|]/.test(first);
     const isShortEnough = first.length <= 40;
-    // only skip if: all caps AND no digits AND no separators AND short enough
+
+    // FIX: never skip known DNP3/power system values even if all-caps
+    const KNOWN_DATA_VALUES = new Set([
+      'TRIP','CLOSE','OPEN','NORMAL','ALARM','FAULT','REMOTE','LOCAL',
+      'ON','OFF','ENABLE','DISABLE','ACTIVE','INACTIVE','LATCH','UNLATCH',
+      'SET','RESET','PICKUP','DROPOFF','START','STOP','AUTO','MANUAL',
+      'HIGH','LOW','RAISE','LOWER','BLOCK','UNBLOCK','YES','NO',
+      'TRUE','FALSE','N/A','NA','OK','ERROR','WARNING','UNDEFINED'
+    ]);
+    if(KNOWN_DATA_VALUES.has(upper)) return false;  // ← ADD THIS
+
     if(isAllCaps && hasNoDigits && hasNoSlash && isShortEnough) return true;
   }
 
-  // row has fewer non-empty cells than minimum
   if(nonEmpty.length < COLMAP_CONFIG.minNonEmptyCells) return true;
-
   return false;
 }
 
 
 function isRowNonNumericItem(row, ri){
-  // returns true if the item column exists, is enabled,
-  // and the value in this row is non-numeric / empty
   if(!COLMAP.useItemColCheck) return false;
   if(COLMAP.itemColIdx === null) return false;
-  if(COLMAP.headerRows.includes(ri)) return false; // never flag header rows
+  if(COLMAP.headerRows.includes(ri)) return false;
 
   const val = String(row[COLMAP.itemColIdx] ?? '').trim();
-  if(val === '') return true;                       // empty item cell = unwanted
-  if(!isNaN(val)) return false;                    // numeric = keep
 
-  // allow formats like "1.", "1)", "A1", "I", "II" (roman numerals) — treat as item
-  if(/^\d+[.):]?$/.test(val)) return false;        // "1." "2)" "3:"
-  if(/^[IVXLCDM]+$/i.test(val) && val.length<=5) return false; // roman numerals
+  // FIX: if item cell is empty but another key column has data, keep the row
+  if(val === ''){
+    // check if DNP3_ADDRESS column or point name column has a value
+    const hasKeyData = COLMAP.fileColumns.some((fc, ci) => {
+      const schema = COLMAP.mappings[fc];
+      if(!schema || schema === '— skip —') return false;
+      if(schema === 'DNP3.0_ADDRESS' || schema === 'SPECIFICATION_POINT_NAME'){
+        const cellVal = String(row[COLMAP.colStartIdx[fc] ?? ci] ?? '').trim();
+        return cellVal !== '';
+      }
+      return false;
+    });
+    if(hasKeyData) return false;  // ← keep row if key data exists
+    return true;
+  }
 
-  return true; // non-numeric label → unwanted
+  if(!isNaN(val)) return false;
+  if(/^\d+[.):]?$/.test(val)) return false;
+  if(/^[IVXLCDM]+$/i.test(val) && val.length<=5) return false;
+
+  return true;
 }
 
 function isRowRepeatedHeader(row){
@@ -4438,6 +4455,29 @@ function detectAllTables(allRows){
         dataRowCount++;
         if(pointVal && knownPointNames.size < 20) knownPointNames.add(pointVal);
       }
+    }
+
+    // ADD THIS after the main data scan loop inside detectAllTables, 
+    // just before pushing to tables[]
+
+    // Look-ahead: extend dataEnd if valid rows exist within 5 rows of current end
+    let lookAhead = dataEnd + 1;
+    let laBlank = 0;
+    while(lookAhead < allRows.length && laBlank < 3 && (lookAhead - dataEnd) <= 10){
+      const laRow = allRows[lookAhead];
+      if(isRowBlank(laRow)){ laBlank++; lookAhead++; continue; }
+      laBlank = 0;
+
+      const laSectionType = getSectionLabelFromRow(laRow);
+      if(laSectionType) break;
+      if(rowHeaderScore(laRow) >= 2 && isRowLikelyNewHeader(laRow, hdrCols)) break;
+
+      // if this row would be valid data, extend the boundary
+      if(!isRowUnwanted(laRow, lookAhead) && !isRowNonNumericItem(laRow, lookAhead)){
+        dataEnd = lookAhead;
+        dataRowCount++;
+      }
+      lookAhead++;
     }
       
 
@@ -4812,18 +4852,39 @@ function applyDetectedTable(idx){
   const t = COLMAP.detectedTables[idx];
   if(!t) return;
 
-  // update headerRows from detected table
   COLMAP.headerRows    = [...t.hdrRows];
   COLMAP.headerRowIdx  = t.hdrRows[0] ?? null;
   COLMAP.headerRowIdx2 = t.hdrRows[1] ?? null;
   COLMAP.headerRowIdx3 = t.hdrRows[2] ?? null;
   COLMAP.useDoubleHeader = t.hdrRows.length > 1;
-  COLMAP.activeTableBoundary = { dataStart: t.dataStart, dataEnd: t.dataEnd };
+
+  // FIX: if this is the last detected table, extend dataEnd to end of sheet
+  const isLastTable = idx === COLMAP.detectedTables.length - 1;
+  let extendedEnd = t.dataEnd;
+
+  if(isLastTable){
+    const allRows = COLMAP.allRawRows;
+    // scan forward from detected end to find the true last data row
+    let trailingBlank = 0;
+    for(let r = t.dataEnd + 1; r < allRows.length; r++){
+      const row = allRows[r];
+      if(isRowBlank(row)){ trailingBlank++; if(trailingBlank > 4) break; continue; }
+      trailingBlank = 0;
+      const secType = getSectionLabelFromRow(row);
+      if(secType) break;
+      if(rowHeaderScore(row) >= 2) break;
+      // any non-blank, non-header row at end of sheet = data
+      extendedEnd = r;
+    }
+  }
+
+  COLMAP.activeTableBoundary = {
+    dataStart: t.dataStart,
+    dataEnd:   extendedEnd   // ← use extended end for last table
+  };
 
   if(t.detectedType) COLMAP.targetType = t.detectedType;
 
-
-  // scroll preview to show header row
   renderColMapPreview();
   updateHeaderHint();
   buildFileColumnsAndMap();
