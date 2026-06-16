@@ -300,6 +300,9 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
     </button>
 
     <span style="color:var(--border2);margin:0 4px;font-size:16px">›</span>
+    <span style = "font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-right:4px">Number</span>
+    <div id="numberTabs"></div>
+    <button class="btn-icon" onclick="openAddNumber()">+</button>
 
     <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-right:4px">Main</span>
     <div id="mainTabs" style="display:flex;gap:3px;flex-wrap:wrap"></div>
@@ -991,8 +994,8 @@ function updateBreadcrumb(){
   const el = document.getElementById('breadcrumbText');
   if(!el) return;
   if(currentMode === 'feeder'){
-    el.textContent = [currentSubstation, currentFeeder, currentMain, currentFeederType]
-      .filter(Boolean).join(' › ');
+    el.textContent = [currentSubstation, currentFeeder, currentNumber, currentMain, currentFeederType]
+    .filter(Boolean).join(' › ');
   } else {
     el.textContent = currentDevice + ' › ' + currentType;
   }
@@ -2666,7 +2669,16 @@ const FEEDER_SUBSETS = ["Status Point","Control Output","Analog Point"];
 
 function getFeederNames(sub){ return Object.keys(FEEDER_STRUCTURE[sub]?.feeders || {}); }
 function getSubsetNames(sub,feed){ return FEEDER_STRUCTURE[sub]?.feeders[feed]?.subsets || ["MAIN_01"]; }
-function getMainNames(sub,feed){ return FEEDER_STRUCTURE[sub]?.feeders[feed]?.mains || ["MAIN_01"]; }
+function getMainNames(sub,feed){
+  const f = FEEDER_STRUCTURE[sub]?.feeders[feed];
+  if(!f) return ["MAIN_01"];
+  if(f.hasNumbers){
+    return f.numbers[currentNumber]?.mains || ["MAIN_01"];
+  }
+  return f.mains || ["MAIN_01"];
+}
+// same pattern for getSubsetNames
+
 
 const FEEDER_SCHEMA_MAP = {"Status Point":"status","Control Output":"control","Analog Point":"analog"};
 
@@ -2679,8 +2691,11 @@ let currentFeederType = FEEDER_SUBSETS[0];
 
 const FEEDER_DATASETS = {};
 
+let currentNumber = null; // e.g. "01", "02", or null for flat feeders
+
 function feederKey(sub,feed,subset,main,type){
-  return '__feeder__'+sub+'__'+feed+'__'+subset+'__'+main+'__'+type;
+  const numPart = currentNumber ? '__'+currentNumber : '';
+  return '__feeder__'+sub+'__'+feed+numPart+'__'+subset+'__'+main+'__'+type;
 }
 function currentFeederKey(){
   return feederKey(currentSubstation,currentFeeder,currentSubset,currentMain,currentFeederType);
@@ -2824,6 +2839,72 @@ function openAddSubsetTab(){
   updateBreadcrumb();
 }
 
+function renderNumberTabs(){
+  const wrap = document.getElementById('numberBarWrap');
+  const feedCfg = FEEDER_STRUCTURE[currentSubstation].feeders[currentFeeder];
+  if(!feedCfg.hasNumbers){ wrap.style.display='none'; currentNumber=null; return; }
+  wrap.style.display='flex';
+  const nums = Object.keys(feedCfg.numbers);
+  if(!currentNumber || !nums.includes(currentNumber)) currentNumber = nums[0];
+  document.getElementById('numberTabs').innerHTML = nums.map(n=>
+    `<button class="feeder-tab${n===currentNumber?' active':''}" onclick="switchNumber('${n}')">${n}</button>`
+  ).join('');
+}
+
+async function switchNumber(n){
+  if(!confirmIfDirty('Switch number? Unsaved changes may be lost.')) return;
+  currentNumber = n;
+  currentMain = getMainNames(currentSubstation,currentFeeder)[0]||'MAIN_01';
+  selected=new Set(); hideDupAlert();
+  renderMainTabs(); renderFeederTypeTabs();
+  await loadFeederDataset();
+  updateBreadcrumb();
+}
+
+function openAddNumber(){
+  const name = prompt('Enter number (e.g. 02, 03):');
+  if(!name) return;
+  saveNewNumber(name.trim().padStart(2,'0'));
+}
+
+async function saveNewNumber(num){
+  const feedCfg = FEEDER_STRUCTURE[currentSubstation].feeders[currentFeeder];
+  const nums = Object.keys(feedCfg.numbers);
+  if(nums.includes(num)){ alert('Number "'+num+'" already exists.'); return; }
+
+  const lastNum = nums[nums.length-1];
+  // copy structure (mains/subsets) from last number
+  feedCfg.numbers[num] = JSON.parse(JSON.stringify(feedCfg.numbers[lastNum]));
+
+  await saveFeederConfig();
+
+  // copy data for each main × each type from lastNum → num
+  showLoading('Copying data from '+lastNum+'…');
+  for(const main of feedCfg.numbers[num].mains){
+    for(const subset of feedCfg.numbers[num].subsets){
+      for(const type of FEEDER_SUBSETS){
+        const srcKey = feederKeyFor(currentSubstation,currentFeeder,lastNum,subset,main,type);
+        const dstKey = feederKeyFor(currentSubstation,currentFeeder,num,subset,main,type);
+        const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(srcKey)+'&order=row_index.asc');
+        if(data.length){
+          const ins = data.map((r,i)=>({dataset_key:dstKey, row_index:i, data:r.data, origin_count:r.origin_count||0}));
+          await sbFetch('POST', TABLE, ins);
+        }
+      }
+    }
+  }
+  hideLoading();
+
+  currentNumber = num;
+  renderNumberTabs(); renderMainTabs(); renderFeederTypeTabs();
+  await loadFeederDataset();
+}
+
+// helper that builds key for an arbitrary number (not relying on global currentNumber)
+function feederKeyFor(sub,feed,num,subset,main,type){
+  return '__feeder__'+sub+'__'+feed+(num?'__'+num:'')+'__'+subset+'__'+main+'__'+type;
+}
+
 function renderMainTabs(){
   const mains=currentFeeder?getMainNames(currentSubstation,currentFeeder):[];
   document.getElementById('mainTabs').innerHTML=mains.length
@@ -2853,10 +2934,26 @@ async function saveNewMain(){
   if(!name){alert('Enter a main name.');return;}
   const mains=getMainNames(currentSubstation,currentFeeder);
   if(mains.includes(name)){alert('"'+name+'" already exists in '+currentFeeder+'.');return;}
+  const prevMain = mains[mains.length-1];
   FEEDER_STRUCTURE[currentSubstation].feeders[currentFeeder].mains.push(name);
+  if(currentNumber in FEEDER_STRUCTURE[currentSubstation].feeders[currentFeeder].numbers){
+    FEEDER_STRUCTURE[currentSubstation].feeders[currentFeeder].numbers[currentNumber].mains.push(name);
+  }
   currentMain=name;
   closeModal('addMainModal');
   await saveFeederConfig();renderMainTabs();renderFeederTypeTabs();await loadFeederDataset();
+  showLoading('Copying data from '+prevMain+'…');
+  for(const type of FEEDER_SUBSETS){
+    const srcKey = feederKeyFor(currentSubstation,currentFeeder,currentNumber,currentSubset,prevMain,type);
+    const dstKey = feederKeyFor(currentSubstation,currentFeeder,currentNumber,currentSubset,name,type);
+    const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(srcKey)+'&order=row_index.asc');
+    if(data.length){
+      const ins = data.map((r,i)=>({dataset_key:dstKey, row_index:i, data:r.data, origin_count:r.origin_count||0}));
+      await sbFetch('POST', TABLE, ins);
+    }
+  }
+  hideLoading();
+  currentMain = name;
 }
 
 function renderFeederTypeTabs(){
