@@ -284,36 +284,41 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
 <!-- Feeder mode -->
 <div id="feederSection">
   <!-- Breadcrumb nav bar -->
-  <div style="display:flex;align-items:center;gap:0;background:var(--surface);border:1px solid var(--border2);border-radius:var(--rlg);padding:8px 14px;margin-bottom:12px;flex-wrap:wrap;gap:6px">
-    <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-right:4px">Substation</span>
+  <div style="background:var(--surface);border:1px solid var(--border2);border-radius:var(--rlg);padding:8px 14px;margin-bottom:12px;display:flex;flex-direction:column;gap:8px">
+  
+  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+    <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;width:80px">Substation</span>
     <div id="substationTabs" style="display:flex;gap:3px;flex-wrap:wrap"></div>
-    <button class="btn-icon" onclick="openAddSubstation()" title="Add new substation" style="width:22px;height:22px">
-      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    </button>
-
-    <span style="color:var(--border2);margin:0 4px;font-size:16px">›</span>
-
-    <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-right:4px">Feeder</span>
-    <div id="feederTabs" style="display:flex;gap:3px;flex-wrap:wrap"></div>
-    <button class="btn-icon" onclick="openAddFeeder()" title="Add new feeder" style="width:22px;height:22px">
-      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    </button>
-
-    <span style="color:var(--border2);margin:0 4px;font-size:16px" id="numberSeparator">›</span>
-    <div id="numberBarWrap" style="display:flex;align-items:center;gap:3px">
-      <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-right:4px">Number</span>
-      <div id="numberTabs" style="display:flex;gap:3px;flex-wrap:wrap"></div>
-      <button class="btn-icon" onclick="openAddNumber()" style="width:22px;height:22px">
-        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      </button>
-    </div>
-
-    <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-right:4px">Main</span>
-    <div id="mainTabs" style="display:flex;gap:3px;flex-wrap:wrap"></div>
-    <button class="btn-icon" onclick="openAddMain()" title="Add new main" style="width:22px;height:22px">
+    <button class="btn-icon" onclick="openAddSubstation()" style="width:22px;height:22px">
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </button>
   </div>
+
+  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+    <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;width:80px">Feeder</span>
+    <div id="feederTabs" style="display:flex;gap:3px;flex-wrap:wrap"></div>
+    <button class="btn-icon" onclick="openAddFeeder()" style="width:22px;height:22px">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+  </div>
+
+  <div id="numberBarWrap" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
+    <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;width:80px">Number</span>
+    <div id="numberTabs" style="display:flex;gap:3px;flex-wrap:wrap"></div>
+    <button class="btn-icon" onclick="openAddNumber()" style="width:22px;height:22px">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+    <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;width:80px">Main</span>
+    <div id="mainTabs" style="display:flex;gap:3px;flex-wrap:wrap"></div>
+    <button class="btn-icon" onclick="openAddMain()" style="width:22px;height:22px">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+  </div>
+
+</div>
 
   <!-- Subset bar (hidden when only 1 subset) -->
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap" id="subsetBarWrap">
