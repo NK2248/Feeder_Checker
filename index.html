@@ -1187,19 +1187,31 @@ function showManualRouteModal(filename, partialRoute) {
   // NOTE: when partialRoute.type is null, the placeholder "<option selected disabled>"
   // is already the default selected state — no .value assignment needed
 
+  // call once, then restore detected values
   mrUpdateFeeders();
 
   if (partialRoute?.feeder) {
-    const sel = document.getElementById('mrFeeder');
-    if ([...sel.options].some(o => o.value === partialRoute.feeder)) {
-      sel.value = partialRoute.feeder;
+    const feederSel = document.getElementById('mrFeeder');
+    if ([...feederSel.options].some(o => o.value === partialRoute.feeder)) {
+      feederSel.value = partialRoute.feeder;
     }
   }
-  mrUpdateFeeders();
+
+  // now update numbers based on the (possibly restored) feeder
+  mrUpdateNumbers();
+
+  if (partialRoute?.number) {
+    const numSel = document.getElementById('mrNumber');
+    if (numSel && [...numSel.options].some(o => o.value === partialRoute.number)) {
+      numSel.value = partialRoute.number;
+    }
+    mrUpdateMains();
+  }
+
   if (partialRoute?.main) {
-    const sel = document.getElementById('mrMain');
-    if ([...sel.options].some(o => o.value === partialRoute.main)) {
-      sel.value = partialRoute.main;
+    const mainSel = document.getElementById('mrMain');
+    if ([...mainSel.options].some(o => o.value === partialRoute.main)) {
+      mainSel.value = partialRoute.main;
     }
   }
 
@@ -1332,6 +1344,7 @@ async function doManualRouteImport(importMode) {
     // Only update globals AFTER validation passes
     currentSubstation = route.substation;
     currentFeeder     = route.feeder;
+    currentNumber     = route.number ?? null;
     currentMain       = route.main;
     currentSubset     = route.subset;
     currentFeederType = route.type || 'Status Point';
@@ -1355,6 +1368,7 @@ async function doManualRouteImport(importMode) {
     selected = new Set(); hideDupAlert();
 
     renderSubstationTabs(); renderFeederTabs();
+    renderNumberTabs();
     renderSubsetTabs(); renderMainTabs(); renderFeederTypeTabs();
     renderFeederTable(); renderFeederStats();
 
