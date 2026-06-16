@@ -2204,19 +2204,30 @@ function renderAll(){
     await loadConfig();
     await loadFeederConfig();
 
+    // Wait — loadFeederConfig() already ran above, so FEEDER_STRUCTURE is now from DB
     const firstSub = Object.keys(FEEDER_STRUCTURE)[0];
     if(firstSub){
       currentSubstation = firstSub;
       currentFeeder     = getFeederNames(firstSub)[0] || null;
-      currentSubset     = currentFeeder ? (getSubsetNames(firstSub, currentFeeder)[0] || 'MAIN_01') : 'MAIN_01';
-      currentMain       = currentFeeder ? (getMainNames(firstSub, currentFeeder)[0] || 'MAIN_01') : 'MAIN_01';
+      // set currentNumber for numbered feeders
+      if(currentFeeder){
+        const feedCfg = FEEDER_STRUCTURE[firstSub]?.feeders[currentFeeder];
+        if(feedCfg?.hasNumbers){
+          currentNumber = Object.keys(feedCfg.numbers)[0];
+        } else {
+          currentNumber = null;
+      }
     }
+    currentSubset = currentFeeder ? (getSubsetNames(firstSub, currentFeeder)[0] || 'MAIN_01') : 'MAIN_01';
+    currentMain   = currentFeeder ? (getMainNames(firstSub, currentFeeder)[0] || 'MAIN_01') : 'MAIN_01';
+}
 
-    renderSubstationTabs();
-    renderFeederTabs();
-    renderSubsetTabs();
-    renderMainTabs();
-    renderFeederTypeTabs();
+renderSubstationTabs();
+renderFeederTabs();
+renderNumberTabs();   // ← ADD THIS
+renderSubsetTabs();
+renderMainTabs();
+renderFeederTypeTabs();
 
     if(currentFeeder){
       await loadFeederDataset();
@@ -2765,8 +2776,7 @@ function switchMode(mode){
   }
 
   if(mode==='feeder'){
-    renderSubstationTabs();renderFeederTabs();renderSubsetTabs();renderMainTabs();renderFeederTypeTabs();
-    loadFeederDataset();
+    renderSubstationTabs();renderFeederTabs();renderNumberTabs();renderSubsetTabs();renderMainTabs();renderFeederTypeTabs();loadFeederDataset();
   } else {
     renderAll();
   }
