@@ -2882,22 +2882,21 @@ function openAddSubsetTab(){
 
 function renderNumberTabs(){
   const wrap = document.getElementById('numberBarWrap');
-  const sep  = document.getElementById('numberSeparator');
   const feedCfg = FEEDER_STRUCTURE[currentSubstation]?.feeders[currentFeeder];
-  if(!feedCfg || !feedCfg.hasNumbers){
-    wrap.style.display='none';
-    if(sep) sep.style.display='none';
-    currentNumber=null;
-    return;
-  }
+  if(!feedCfg || !feedCfg.hasNumbers){ wrap.style.display='none'; currentNumber=null; return; }
   wrap.style.display='flex';
-  if(sep) sep.style.display='';
   const nums = Object.keys(feedCfg.numbers);
   if(!currentNumber || !nums.includes(currentNumber)) currentNumber = nums[0];
-  document.getElementById('numberTabs').innerHTML = nums.map(n=>
-    `<button class="feeder-tab${n===currentNumber?' active':''}" onclick="switchNumber('${n}')">${n}</button>`
-  ).join('');
+  document.getElementById('numberTabs').innerHTML = nums.map(n => {
+    const isUser = feedCfg.numbers[n]?._userAdded;
+    return `<div style="display:inline-flex;align-items:center;gap:2px">
+      <button class="feeder-tab${n===currentNumber?' active':''}" onclick="switchNumber('${n}')">${n}</button>
+      ${isUser ? `<button onclick="confirmRemoveNumber('${n}')"
+        style="width:14px;height:14px;border-radius:50%;border:none;background:var(--red-bg);color:var(--red);cursor:pointer;font-size:9px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0" title="Remove number">×</button>` : ''}
+    </div>`;
+  }).join('');
 }
+
 
 async function switchNumber(n){
   if(!confirmIfDirty('Switch number? Unsaved changes may be lost.')) return;
@@ -2921,12 +2920,10 @@ async function saveNewNumber(num){
   if(nums.includes(num)){ alert('Number "'+num+'" already exists.'); return; }
 
   const lastNum = nums[nums.length-1];
-  // copy structure (mains/subsets) from last number
   feedCfg.numbers[num] = JSON.parse(JSON.stringify(feedCfg.numbers[lastNum]));
+  feedCfg.numbers[num]._userAdded = true;  // ← mark as user-added
 
   await saveFeederConfig();
-
-  // copy data for each main × each type from lastNum → num
   showLoading('Copying data from '+lastNum+'…');
   for(const main of feedCfg.numbers[num].mains){
     for(const subset of feedCfg.numbers[num].subsets){
@@ -2942,7 +2939,6 @@ async function saveNewNumber(num){
     }
   }
   hideLoading();
-
   currentNumber = num;
   renderNumberTabs(); renderMainTabs(); renderFeederTypeTabs();
   await loadFeederDataset();
@@ -2954,11 +2950,22 @@ function feederKeyFor(sub,feed,num,subset,main,type){
 }
 
 function renderMainTabs(){
-  const mains=currentFeeder?getMainNames(currentSubstation,currentFeeder):[];
-  document.getElementById('mainTabs').innerHTML=mains.length
-    ?mains.map(m=>`<button class="main-tab${m===currentMain?' active':''}" onclick="switchMain('${m}')">${m}</button>`).join('')
-    :`<span style="font-size:11px;font-family:var(--mono);color:var(--text3);padding:4px 8px;opacity:.6">no mains yet — click + to add</span>`;
+  const mains = currentFeeder ? getMainNames(currentSubstation, currentFeeder) : [];
+  const feedCfg = FEEDER_STRUCTURE[currentSubstation]?.feeders[currentFeeder];
+  const userMains = new Set(feedCfg?._userMains || feedCfg?.numbers?.[currentNumber]?._userMains || []);
+
+  document.getElementById('mainTabs').innerHTML = mains.length
+    ? mains.map(m => {
+        const isUser = userMains.has(m);
+        return `<div style="display:inline-flex;align-items:center;gap:2px">
+          <button class="main-tab${m===currentMain?' active':''}" onclick="switchMain('${m}')">${m}</button>
+          ${isUser ? `<button onclick="confirmRemoveMain('${m}')"
+            style="width:14px;height:14px;border-radius:50%;border:none;background:var(--red-bg);color:var(--red);cursor:pointer;font-size:9px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0" title="Remove main">×</button>` : ''}
+        </div>`;
+      }).join('')
+    : `<span style="font-size:11px;font-family:var(--mono);color:var(--text3);padding:4px 8px;opacity:.6">no mains yet</span>`;
 }
+
 
 async function switchMain(m){
   if(!confirmIfDirty('Switch main? Unsaved changes may be lost.')) return;
@@ -2984,18 +2991,19 @@ async function saveNewMain(){
   const mains = getMainNames(currentSubstation, currentFeeder);
   if(mains.includes(name)){ alert('"'+name+'" already exists in '+currentFeeder+'.'); return; }
   const prevMain = mains[mains.length-1];
-
   const feedCfg = FEEDER_STRUCTURE[currentSubstation].feeders[currentFeeder];
 
-  // For flat feeders (no numbers), push directly to mains array
   if(!feedCfg.hasNumbers){
     if(!feedCfg.mains) feedCfg.mains = ['MAIN_01'];
     feedCfg.mains.push(name);
+    if(!feedCfg._userMains) feedCfg._userMains = [];   // ← track user-added
+    feedCfg._userMains.push(name);
   } else {
-    // For numbered feeders, push to the current number's mains
     if(feedCfg.numbers[currentNumber]){
       if(!feedCfg.numbers[currentNumber].mains) feedCfg.numbers[currentNumber].mains = ['MAIN_01'];
       feedCfg.numbers[currentNumber].mains.push(name);
+      if(!feedCfg.numbers[currentNumber]._userMains) feedCfg.numbers[currentNumber]._userMains = [];
+      feedCfg.numbers[currentNumber]._userMains.push(name);
     }
   }
 
@@ -3005,12 +3013,10 @@ async function saveNewMain(){
   renderMainTabs();
   renderFeederTypeTabs();
   await loadFeederDataset();
-
-  // Copy data from previous main
   showLoading('Copying data from '+prevMain+'…');
   for(const type of FEEDER_SUBSETS){
-    const srcKey = feederKeyFor(currentSubstation, currentFeeder, currentNumber, currentSubset, prevMain, type);
-    const dstKey = feederKeyFor(currentSubstation, currentFeeder, currentNumber, currentSubset, name, type);
+    const srcKey = feederKeyFor(currentSubstation,currentFeeder,currentNumber,currentSubset,prevMain,type);
+    const dstKey = feederKeyFor(currentSubstation,currentFeeder,currentNumber,currentSubset,name,type);
     try{
       const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(srcKey)+'&order=row_index.asc');
       if(data.length){
@@ -3021,6 +3027,65 @@ async function saveNewMain(){
   }
   hideLoading();
   currentMain = name;
+}
+
+function confirmRemoveMain(name){
+  document.getElementById('confirmMsg').textContent =
+    `Remove main "${name}" and all its data from "${currentFeeder}"? This cannot be undone.`;
+  document.getElementById('confirmOkBtn').onclick = () => doRemoveMain(name);
+  document.getElementById('confirmModal').classList.add('open');
+}
+
+async function doRemoveMain(name){
+  showLoading('Deleting main data…');
+  for(const type of FEEDER_SUBSETS){
+    const k = feederKeyFor(currentSubstation, currentFeeder, currentNumber, currentSubset, name, type);
+    try{ await sbFetch('DELETE', TABLE+'?dataset_key=eq.'+encodeURIComponent(k)); }catch(e){}
+  }
+  const feedCfg = FEEDER_STRUCTURE[currentSubstation].feeders[currentFeeder];
+  if(!feedCfg.hasNumbers){
+    feedCfg.mains = feedCfg.mains.filter(m => m !== name);
+    if(feedCfg._userMains) feedCfg._userMains = feedCfg._userMains.filter(m => m !== name);
+  } else {
+    const nc = feedCfg.numbers[currentNumber];
+    if(nc){ nc.mains = nc.mains.filter(m => m !== name); if(nc._userMains) nc._userMains = nc._userMains.filter(m=>m!==name); }
+  }
+  if(currentMain === name) currentMain = getMainNames(currentSubstation, currentFeeder)[0] || 'MAIN_01';
+  await saveFeederConfig();
+  hideLoading();
+  closeModal('confirmModal');
+  renderMainTabs(); renderFeederTypeTabs();
+  await loadFeederDataset();
+}
+
+function confirmRemoveNumber(num){
+  document.getElementById('confirmMsg').textContent =
+    `Remove number "${num}" and all its data from "${currentFeeder}"? This cannot be undone.`;
+  document.getElementById('confirmOkBtn').onclick = () => doRemoveNumber(num);
+  document.getElementById('confirmModal').classList.add('open');
+}
+
+async function doRemoveNumber(num){
+  showLoading('Deleting number data…');
+  const feedCfg = FEEDER_STRUCTURE[currentSubstation].feeders[currentFeeder];
+  const nc = feedCfg.numbers[num];
+  if(nc){
+    for(const main of nc.mains || ['MAIN_01']){
+      for(const subset of nc.subsets || ['MAIN_01']){
+        for(const type of FEEDER_SUBSETS){
+          const k = feederKeyFor(currentSubstation, currentFeeder, num, subset, main, type);
+          try{ await sbFetch('DELETE', TABLE+'?dataset_key=eq.'+encodeURIComponent(k)); }catch(e){}
+        }
+      }
+    }
+  }
+  delete feedCfg.numbers[num];
+  if(currentNumber === num) currentNumber = Object.keys(feedCfg.numbers)[0] || null;
+  await saveFeederConfig();
+  hideLoading();
+  closeModal('confirmModal');
+  renderNumberTabs(); renderMainTabs(); renderFeederTypeTabs();
+  await loadFeederDataset();
 }
 
 function confirmRemoveSubstation(name){
@@ -3543,13 +3608,34 @@ async function loadFeederConfig(){
       const s = data[0].data.structure;
       Object.entries(s).forEach(([sub, val]) => {
         if(!FEEDER_STRUCTURE[sub]){
-          // user-added substation — restore it
+          // fully user-added substation — restore entirely
           FEEDER_STRUCTURE[sub] = val;
         } else {
-          // hardcoded substation — only restore user-added feeders
+          // hardcoded substation — restore user-added feeders
           Object.entries(val.feeders || {}).forEach(([feed, fcfg]) => {
             if(fcfg._userAdded && !FEEDER_STRUCTURE[sub].feeders[feed]){
               FEEDER_STRUCTURE[sub].feeders[feed] = fcfg;
+            } else if(FEEDER_STRUCTURE[sub].feeders[feed]){
+              const localFeed = FEEDER_STRUCTURE[sub].feeders[feed];
+              // restore user-added mains for flat feeders
+              if(fcfg._userMains){
+                if(!localFeed._userMains) localFeed._userMains = [];
+                fcfg._userMains.forEach(m => {
+                  if(!localFeed.mains) localFeed.mains = ['MAIN_01'];
+                  if(!localFeed.mains.includes(m)){
+                    localFeed.mains.push(m);
+                    localFeed._userMains.push(m);
+                  }
+                });
+              }
+              // restore user-added numbers for numbered feeders
+              if(localFeed.hasNumbers && fcfg.numbers){
+                Object.entries(fcfg.numbers).forEach(([num, ncfg]) => {
+                  if(ncfg._userAdded && !localFeed.numbers[num]){
+                    localFeed.numbers[num] = ncfg;
+                  }
+                });
+              }
             }
           });
         }
