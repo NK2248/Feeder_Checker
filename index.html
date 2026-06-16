@@ -2785,9 +2785,16 @@ function switchMode(mode){
 
 function renderSubstationTabs(){
   document.getElementById('substationTabs').innerHTML =
-    Object.keys(FEEDER_STRUCTURE).map(s=>
-      `<button style="padding:4px 12px;border-radius:var(--r);border:1px solid ${s===currentSubstation?'var(--accent)':'var(--border2)'};background:${s===currentSubstation?'var(--accent)':'transparent'};color:${s===currentSubstation?'#fff':'var(--text2)'};cursor:pointer;font-size:12px;font-family:var(--font);font-weight:500;transition:all .15s;white-space:nowrap" onclick="switchSubstation('${s.replace(/'/g,"\\'")}')">${s}</button>`
-    ).join('');
+    Object.entries(FEEDER_STRUCTURE).map(([s, cfg]) => {
+      const isUser = cfg._userAdded;
+      const isActive = s === currentSubstation;
+      return `<div style="display:inline-flex;align-items:center;gap:2px">
+        <button style="padding:4px 12px;border-radius:var(--r);border:1px solid ${isActive?'var(--accent)':'var(--border2)'};background:${isActive?'var(--accent)':'transparent'};color:${isActive?'#fff':'var(--text2)'};cursor:pointer;font-size:12px;font-family:var(--font);font-weight:500;transition:all .15s;white-space:nowrap"
+          onclick="switchSubstation('${s.replace(/'/g,"\\'")}'")">${s}</button>
+        ${isUser ? `<button onclick="confirmRemoveSubstation('${s.replace(/'/g,"\\'")}'")"
+          style="width:16px;height:16px;border-radius:50%;border:none;background:var(--red-bg);color:var(--red);cursor:pointer;font-size:10px;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0" title="Remove substation">×</button>` : ''}
+      </div>`;
+    }).join('');
 }
 
 async function switchSubstation(s){
@@ -2809,9 +2816,15 @@ async function switchSubstation(s){
 
 function renderFeederTabs(){
   document.getElementById('feederTabs').innerHTML =
-    getFeederNames(currentSubstation).map(f=>
-      `<button class="feeder-tab${f===currentFeeder?' active':''}" onclick="switchFeeder('${f.replace(/'/g,"\\'")}')">${f}</button>`
-    ).join('');
+    Object.entries(FEEDER_STRUCTURE[currentSubstation]?.feeders || {}).map(([f, cfg]) => {
+      const isUser = cfg._userAdded;
+      const isActive = f === currentFeeder;
+      return `<div style="display:inline-flex;align-items:center;gap:2px">
+        <button class="feeder-tab${isActive?' active':''}" onclick="switchFeeder('${f.replace(/'/g,"\\'")}'")">${f}</button>
+        ${isUser ? `<button onclick="confirmRemoveFeeder('${f.replace(/'/g,"\\'")}'")"
+          style="width:16px;height:16px;border-radius:50%;border:none;background:var(--red-bg);color:var(--red);cursor:pointer;font-size:10px;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0" title="Remove feeder">×</button>` : ''}
+      </div>`;
+    }).join('');
 }
 
 async function switchFeeder(f){
@@ -2985,6 +2998,60 @@ async function saveNewMain(){
   }
   hideLoading();
   currentMain = name;
+}
+
+function confirmRemoveSubstation(name){
+  document.getElementById('confirmMsg').textContent =
+    `Remove substation "${name}" and ALL its feeder data? This cannot be undone.`;
+  document.getElementById('confirmOkBtn').onclick = () => doRemoveSubstation(name);
+  document.getElementById('confirmModal').classList.add('open');
+}
+
+async function doRemoveSubstation(name){
+  // delete all feeder datasets under this substation
+  const feeders = getFeederNames(name);
+  showLoading('Deleting substation data…');
+  for(const feed of feeders){
+    for(const type of FEEDER_SUBSETS){
+      const k = '__feeder__'+name+'__'+feed+'__MAIN_01__MAIN_01__'+type;
+      try{ await sbFetch('DELETE', TABLE+'?dataset_key=eq.'+encodeURIComponent(k)); }catch(e){}
+    }
+  }
+  delete FEEDER_STRUCTURE[name];
+  if(currentSubstation === name){
+    currentSubstation = Object.keys(FEEDER_STRUCTURE)[0] || '';
+    currentFeeder = currentSubstation ? getFeederNames(currentSubstation)[0] || null : null;
+  }
+  await saveFeederConfig();
+  hideLoading();
+  closeModal('confirmModal');
+  renderSubstationTabs(); renderFeederTabs(); renderMainTabs(); renderFeederTypeTabs();
+  if(currentFeeder) await loadFeederDataset();
+}
+
+function confirmRemoveFeeder(name){
+  document.getElementById('confirmMsg').textContent =
+    `Remove feeder "${name}" and ALL its data from "${currentSubstation}"? This cannot be undone.`;
+  document.getElementById('confirmOkBtn').onclick = () => doRemoveFeeder(name);
+  document.getElementById('confirmModal').classList.add('open');
+}
+
+async function doRemoveFeeder(name){
+  showLoading('Deleting feeder data…');
+  for(const type of FEEDER_SUBSETS){
+    const k = '__feeder__'+currentSubstation+'__'+name+'__MAIN_01__MAIN_01__'+type;
+    try{ await sbFetch('DELETE', TABLE+'?dataset_key=eq.'+encodeURIComponent(k)); }catch(e){}
+  }
+  delete FEEDER_STRUCTURE[currentSubstation].feeders[name];
+  if(currentFeeder === name){
+    currentFeeder = getFeederNames(currentSubstation)[0] || null;
+    currentMain = currentFeeder ? getMainNames(currentSubstation, currentFeeder)[0] || 'MAIN_01' : null;
+  }
+  await saveFeederConfig();
+  hideLoading();
+  closeModal('confirmModal');
+  renderFeederTabs(); renderMainTabs(); renderFeederTypeTabs();
+  if(currentFeeder) await loadFeederDataset();
 }
 
 function renderFeederTypeTabs(){
@@ -3415,24 +3482,27 @@ function runFeederDupCheck(col){
 // ── Add Substation / Feeder ───────────────────────────────────────────────────
 function openAddSubstation(){document.getElementById('newSubstationName').value='';document.getElementById('addSubstationModal').classList.add('open');}
 async function saveNewSubstation(){
-  const name=document.getElementById('newSubstationName').value.trim();
-  if(!name){alert('Enter a substation name.');return;}
-  if(FEEDER_STRUCTURE[name]){alert('Substation "'+name+'" already exists.');return;}
-  FEEDER_STRUCTURE[name]={feeders:{}};currentSubstation=name;currentFeeder=null;currentMain=null;
-  closeModal('addSubstationModal');await saveFeederConfig();
-  renderSubstationTabs();renderFeederTabs();renderMainTabs();renderFeederTypeTabs();
-  document.getElementById('tableArea').innerHTML='<div class="empty"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg><p>New substation created</p><span>Add feeders using the + button.</span></div>';
+  const name = document.getElementById('newSubstationName').value.trim();
+  if(!name){ alert('Enter a substation name.'); return; }
+  if(FEEDER_STRUCTURE[name]){ alert('Substation "'+name+'" already exists.'); return; }
+  FEEDER_STRUCTURE[name] = { feeders:{}, _userAdded: true };  // ← add flag
+  currentSubstation=name; currentFeeder=null; currentMain=null;
+  closeModal('addSubstationModal'); await saveFeederConfig();
+  renderSubstationTabs(); renderFeederTabs(); renderMainTabs(); renderFeederTypeTabs();
+  document.getElementById('tableArea').innerHTML='<div class="empty">...</div>';
 }
 
 function openAddFeeder(){document.getElementById('addFeederSubstationName').textContent=currentSubstation;document.getElementById('newFeederName').value='';document.getElementById('addFeederModal').classList.add('open');}
 async function saveNewFeeder(){
-  const name=document.getElementById('newFeederName').value.trim();
-  if(!name){alert('Enter a feeder name.');return;}
-  if(Object.keys(FEEDER_STRUCTURE[currentSubstation].feeders).includes(name)){alert('Feeder "'+name+'" already exists.');return;}
-  FEEDER_STRUCTURE[currentSubstation].feeders[name]={subsets:["MAIN_01"],mains:["MAIN_01"]};
-  currentFeeder=name;currentSubset="MAIN_01";currentMain="MAIN_01";currentFeederType=FEEDER_SUBSETS[0];
-  closeModal('addFeederModal');await saveFeederConfig();
-  renderFeederTabs();renderSubsetTabs();renderMainTabs();renderFeederTypeTabs();await loadFeederDataset();
+  const name = document.getElementById('newFeederName').value.trim();
+  if(!name){ alert('Enter a feeder name.'); return; }
+  if(Object.keys(FEEDER_STRUCTURE[currentSubstation].feeders).includes(name)){ alert('Feeder "'+name+'" already exists.'); return; }
+  FEEDER_STRUCTURE[currentSubstation].feeders[name] = {
+    subsets:["MAIN_01"], mains:["MAIN_01"], _userAdded: true  // ← add flag
+  };
+  currentFeeder=name; currentSubset="MAIN_01"; currentMain="MAIN_01"; currentFeederType=FEEDER_SUBSETS[0];
+  closeModal('addFeederModal'); await saveFeederConfig();
+  renderFeederTabs(); renderSubsetTabs(); renderMainTabs(); renderFeederTypeTabs(); await loadFeederDataset();
 }
 
 async function saveFeederConfig(){
@@ -3448,13 +3518,18 @@ async function loadFeederConfig(){
     const data = await sbFetch('GET', TABLE+'?dataset_key=eq.__feeder_config__&limit=1');
     if(data && data.length){
       const s = data[0].data.structure;
-      // Only merge NEW substations/feeders not in hardcoded structure
       Object.entries(s).forEach(([sub, val]) => {
         if(!FEEDER_STRUCTURE[sub]){
-          // completely new substation added at runtime — keep it
+          // user-added substation — restore it
           FEEDER_STRUCTURE[sub] = val;
+        } else {
+          // hardcoded substation — only restore user-added feeders
+          Object.entries(val.feeders || {}).forEach(([feed, fcfg]) => {
+            if(fcfg._userAdded && !FEEDER_STRUCTURE[sub].feeders[feed]){
+              FEEDER_STRUCTURE[sub].feeders[feed] = fcfg;
+            }
+          });
         }
-        // existing substations: skip DB version, trust hardcoded structure
       });
     }
   } catch(e){ console.error('Feeder config load error:', e); }
