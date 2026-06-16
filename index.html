@@ -792,7 +792,7 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
       <div class="fgrid">
         <div class="frow"><label>Substation</label><select id="mrSubstation" onchange="mrUpdateFeeders()" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select></div>
         <div class="frow"><label>Feeder</label><select id="mrFeeder" onchange="mrUpdateMains()" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select></div>
-        <div class="frow" id="mrNumberRow" style="display:none"><label>Number</label><select id="mrNumber" onchange="mrUpdateMains()" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select></div>
+        <div class="frow"><label>Number</label><select id="mrNumber" onchange="mrUpdateMains()" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select></div>
         <div class="frow"><label>Main</label><select id="mrMain" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select></div>
         <div class="frow"><label>Type</label><select id="mrTypeFeeder" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select></div>
       </div>
@@ -1195,7 +1195,7 @@ function showManualRouteModal(filename, partialRoute) {
       sel.value = partialRoute.feeder;
     }
   }
-  mrUpdateMains();
+  mrUpdateFeeders();
   if (partialRoute?.main) {
     const sel = document.getElementById('mrMain');
     if ([...sel.options].some(o => o.value === partialRoute.main)) {
@@ -1220,16 +1220,43 @@ function mrUpdateFeeders() {
   feederSel.innerHTML = feeders.length
     ? feeders.map(f => `<option value="${f}">${f}</option>`).join('')
     : `<option value="">— no feeders yet —</option>`;
+  mrUpdateNumbers(); // ← call this instead of mrUpdateMains directly
+}
+
+function mrUpdateNumbers() {
+  const sub  = document.getElementById('mrSubstation').value;
+  const feed = document.getElementById('mrFeeder').value;
+  const feedCfg = FEEDER_STRUCTURE[sub]?.feeders[feed];
+  const numRow = document.getElementById('mrNumberRow');
+  const numSel = document.getElementById('mrNumber');
+
+  if(feedCfg?.hasNumbers) {
+    numRow.style.display = 'flex';
+    const nums = Object.keys(feedCfg.numbers);
+    numSel.innerHTML = nums.map(n => `<option value="${n}">${n}</option>`).join('');
+  } else {
+    numRow.style.display = 'none';
+    numSel.innerHTML = '';
+  }
   mrUpdateMains();
 }
+
 
 function mrUpdateMains() {
   const sub  = document.getElementById('mrSubstation').value;
   const feed = document.getElementById('mrFeeder').value;
-  const mains = feed ? getMainNames(sub, feed) : [];
-  document.getElementById('mrMain').innerHTML = mains.length
-    ? mains.map(m => `<option value="${m}">${m}</option>`).join('')
-    : `<option value="MAIN_01">MAIN_01</option>`;
+  const feedCfg = FEEDER_STRUCTURE[sub]?.feeders[feed];
+  const numSel = document.getElementById('mrNumber');
+  
+  let mains = ['MAIN_01'];
+  if(feedCfg?.hasNumbers) {
+    const num = numSel?.value;
+    mains = feedCfg.numbers[num]?.mains || ['MAIN_01'];
+  } else {
+    mains = feedCfg?.mains || ['MAIN_01'];
+  }
+  document.getElementById('mrMain').innerHTML = mains
+    .map(m => `<option value="${m}">${m}</option>`).join('');
 }
 
 // FIX 3: doManualRouteImport — guard prevents writing to wrong feeder/substation
@@ -1241,6 +1268,10 @@ async function doManualRouteImport(importMode) {
     const sub  = document.getElementById('mrSubstation').value;
     const feed = document.getElementById('mrFeeder').value;
     const type = document.getElementById('mrTypeFeeder').value;
+    const feedCfg = FEEDER_STRUCTURE[sub]?.feeders[feed];
+    const num = feedCfg?.hasNumbers
+      ? (document.getElementById('mrNumber')?.value || null)
+      : null;
 
     // GUARD: feeder must be selected and must exist in structure
     if (!feed || feed === '') {
@@ -1264,6 +1295,7 @@ async function doManualRouteImport(importMode) {
       main:        document.getElementById('mrMain').value || 'MAIN_01',
       subset:      document.getElementById('mrMain').value || 'MAIN_01',
       type:        type,
+      number: num,
     };
   } else {
     const device = document.getElementById('mrDevice').value;
