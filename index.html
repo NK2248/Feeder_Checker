@@ -2790,8 +2790,10 @@ function renderSubstationTabs(){
       const isActive = s === currentSubstation;
       return `<div style="display:inline-flex;align-items:center;gap:2px">
         <button style="padding:4px 12px;border-radius:var(--r);border:1px solid ${isActive?'var(--accent)':'var(--border2)'};background:${isActive?'var(--accent)':'transparent'};color:${isActive?'#fff':'var(--text2)'};cursor:pointer;font-size:12px;font-family:var(--font);font-weight:500;transition:all .15s;white-space:nowrap"
-          onclick="switchSubstation('${s.replace(/'/g,"\\'")}'")">${s}</button>
-        ${isUser ? `<button onclick="confirmRemoveSubstation('${s.replace(/'/g,"\\'")}'")"
+          onclick="switchSubstation('${s.replace(/'/g,"\\'")}')">
+          ${s}
+        </button>
+        ${isUser ? `<button onclick="confirmRemoveSubstation('${s.replace(/'/g,"\\'")}');"
           style="width:16px;height:16px;border-radius:50%;border:none;background:var(--red-bg);color:var(--red);cursor:pointer;font-size:10px;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0" title="Remove substation">×</button>` : ''}
       </div>`;
     }).join('');
@@ -2820,8 +2822,10 @@ function renderFeederTabs(){
       const isUser = cfg._userAdded;
       const isActive = f === currentFeeder;
       return `<div style="display:inline-flex;align-items:center;gap:2px">
-        <button class="feeder-tab${isActive?' active':''}" onclick="switchFeeder('${f.replace(/'/g,"\\'")}'")">${f}</button>
-        ${isUser ? `<button onclick="confirmRemoveFeeder('${f.replace(/'/g,"\\'")}'")"
+        <button class="feeder-tab${isActive?' active':''}" onclick="switchFeeder('${f.replace(/'/g,"\\'")}')">
+          ${f}
+        </button>
+        ${isUser ? `<button onclick="confirmRemoveFeeder('${f.replace(/'/g,"\\'")}');"
           style="width:16px;height:16px;border-radius:50%;border:none;background:var(--red-bg);color:var(--red);cursor:pointer;font-size:10px;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0" title="Remove feeder">×</button>` : ''}
       </div>`;
     }).join('');
@@ -2973,28 +2977,47 @@ function openAddMain(){
   document.getElementById('newMainName').value='MAIN_'+String(nextNum).padStart(2,'0');
   document.getElementById('addMainModal').classList.add('open');
 }
+
 async function saveNewMain(){
-  const name=document.getElementById('newMainName').value.trim().toUpperCase();
-  if(!name){alert('Enter a main name.');return;}
-  const mains=getMainNames(currentSubstation,currentFeeder);
-  if(mains.includes(name)){alert('"'+name+'" already exists in '+currentFeeder+'.');return;}
+  const name = document.getElementById('newMainName').value.trim().toUpperCase();
+  if(!name){ alert('Enter a main name.'); return; }
+  const mains = getMainNames(currentSubstation, currentFeeder);
+  if(mains.includes(name)){ alert('"'+name+'" already exists in '+currentFeeder+'.'); return; }
   const prevMain = mains[mains.length-1];
-  FEEDER_STRUCTURE[currentSubstation].feeders[currentFeeder].mains.push(name);
-  if(currentNumber in FEEDER_STRUCTURE[currentSubstation].feeders[currentFeeder].numbers){
-    FEEDER_STRUCTURE[currentSubstation].feeders[currentFeeder].numbers[currentNumber].mains.push(name);
+
+  const feedCfg = FEEDER_STRUCTURE[currentSubstation].feeders[currentFeeder];
+
+  // For flat feeders (no numbers), push directly to mains array
+  if(!feedCfg.hasNumbers){
+    if(!feedCfg.mains) feedCfg.mains = ['MAIN_01'];
+    feedCfg.mains.push(name);
+  } else {
+    // For numbered feeders, push to the current number's mains
+    if(feedCfg.numbers[currentNumber]){
+      if(!feedCfg.numbers[currentNumber].mains) feedCfg.numbers[currentNumber].mains = ['MAIN_01'];
+      feedCfg.numbers[currentNumber].mains.push(name);
+    }
   }
-  currentMain=name;
+
+  currentMain = name;
   closeModal('addMainModal');
-  await saveFeederConfig();renderMainTabs();renderFeederTypeTabs();await loadFeederDataset();
+  await saveFeederConfig();
+  renderMainTabs();
+  renderFeederTypeTabs();
+  await loadFeederDataset();
+
+  // Copy data from previous main
   showLoading('Copying data from '+prevMain+'…');
   for(const type of FEEDER_SUBSETS){
-    const srcKey = feederKeyFor(currentSubstation,currentFeeder,currentNumber,currentSubset,prevMain,type);
-    const dstKey = feederKeyFor(currentSubstation,currentFeeder,currentNumber,currentSubset,name,type);
-    const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(srcKey)+'&order=row_index.asc');
-    if(data.length){
-      const ins = data.map((r,i)=>({dataset_key:dstKey, row_index:i, data:r.data, origin_count:r.origin_count||0}));
-      await sbFetch('POST', TABLE, ins);
-    }
+    const srcKey = feederKeyFor(currentSubstation, currentFeeder, currentNumber, currentSubset, prevMain, type);
+    const dstKey = feederKeyFor(currentSubstation, currentFeeder, currentNumber, currentSubset, name, type);
+    try{
+      const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(srcKey)+'&order=row_index.asc');
+      if(data.length){
+        const ins = data.map((r,i)=>({dataset_key:dstKey, row_index:i, data:r.data, origin_count:r.origin_count||0}));
+        await sbFetch('POST', TABLE, ins);
+      }
+    }catch(e){ console.error('Copy error:', e); }
   }
   hideLoading();
   currentMain = name;
