@@ -1371,10 +1371,18 @@ async function doManualRouteImport(importMode) {
     }
     // ... rest unchanged
     importData.forEach(r => {
-      const row = {}; c.forEach(col => row[col] = r[col] !== undefined ? r[col] : '');
-      d.rows.push(row);
-      if (importMode === 'addon') d.manuallyAdded.add(d.rows.length - 1);
+    const row = {};
+    c.forEach(col => {
+      let val = r[col] !== undefined ? r[col] : '';
+      if(col === 'FEEDER_NAME' && route.feeder){
+        const v = String(val ?? '').trim();
+        if(v && v.toUpperCase() !== route.feeder.toUpperCase()) val = '';
+      }
+      row[col] = val;
     });
+    d.rows.push(row);
+    if (importMode === 'addon') d.manuallyAdded.add(d.rows.length - 1);
+  });
     if (importMode === 'origin') {
       d.originCount = d.rows.length;
       d.manuallyAdded = new Set();
@@ -6042,7 +6050,8 @@ function mergeConsecutiveSplitRows(rows){
   // Columns that should NEVER be copied from upper row
   // (these are truly per-row values)
   const NO_COPY_COLS = new Set([
-    '__added_by','__added_at','__edited_by','__edited_at'
+    '__added_by','__added_at','__edited_by','__edited_at',
+    'DNP3.0_ADDRESS','DNP3.0_OBJ','DNP3.0_VAR','DNP3.0_QII','DNP3.0_CLASS','DNP3.0_TYPE'
   ]);
 
   // Columns that identify a row as a "continuation" when empty
