@@ -3461,7 +3461,7 @@ function openFeederAddRow(){
     'SSMN':       ['SSMN'],
     'TP':      ['01YB-03', '01YS-05', '01YS-06', '01YS-08'],
     'LINE':    ['01YB-01','01YS-01','01YS-02','01YS-07','01YG-07'],
-    'CENTER':  ['BAY_CTR01'],
+    'CENTER':  ['01YB-02','01YS-03','01YS-04'],
     'BUS_ZONE':['BAY_BZ01'],
     'RCC':     ['BAY_RCC01'],
   },
@@ -4154,51 +4154,58 @@ function isRowBlank(row){
   return row.every(c=>String(c||'').trim()==='');
 }
 
-function isRowUnwanted(row, ri){
+function isRowUnwanted(row, ri, firstRowSeen = true){
   const nonEmpty = row.filter(c=>String(c||'').trim()!=='');
   if(!nonEmpty.length) return true;
 
   const first = String(nonEmpty[0]).trim();
-
-  // skip rows matching admin/meta patterns (check first non-empty cell only)
   if(COLMAP_CONFIG.skipRowPatterns.some(p=>p.test(first))) return true;
 
-  // FIX: only apply the single-cell all-caps section-title rule
-  // when the ONLY populated cell is in the FIRST column (col index 0)
-  // — not when it's in a point name or state column
-  if(nonEmpty.length === 1){
-    const upper = first.toUpperCase();
+  // AND rule: only after first valid row has been seen
+  // first row always kept to anchor the table
+  if(firstRowSeen){
+    const hasItemCol      = COLMAP.itemColIdx !== null;
+    const hasPointNameCol = COLMAP.pointNameColIdx !== null;
 
-    // find which column index this single value is in
-    const cellColIdx = row.findIndex(c=>String(c||'').trim()!=='');
-
-    // only treat as section title if it's in column 0 or 1 (item/number columns)
-    // data columns (point name, states, etc.) are typically col 2+
-    const isEarlyColumn = cellColIdx <= 1;
-
-    if(isEarlyColumn){
-      const isAllCaps    = first === upper && first.length >= COLMAP_CONFIG.sectionTitleMinLen;
-      const hasNoDigits  = !/\d/.test(first);
-      const hasNoSlash   = !/[\/\\|]/.test(first);
-      const isShortEnough = first.length <= 40;
-
-      // whitelist known DNP3 data values
-      const KNOWN_DATA_VALUES = new Set([
-        'TRIP','CLOSE','OPEN','NORMAL','ALARM','FAULT','REMOTE','LOCAL',
-        'ON','OFF','ENABLE','DISABLE','ACTIVE','INACTIVE','LATCH','UNLATCH',
-        'SET','RESET','PICKUP','DROPOFF','START','STOP','AUTO','MANUAL',
-        'HIGH','LOW','RAISE','LOWER','BLOCK','UNBLOCK','YES','NO',
-        'TRUE','FALSE','N/A','NA','OK','ERROR','WARNING','UNDEFINED'
-      ]);
-      if(KNOWN_DATA_VALUES.has(upper)) return false;
-
-      if(isAllCaps && hasNoDigits && hasNoSlash && isShortEnough) return true;
+    if(hasItemCol && hasPointNameCol){
+      const itemVal      = String(row[COLMAP.itemColIdx]      ?? '').trim();
+      const pointNameVal = String(row[COLMAP.pointNameColIdx] ?? '').trim();
+      // unwanted only when BOTH are empty
+      if(!itemVal && !pointNameVal) return true;
+      return false;
     }
-    // single cell in col 2+ = likely a point name or state value, keep it
+    if(hasItemCol){
+      return !String(row[COLMAP.itemColIdx] ?? '').trim();
+    }
+    if(hasPointNameCol){
+      return !String(row[COLMAP.pointNameColIdx] ?? '').trim();
+    }
   }
 
+  // first row OR neither column detected — minimal check only
   if(nonEmpty.length < COLMAP_CONFIG.minNonEmptyCells) return true;
   return false;
+}
+
+function detectPointNameColumn(headerRows, allRawRows){
+  if(!headerRows.length) return null;
+  const POINT_NAME_KEYWORDS = [
+    'SPECIFICATION_POINT_NAME','POINT_NAME','POINT NAME',
+    'POINTNAME','SPECIFICATION POINT','POINT'
+  ];
+  const norm = s => s.replace(/[^A-Z0-9]/g,'_');
+  const getColLabel = (ci) =>
+    headerRows.map(hi => String(allRawRows[hi]?.[ci] || '').trim())
+      .filter(Boolean).join(' ').toUpperCase();
+
+  const hdrRow = allRawRows[headerRows[0]] || [];
+  for(let ci = 0; ci < hdrRow.length; ci++){
+    const label = norm(getColLabel(ci));
+    if(POINT_NAME_KEYWORDS.some(kw => label === norm(kw) || label.includes(norm(kw)))){
+      return ci;
+    }
+  }
+  return null;
 }
 
 
@@ -4392,17 +4399,16 @@ function detectAllTables(allRows){
 
     // skip any blank rows immediately after header to find true first data row
     let dataStart = hdrEnd + 1;
+    //data scan loop below will handle consecutive blanks, so just skip leading blanks here
     while(dataStart < allRows.length && isRowBlank(allRows[dataStart])){
       dataStart++;
     }
-    let dataEnd   = dataStart - 1;
+    let dataEnd       = dataStart - 1;
     let consecutiveBlank = 0;
-    let dataRowCount = 0;
-    const hdrCols = allRows[hdrStart].filter(c=>c!=='');
-
-    // build a set of known point name values from the first 5 data rows
-    // so we can recognise continuation rows that look like labels
+    let dataRowCount  = 0;
+    const hdrCols     = allRows[hdrStart].filter(c=>c!=='');
     const knownPointNames = new Set();
+    let firstDataRowSeen = false;   // ← move INSIDE the while loop, per-table
 
     for(let r=dataStart; r<allRows.length && dataRowCount<COLMAP_CONFIG.maxDataRows; r++){
       const row = allRows[r];
@@ -4415,60 +4421,44 @@ function detectAllTables(allRows){
       consecutiveBlank = 0;
 
       const rowSectionType = getSectionLabelFromRow(row);
-      if(rowSectionType){
-        break;
-      }
+      if(rowSectionType) break;
 
-      // new table header → stop
       if(rowHeaderScore(row) >= 2 && isRowLikelyNewHeader(row, hdrCols)) break;
 
-      // check if first non-empty cell is a point name continuation
-      const firstVal = String(row.find(c=>String(c||'').trim()!=='')||'').trim();
-      const pointVal = pointNameColIdx >= 0 ? String(row[pointNameColIdx]||'').trim() : '';
-
-      // treat row as data if:
-      // 1. point name column has a value, OR
-      // 2. first cell looks like a point name (mixed case, slash, dot, space)
-      // 3. first cell value was already seen as a point name prefix
-      const looksLikePointName = /[a-z]/.test(firstVal) ||     // mixed case
-                                  /[\/\.\-_]/.test(firstVal) || // has separator chars
-                                  firstVal.length > 20;          // long label
-
-      const isContinuation = pointVal !== '' ||
-                             looksLikePointName ||
+      const firstVal  = String(row.find(c=>String(c||'').trim()!=='')||'').trim();
+      const pointVal  = pointNameColIdx >= 0 ? String(row[pointNameColIdx]||'').trim() : '';
+      const looksLikePointName = /[a-z]/.test(firstVal) ||
+                                  /[\/\.\-_]/.test(firstVal) ||
+                                  firstVal.length > 20;
+      const isContinuation = pointVal !== '' || looksLikePointName ||
                              [...knownPointNames].some(kn =>
                                firstVal.toLowerCase().startsWith(kn.toLowerCase().substring(0,4))
                              );
-
-      // check if this is the last row before the next blank/header/end
       const isLastRow = r === allRows.length - 1;
       const nextRow   = allRows[r+1] || [];
       const nextIsBlankOrHeader = isLastRow ||
         isRowBlank(nextRow) ||
         (rowHeaderScore(nextRow) >= 2 && isRowLikelyNewHeader(nextRow, hdrCols));
-
-      const forceInclude = nextIsBlankOrHeader && !isRowBlank(row) && !isRowRepeatedHeader(row);
-
-      // Grace pass: row immediately after a single blank should not be
-      // excluded just because item column looks non-numeric (e.g. "muts")
-      const prevRow = r > 0 ? (allRows[r-1] || []) : [];
+      const forceInclude  = nextIsBlankOrHeader && !isRowBlank(row) && !isRowRepeatedHeader(row);
+      const prevRow       = r > 0 ? (allRows[r-1] || []) : [];
       const postBlankGrace = !isRowBlank(row) && isRowBlank(prevRow);
 
-      if(!isRowUnwanted(row, r) && !isRowNonNumericItem(row, r)){
-        dataEnd = r;
-        dataRowCount++;
+      // ── FIXED: pass firstDataRowSeen into isRowUnwanted ──────────
+      if(!isRowUnwanted(row, r, firstDataRowSeen) && !isRowNonNumericItem(row, r)){
+        firstDataRowSeen = true;
+        dataEnd = r; dataRowCount++;
         if(pointVal && knownPointNames.size < 20) knownPointNames.add(pointVal);
       } else if(isContinuation && !isRowBlank(row)){
-        dataEnd = r;
-        dataRowCount++;
+        firstDataRowSeen = true;
+        dataEnd = r; dataRowCount++;
         if(pointVal && knownPointNames.size < 20) knownPointNames.add(pointVal);
       } else if(postBlankGrace){
-        dataEnd = r;
-        dataRowCount++;
+        firstDataRowSeen = true;
+        dataEnd = r; dataRowCount++;
         if(pointVal && knownPointNames.size < 20) knownPointNames.add(pointVal);
       } else if(forceInclude){
-        dataEnd = r;
-        dataRowCount++;
+        firstDataRowSeen = true;
+        dataEnd = r; dataRowCount++;
         if(pointVal && knownPointNames.size < 20) knownPointNames.add(pointVal);
       }
     }
@@ -4947,7 +4937,11 @@ function applyDetectedTable(idx){
   buildFileColumnsAndMap();
 }
 
-// classify each raw row for display
+// classifyRow needs to know if this is the first data row
+// simplest approach: treat classifyRow as post-first-row since
+// the header has already been seen — pass true (firstRowSeen=true)
+// except for dataStart row of the active table
+
 function classifyRow(row, ri){
   const h = COLMAP.headerRows;
   const lastHdr = h.length ? Math.max(...h) : -1;
@@ -4955,7 +4949,6 @@ function classifyRow(row, ri){
   if(h.includes(ri)) return 'header';
   if(ri < (h[0]??0)) return 'pre-header';
 
-  // NEW: if this row is a header row of ANY other detected table, mark it as such
   const otherTableHdr = COLMAP.detectedTables?.find((t,ti)=>
     t.hdrRows.includes(ri) && !t.hdrRows.some(hr=>h.includes(hr))
   );
@@ -4971,8 +4964,12 @@ function classifyRow(row, ri){
     const isAnyTableEnd = COLMAP.detectedTables?.some(t => t.dataEnd === ri);
     if(isAnyTableEnd) return 'data';
 
+    // FIX: check if this is the very first data row of the active table
+    const dataStart = COLMAP.activeTableBoundary?.dataStart ?? (lastHdr + 1);
+    const isFirstDataRow = ri === dataStart;
+
     if(isRowNonNumericItem(row, ri)) return 'unwanted';
-    if(isRowUnwanted(row, ri)) return 'unwanted';
+    if(isRowUnwanted(row, ri, !isFirstDataRow)) return 'unwanted';  // ← pass flag
     return 'data';
   }
   return 'between-header';
@@ -5624,6 +5621,7 @@ function buildFileColumnsAndMap(){
   COLMAP.itemColIdx = itemResult ? itemResult.colIdx : null;
   COLMAP.itemColHeader = itemResult ? itemResult.headerVal : null;
   renderItemColIndicator(itemResult);
+  COLMAP.pointNameColIdx = detectPointNameColumn(COLMAP.headerRows, COLMAP.allRawRows);
 
   autoMapColumns();
   updateMappingPreview();
@@ -5890,6 +5888,7 @@ function buildMappedRows(){
   for(const {start, end, subHdrRows} of ranges){
     let consecutiveBlank = 0;
     let subDataStarted = false;
+    let firstRowSeen     = false;
 
     for(let rowIdx = start; rowIdx <= end; rowIdx++){
       const rawRow = allRows[rowIdx] || [];
@@ -5926,7 +5925,7 @@ function buildMappedRows(){
 
       if(!isBoundaryEndRow){
         if(isRowNonNumericItem(rawRow, rowIdx)) continue;
-        if(isRowUnwanted(rawRow, rowIdx)) continue;
+        if(isRowUnwanted(rawRow, rowIdx, firstRowSeen)) continue;
       }
 
       const obj = {};
@@ -5942,6 +5941,7 @@ function buildMappedRows(){
       });
 
       if(!hasValue) continue;
+      firstRowSeen = true;
       dataRows.push(obj);
       if(dataRows.length >= COLMAP_CONFIG.maxDataRows) break;
     }
