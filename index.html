@@ -4154,6 +4154,24 @@ function isRowBlank(row){
   return row.every(c=>String(c||'').trim()==='');
 }
 
+const ROW_KEY_DATA_COLUMNS = [
+  'DNP3.0_ADDRESS','SPECIFICATION_POINT_NAME',
+  'STATE_0','STATE_1','STATE_2','STATE_3',
+  'STATE_CLOSE','STATE_TRIP',
+  'SCALE_ACTUAL_DATA','SCALE_RAW_DATA'
+];
+
+function rowHasKeyData(row){
+  if(!COLMAP.fileColumns || !COLMAP.mappings) return false;
+  return COLMAP.fileColumns.some((fc, ci) => {
+    const schema = COLMAP.mappings[fc];
+    if(!schema || schema === '— skip —') return false;
+    if(!ROW_KEY_DATA_COLUMNS.includes(schema)) return false;
+    const cellVal = String(row[COLMAP.colStartIdx[fc] ?? ci] ?? '').trim();
+    return cellVal !== '';
+  });
+}
+
 function isRowUnwanted(row, ri, firstRowSeen = true){
   const nonEmpty = row.filter(c=>String(c||'').trim()!=='');
   if(!nonEmpty.length) return true;
@@ -4164,23 +4182,25 @@ function isRowUnwanted(row, ri, firstRowSeen = true){
   // AND rule: only after first valid row has been seen
   // first row always kept to anchor the table
   if(firstRowSeen){
-    const hasItemCol      = COLMAP.itemColIdx !== null;
-    const hasPointNameCol = COLMAP.pointNameColIdx !== null;
+  const hasItemCol      = COLMAP.itemColIdx !== null;
+  const hasPointNameCol = COLMAP.pointNameColIdx !== null;
 
-    if(hasItemCol && hasPointNameCol){
-      const itemVal      = String(row[COLMAP.itemColIdx]      ?? '').trim();
-      const pointNameVal = String(row[COLMAP.pointNameColIdx] ?? '').trim();
-      // unwanted only when BOTH are empty
-      if(!itemVal && !pointNameVal) return true;
-      return false;
-    }
-    if(hasItemCol){
-      return !String(row[COLMAP.itemColIdx] ?? '').trim();
-    }
-    if(hasPointNameCol){
-      return !String(row[COLMAP.pointNameColIdx] ?? '').trim();
-    }
+  if(hasItemCol && hasPointNameCol){
+    const itemVal      = String(row[COLMAP.itemColIdx]      ?? '').trim();
+    const pointNameVal = String(row[COLMAP.pointNameColIdx] ?? '').trim();
+    if(!itemVal && !pointNameVal) return !rowHasKeyData(row);
+    return false;
   }
+  if(hasItemCol){
+    if(!String(row[COLMAP.itemColIdx] ?? '').trim()) return !rowHasKeyData(row);
+    return false;
+  }
+  if(hasPointNameCol){
+    if(!String(row[COLMAP.pointNameColIdx] ?? '').trim()) return !rowHasKeyData(row);
+    return false;
+  }
+  if(rowHasKeyData(row)) return false; // neither col detected — still keep if key data exists
+}
 
   // first row OR neither column detected — minimal check only
   if(nonEmpty.length < COLMAP_CONFIG.minNonEmptyCells) return true;
@@ -4228,7 +4248,7 @@ function isRowNonNumericItem(row, ri){
       }
       return false;
     });
-    if(hasKeyData) return false;  // ← keep row if key data exists
+    if(rowHasKeyData(row)) return false;  // was checking only DNP3.0_ADDRESS / SPECIFICATION_POINT_NAME before, but if any key data exists in the row, we should keep it even if item cell is empty
     return true;
   }
 
