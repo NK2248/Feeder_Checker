@@ -1012,7 +1012,7 @@ function updateBreadcrumb(){
   const el = document.getElementById('breadcrumbText');
   if(!el) return;
   if(currentMode === 'feeder'){
-    el.textContent = [currentSubstation, currentFeeder, currentNumber, currentMain, currentFeederType]
+    el.textContent = [currentvoltage,currentSubstation, currentFeeder, currentNumber, currentMain, currentFeederType]
     .filter(Boolean).join(' › ');
   } else {
     el.textContent = currentDevice + ' › ' + currentType;
@@ -6029,6 +6029,106 @@ function buildMappedRows(){
     if(dataRows.length >= COLMAP_CONFIG.maxDataRows) break;
   }
   return dataRows;
+  return mergeConsecutiveSplitRows(dataRows); 
+}
+
+function mergeConsecutiveSplitRows(rows){
+  if(!rows || rows.length < 2) return rows;
+
+  // Determine the key column to group by (first non-empty identifier found)
+  const KEY_COLS = [
+    'SPECIFICATION_POINT_NAME',
+    'DNP3.0_ADDRESS',
+    'BAY_NAME',
+    'FEEDER_NAME'
+  ];
+
+  // Find which key cols actually exist in the data
+  const allCols = new Set(rows.flatMap(r => Object.keys(r)));
+  const keyCols = KEY_COLS.filter(k => allCols.has(k));
+
+  if(!keyCols.length) return rows; // no key column — can't merge
+
+  function getRowKey(row){
+    // build a composite key from all available key columns
+    return keyCols
+      .map(k => String(row[k] ?? '').trim())
+      .join('||');
+  }
+
+  function isEmptyKey(row){
+    return keyCols.every(k => !String(row[k] ?? '').trim());
+  }
+
+  function countNonEmpty(row){
+    return Object.values(row).filter(v => String(v ?? '').trim() !== '').length;
+  }
+
+  const merged = [];
+  let i = 0;
+
+  while(i < rows.length){
+    const current = {...rows[i]};
+    const currentKey = getRowKey(current);
+
+    // If this row has no key — it might be a continuation of previous row
+    if(isEmptyKey(current) && merged.length > 0){
+      const prev = merged[merged.length - 1];
+      // merge non-empty values from current into previous
+      Object.entries(current).forEach(([col, val]) => {
+        const trimmed = String(val ?? '').trim();
+        if(trimmed && !String(prev[col] ?? '').trim()){
+          prev[col] = trimmed;
+        }
+      });
+      i++;
+      continue;
+    }
+
+    // Look ahead — check if next row has same key or empty key
+    let j = i + 1;
+    while(j < rows.length){
+      const next = rows[j];
+      const nextKey = getRowKey(next);
+
+      const sameKey = currentKey && nextKey && currentKey === nextKey;
+      const nextEmpty = isEmptyKey(next);
+
+      // Stop if next row is clearly a new independent row
+      if(!sameKey && !nextEmpty) break;
+
+      // Stop if next row has MORE non-empty cells than current
+      // (it's probably a real new row, not a continuation)
+      if(!sameKey && nextEmpty && countNonEmpty(next) > countNonEmpty(current) * 0.5){
+        // check if next row has any key data at all
+        const hasAnyKeyData = KEY_COLS.some(k => String(next[k] ?? '').trim());
+        if(hasAnyKeyData) break;
+      }
+
+      // Merge next row into current — fill in missing values only
+      Object.entries(next).forEach(([col, val]) => {
+        const trimmed = String(val ?? '').trim();
+        if(trimmed && !String(current[col] ?? '').trim()){
+          current[col] = trimmed;
+        }
+      });
+
+      j++;
+
+      // If same key rows can repeat more than once, keep going
+      // but stop if the next-next row has yet another same key (infinite loop guard)
+      if(j < rows.length){
+        const nextNextKey = getRowKey(rows[j]);
+        if(nextNextKey && nextNextKey === currentKey) continue;
+        if(!isEmptyKey(rows[j])) break;
+      }
+    }
+
+    merged.push(current);
+    i = j;
+  }
+
+  return merged;
 }
 
 function applyColumnMapping(){
