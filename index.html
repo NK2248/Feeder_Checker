@@ -2632,12 +2632,12 @@ async function saveNewDevice(){
 // ── Substation / Feeder Mode ─────────────────────────────────────────────────
 const FEEDER_STRUCTURE = {
   "BR & A Half": {
-    voltageLevels: ["115kV"],
+    voltage: "115kV",
     feeders: {
       "SSMN":  {"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
       "TP":    {"hasNumbers": true, "hasMain": true,
                 "numbers": {
-                  "01": {"mains":["MAIN_01","MAIN_02"], "subsets":["MAIN_01","MAIN_02"]},
+                  "01": {"mains":["MAIN_01","MAIN_02"], "subsets":["MAIN_01","MAIN_02"]}
                 }
               },
       "LINE":  {"hasNumbers": true, "hasMain": true,
@@ -2661,7 +2661,7 @@ const FEEDER_STRUCTURE = {
     }
   },
   "DBSB": {
-    voltageLevels: ["115kV"],
+    voltage: "115kV",
     feeders: {
       "SSMN" :{"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
       "TP" :{"hasNumbers": true, "hasMain": true, "numbers": {
@@ -2684,7 +2684,7 @@ const FEEDER_STRUCTURE = {
     }
   },
   "H Scheme": {
-    voltageLevels: ["115kV"],
+    voltage: "115kV",
     feeders: {
       "SSMN":{"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
       "TP":{"hasNumbers": true, "hasMain": true, "numbers": {
@@ -2698,7 +2698,7 @@ const FEEDER_STRUCTURE = {
     }
   },
   "Main & Transfer": {
-    voltageLevels: ["115kV"],
+    voltage: "115kV",
     feeders: {
       "SSMN":{"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
       "TP":{"hasNumbers": true, "hasMain": true, "numbers": {
@@ -2714,7 +2714,7 @@ const FEEDER_STRUCTURE = {
     }
   },
   "AIS substation": {
-    voltageLevels: ["22kV"],
+    voltage: "22kV",
     feeders: {
       "SSMN":{"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
       "INC":{"hasNumbers": true, "hasMain": true, "numbers": {
@@ -2736,7 +2736,7 @@ const FEEDER_STRUCTURE = {
     }
   },
   "GIS substation": {
-    voltageLevels: ["33kV"],
+    voltage: "33kV",
     feeders: {
       "SSMN":{"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
       "INC":{"hasNumbers": true, "hasMain": true, "numbers": {
@@ -2770,7 +2770,7 @@ function getMainNames(sub, feed){
 }
 // same pattern for getSubsetNames
 function getVoltageLevels(){
-  return [...new Set(Object.values(FEEDER_STRUCTURE).map(s=>s.voltage).filter(Boolean))];
+  return [...new Set(Object.values(FEEDER_STRUCTURE).map(s => s.voltage).filter(Boolean))];
 }
 
 
@@ -2861,21 +2861,40 @@ function switchMode(mode){
 
 function renderVoltageTabs(){
   document.getElementById('voltageTabs').innerHTML = getVoltageLevels().map(v =>
-    `<button class="feeder-tab${v===currentVoltage?' active':''}" onclick="switchVoltage('${v.replace(/'/g,"\\'")}')">${v}</button>`
+    `<button class="feeder-tab${v===currentVoltage?' active':''}" 
+      onclick="switchVoltage('${v.replace(/'/g,"\\'")}')">${v}</button>`
   ).join('');
 }
+
 async function switchVoltage(v){
   if(!confirmIfDirty('Switch voltage level? Unsaved changes may be lost.')) return;
   currentVoltage = v;
   renderVoltageTabs();
+  // auto-select first substation under this voltage
   const firstSub = Object.keys(FEEDER_STRUCTURE).find(s => FEEDER_STRUCTURE[s].voltage === v);
-  if(firstSub) await switchSubstation(firstSub);
+  if(firstSub){
+    currentSubstation = firstSub;
+    currentFeeder = getFeederNames(firstSub)[0] || null;
+    currentMain = currentFeeder ? getMainNames(firstSub, currentFeeder)[0] ?? null : null;
+    currentSubset = currentMain;
+    currentFeederType = FEEDER_SUBSETS[0];
+  }
+  renderSubstationTabs();
+  renderFeederTabs();
+  renderNumberTabs();
+  renderSubsetTabs();
+  renderMainTabs();
+  renderFeederTypeTabs();
+  if(currentFeeder) await loadFeederDataset();
+  updateBreadcrumb();
 }
 
 function renderSubstationTabs(){
-  const entries = Object.entries(FEEDER_STRUCTURE).filter(([s,cfg]) => cfg.voltage === currentVoltage);
+  const entries = Object.entries(FEEDER_STRUCTURE)
+    .filter(([s, cfg]) => cfg.voltage === currentVoltage);
+  
   document.getElementById('substationTabs').innerHTML =
-    Object.entries(FEEDER_STRUCTURE).map(([s, cfg]) => {
+    entries.map(([s, cfg]) => {
       const isUser = cfg._userAdded;
       const isActive = s === currentSubstation;
       return `<div style="display:inline-flex;align-items:center;gap:2px">
@@ -3693,6 +3712,7 @@ async function saveNewSubstation(){
   const name = document.getElementById('newSubstationName').value.trim();
   if(!name){ alert('Enter a substation name.'); return; }
   if(FEEDER_STRUCTURE[name]){ alert('Substation "'+name+'" already exists.'); return; }
+  const volt = prompt('Enter voltage level (e.g. 115kV, 22kV, 33kV):', '115kV') || '115kV';
   FEEDER_STRUCTURE[name] = { voltage: volt, feeders:{}, _userAdded:true }; // ← add flag
   currentSubstation=name; currentFeeder=null; currentMain=null;
   closeModal('addSubstationModal'); await saveFeederConfig();
