@@ -2884,6 +2884,11 @@ async function switchVoltage(v){
   if(firstSub){
     currentSubstation = firstSub;
     currentFeeder = getFeederNames(firstSub)[0] || null;
+    currentNumber = null;
+    if(currentFeeder){
+      const feedCfg = FEEDER_STRUCTURE[currentSubstation]?.feeders[currentFeeder];
+      if(feedCfg?.hasNumbers) currentNumber = Object.keys(feedCfg.numbers)[0];
+    }
     currentMain = currentFeeder ? getMainNames(firstSub, currentFeeder)[0] ?? null : null;
     currentSubset = currentMain;
     currentFeederType = FEEDER_SUBSETS[0];
@@ -2921,6 +2926,11 @@ async function switchSubstation(s){
   if(!confirmIfDirty('Switch substation? Unsaved changes may be lost.')) return;
   currentSubstation=s;
   currentFeeder=getFeederNames(s)[0]||null;
+  currentNumber = null;
+  if(currentFeeder){
+    const feedCfg = FEEDER_STRUCTURE[currentSubstation]?.feeders[currentFeeder];
+    if(feedCfg?.hasNumbers) currentNumber = Object.keys(feedCfg.numbers)[0];
+  }
   currentMain = getMainNames(currentSubstation, currentFeeder)[0] ?? null;
   currentSubset = currentMain;
   currentFeederType=FEEDER_SUBSETS[0];
@@ -3024,6 +3034,7 @@ async function switchNumber(n){
   const feedCfg = FEEDER_STRUCTURE[currentSubstation]?.feeders[currentFeeder];
   const mains = feedCfg?.numbers?.[n]?.mains || ['MAIN_01'];
   currentMain = mains[0] || 'MAIN_01';
+  currentSubset = currentMain;
   currentFeederType = FEEDER_SUBSETS[0];
   selected = new Set(); hideDupAlert();
   renderNumberTabs(); renderMainTabs(); renderFeederTypeTabs();
