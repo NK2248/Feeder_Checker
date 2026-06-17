@@ -1383,20 +1383,6 @@ async function doManualRouteImport(importMode) {
       if (importMode === 'addon') d.manuallyAdded.add(d.rows.length - 1);
     });
 
-    // ... rest unchanged
-    importData.forEach(r => {
-    const row = {};
-    c.forEach(col => {
-      let val = r[col] !== undefined ? r[col] : '';
-      if(col === 'FEEDER_NAME' && route.feeder){
-        const v = String(val ?? '').trim();
-        if(v && v.toUpperCase() !== route.feeder.toUpperCase()) val = '';
-      }
-      row[col] = val;
-    });
-    d.rows.push(row);
-    if (importMode === 'addon') d.manuallyAdded.add(d.rows.length - 1);
-  });
     if (importMode === 'origin') {
       d.originCount = d.rows.length;
       d.manuallyAdded = new Set();
