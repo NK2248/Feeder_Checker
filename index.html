@@ -6068,13 +6068,17 @@ function mergeConsecutiveSplitRows(rows, itemValues){
   // Never copied upward from a continuation row into the row above
   const NO_COPY_COLS = new Set([
     '__added_by','__added_at','__edited_by','__edited_at',
-    'DNP3.0_ADDRESS','DNP3.0_OBJ','DNP3.0_VAR','DNP3.0_QII','DNP3.0_CLASS','DNP3.0_TYPE'
+    'DNP3.0_ADDRESS','DNP3.0_OBJ','DNP3.0_VAR','DNP3.0_QII','DNP3.0_CLASS','DNP3.0_TYPE',
+    "STATUS_INPUT_PROT.&BCU_INPUT","TERMINAL","STATUS_INTERNAL_PROT.&BCU_LOGIC","STATUS_INPUT_PROT.&BCU_GOOSE_INPUT","STATUS_OUTPUT_PROT.&BCU_INTERNAL_OUTPUT","GOOSE_PROT.&BCU_PUBLICING","LED_PROT.&BCU_PHYSICAL",
+    "IEC61850_PROT.&BCU_DATASET","IEC61850_PROT.&BCU_LD","IEC61850_PROT.&BCU_LN-PREFIX","IEC61850_PROT.&BCU_LN-CLASS","IEC61850_PROT.&BCU_LN-INST","IEC61850_PROT.&BCU_FC","IEC61850_PROT.&BCU_DO","IEC61850_PROT.&BCU_DA",
+
   ]);
 
   // If a "continuation" row carries its own value in any of these,
   // it's not a continuation at all — keep it as a separate line
   const ADDRESS_DNP_COLS = new Set([
-    'DNP3.0_ADDRESS','DNP3.0_OBJ','DNP3.0_VAR','DNP3.0_QII','DNP3.0_CLASS','DNP3.0_TYPE'
+    'DNP3.0_ADDRESS','DNP3.0_OBJ','DNP3.0_VAR','DNP3.0_QII','DNP3.0_CLASS','DNP3.0_TYPE',
+    ''
   ]);
 
   // Columns that identify a row as a "continuation" when empty
