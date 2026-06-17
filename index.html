@@ -1369,6 +1369,20 @@ async function doManualRouteImport(importMode) {
     if (importMode === 'origin') {
       d.rows = []; d.manuallyAdded = new Set(); d.originCount = 0;
     }
+
+    // guard against mismatched feeder names, then re-merge so any
+    // row that becomes anchor-empty as a result gets absorbed
+    const guarded = applyFeederNameGuard(
+      importData.map(r => ({...r})), route.feeder
+    );
+    const cleaned = mergeConsecutiveSplitRows(guarded);
+
+    cleaned.forEach(r => {
+      const row = {}; c.forEach(col => row[col] = r[col] !== undefined ? r[col] : '');
+      d.rows.push(row);
+      if (importMode === 'addon') d.manuallyAdded.add(d.rows.length - 1);
+    });
+
     // ... rest unchanged
     importData.forEach(r => {
     const row = {};
@@ -6047,10 +6061,15 @@ function mergeConsecutiveSplitRows(rows){
     'DNP3.0_ADDRESS',
   ];
 
-  // Columns that should NEVER be copied from upper row
-  // (these are truly per-row values)
+  // Never copied upward from a continuation row into the row above
   const NO_COPY_COLS = new Set([
     '__added_by','__added_at','__edited_by','__edited_at',
+    'DNP3.0_ADDRESS','DNP3.0_OBJ','DNP3.0_VAR','DNP3.0_QII','DNP3.0_CLASS','DNP3.0_TYPE'
+  ]);
+
+  // If a "continuation" row carries its own value in any of these,
+  // it's not a continuation at all — keep it as a separate line
+  const ADDRESS_DNP_COLS = new Set([
     'DNP3.0_ADDRESS','DNP3.0_OBJ','DNP3.0_VAR','DNP3.0_QII','DNP3.0_CLASS','DNP3.0_TYPE'
   ]);
 
@@ -6064,12 +6083,13 @@ function mergeConsecutiveSplitRows(rows){
   const allCols = new Set(rows.flatMap(r => Object.keys(r)));
 
   function isAnchorEmpty(row){
-    // row is a continuation if ALL anchor cols that exist are empty
     const existingAnchors = ANCHOR_COLS.filter(k => allCols.has(k));
     if(!existingAnchors.length) return false;
     return existingAnchors.every(k => !String(row[k] ?? '').trim());
   }
-
+  function hasOwnAddressData(row){
+    return [...ADDRESS_DNP_COLS].some(k => String(row[k] ?? '').trim() !== '');
+  }
   function hasAnyData(row){
     return Object.entries(row).some(([k, v]) =>
       !NO_COPY_COLS.has(k) && String(v ?? '').trim() !== ''
@@ -6078,40 +6098,42 @@ function mergeConsecutiveSplitRows(rows){
 
   const merged = [];
   let i = 0;
-
   while(i < rows.length){
     const current = { ...rows[i] };
-
-    // Collect all consecutive continuation rows below current
     let j = i + 1;
     while(j < rows.length){
       const next = rows[j];
 
-      // Stop if next row has its own point name — it's a new item
-      if(!isAnchorEmpty(next)) break;
+      // carries its own address/DNP config → never absorb, it's a real distinct row
+      if(hasOwnAddressData(next)) break;
 
-      // Stop if next row has NO data at all — it's truly blank
-      if(!hasAnyData(next)){ j++; continue; }
+      if(!isAnchorEmpty(next)) break;          // looks like a new item
+      if(!hasAnyData(next)){ j++; continue; }   // pure noise row — absorb silently
 
-      // Merge: fill empty cells in current from next row
       Object.entries(next).forEach(([col, val]) => {
-        if(NO_COPY_COLS.has(col)) return;
+        if(NO_COPY_COLS.has(col)) return;       // address/DNP/audit fields never fill upward
         const trimmed = String(val ?? '').trim();
-        const existing = String(current[col] ?? '').trim();
-        if(trimmed && !existing){
-          current[col] = trimmed;
-        }
+        if(trimmed && !String(current[col] ?? '').trim()) current[col] = trimmed;
       });
-
       j++;
     }
-
     merged.push(current);
     i = j;
   }
-
   return merged;
 }
+
+function applyFeederNameGuard(rows, feederName){
+  if(!feederName) return rows;
+  const fn = feederName.trim().toUpperCase();
+  rows.forEach(r=>{
+    const v = String(r['FEEDER_NAME'] ?? '').trim();
+    if(v && v.toUpperCase() !== fn) r['FEEDER_NAME'] = '';
+  });
+  return rows;
+}
+
+
 
 function applyColumnMapping(){
   const mapped = buildMappedRows();
