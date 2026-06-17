@@ -4159,26 +4159,42 @@ function isRowUnwanted(row, ri){
   if(!nonEmpty.length) return true;
 
   const first = String(nonEmpty[0]).trim();
+
+  // skip rows matching admin/meta patterns (check first non-empty cell only)
   if(COLMAP_CONFIG.skipRowPatterns.some(p=>p.test(first))) return true;
 
+  // FIX: only apply the single-cell all-caps section-title rule
+  // when the ONLY populated cell is in the FIRST column (col index 0)
+  // — not when it's in a point name or state column
   if(nonEmpty.length === 1){
     const upper = first.toUpperCase();
-    const isAllCaps = first === upper && first.length >= COLMAP_CONFIG.sectionTitleMinLen;
-    const hasNoDigits = !/\d/.test(first);
-    const hasNoSlash  = !/[\/\\|]/.test(first);
-    const isShortEnough = first.length <= 40;
 
-    // FIX: never skip known DNP3/power system values even if all-caps
-    const KNOWN_DATA_VALUES = new Set([
-      'TRIP','CLOSE','OPEN','NORMAL','ALARM','FAULT','REMOTE','LOCAL',
-      'ON','OFF','ENABLE','DISABLE','ACTIVE','INACTIVE','LATCH','UNLATCH',
-      'SET','RESET','PICKUP','DROPOFF','START','STOP','AUTO','MANUAL',
-      'HIGH','LOW','RAISE','LOWER','BLOCK','UNBLOCK','YES','NO',
-      'TRUE','FALSE','N/A','NA','OK','ERROR','WARNING','UNDEFINED'
-    ]);
-    if(KNOWN_DATA_VALUES.has(upper)) return false;  // ← ADD THIS
+    // find which column index this single value is in
+    const cellColIdx = row.findIndex(c=>String(c||'').trim()!=='');
 
-    if(isAllCaps && hasNoDigits && hasNoSlash && isShortEnough) return true;
+    // only treat as section title if it's in column 0 or 1 (item/number columns)
+    // data columns (point name, states, etc.) are typically col 2+
+    const isEarlyColumn = cellColIdx <= 1;
+
+    if(isEarlyColumn){
+      const isAllCaps    = first === upper && first.length >= COLMAP_CONFIG.sectionTitleMinLen;
+      const hasNoDigits  = !/\d/.test(first);
+      const hasNoSlash   = !/[\/\\|]/.test(first);
+      const isShortEnough = first.length <= 40;
+
+      // whitelist known DNP3 data values
+      const KNOWN_DATA_VALUES = new Set([
+        'TRIP','CLOSE','OPEN','NORMAL','ALARM','FAULT','REMOTE','LOCAL',
+        'ON','OFF','ENABLE','DISABLE','ACTIVE','INACTIVE','LATCH','UNLATCH',
+        'SET','RESET','PICKUP','DROPOFF','START','STOP','AUTO','MANUAL',
+        'HIGH','LOW','RAISE','LOWER','BLOCK','UNBLOCK','YES','NO',
+        'TRUE','FALSE','N/A','NA','OK','ERROR','WARNING','UNDEFINED'
+      ]);
+      if(KNOWN_DATA_VALUES.has(upper)) return false;
+
+      if(isAllCaps && hasNoDigits && hasNoSlash && isShortEnough) return true;
+    }
+    // single cell in col 2+ = likely a point name or state value, keep it
   }
 
   if(nonEmpty.length < COLMAP_CONFIG.minNonEmptyCells) return true;
@@ -4537,13 +4553,17 @@ function renderTableSelector(){
   }
 
   if(tables.length === 1){
+    // FIX: always set selectedTableIdx for single table
+    COLMAP.selectedTableIdx = 0;
+    COLMAP.mergedTableIdxs = new Set([0]);
+    COLMAP.useMergeMode = false;
+
+    applyDetectedTable(0);  // this now also extends boundary for last table
     sel.innerHTML = `
       <div style="background:var(--green-bg);border:1px solid var(--green-bdr);border-radius:var(--r);padding:8px 12px;font-size:12px;color:var(--green);font-family:var(--mono);margin-bottom:10px;display:flex;align-items:center;gap:8px">
         <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;flex-shrink:0"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
         1 table detected · rows ${tables[0].hdrRows[0]+1}–${tables[0].dataEnd+1} · ${tables[0].rowCount} data rows
       </div>`;
-    COLMAP.mergedTableIdxs = new Set([0]);
-    applyDetectedTable(0);
     return;
   }
 
@@ -4852,35 +4872,72 @@ function applyDetectedTable(idx){
   const t = COLMAP.detectedTables[idx];
   if(!t) return;
 
+  // FIX: always initialize selectedTableIdx
+  COLMAP.selectedTableIdx = idx;
+
   COLMAP.headerRows    = [...t.hdrRows];
   COLMAP.headerRowIdx  = t.hdrRows[0] ?? null;
   COLMAP.headerRowIdx2 = t.hdrRows[1] ?? null;
   COLMAP.headerRowIdx3 = t.hdrRows[2] ?? null;
   COLMAP.useDoubleHeader = t.hdrRows.length > 1;
 
-  // FIX: if this is the last detected table, extend dataEnd to end of sheet
   const isLastTable = idx === COLMAP.detectedTables.length - 1;
   let extendedEnd = t.dataEnd;
 
   if(isLastTable){
     const allRows = COLMAP.allRawRows;
-    // scan forward from detected end to find the true last data row
+    const hdrCols = allRows[t.hdrRows[0]]?.filter(c=>c!=='') || [];
     let trailingBlank = 0;
+
     for(let r = t.dataEnd + 1; r < allRows.length; r++){
       const row = allRows[r];
-      if(isRowBlank(row)){ trailingBlank++; if(trailingBlank > 4) break; continue; }
+
+      if(isRowBlank(row)){
+        trailingBlank++;
+        // FIX: use same maxConsecutiveBlank threshold, not hardcoded 4
+        if(trailingBlank > COLMAP_CONFIG.maxConsecutiveBlank) break;
+        continue;
+      }
       trailingBlank = 0;
+
+      // stop at section labels
       const secType = getSectionLabelFromRow(row);
       if(secType) break;
-      if(rowHeaderScore(row) >= 2) break;
-      // any non-blank, non-header row at end of sheet = data
+
+      // FIX: require BOTH score >=2 AND isRowLikelyNewHeader — not just score
+      const norm = s => s.toUpperCase().replace(/[^A-Z0-9]/g,'_');
+      const HEADER_KEYWORDS = [
+        'FEEDER_NAME','BAY_NAME','SPECIFICATION_POINT_NAME','DNP3.0_ADDRESS',
+        'OBJ','VAR','QII','CLASS','TYPE','REMARK','STATE_0','STATE_CLOSE',
+        'SCALE_ACTUAL_DATA','SPECIFICATION_UNIT'
+      ];
+      function rowHeaderScore(row){
+        return row.filter(c=>c!==''&&
+          HEADER_KEYWORDS.some(kw=>norm(c)===norm(kw)||norm(c).includes(norm(kw)))
+        ).length;
+      }
+      function isRowLikelyNewHeader(row, existingHeaderCols){
+        const hits = row.filter(c=>c!==''&&
+          HEADER_KEYWORDS.some(kw=>norm(c)===norm(kw)||norm(c).includes(norm(kw)))
+        );
+        if(hits.length < 2) return false;
+        const hitNorms = hits.map(norm);
+        const existNorms = existingHeaderCols.map(norm);
+        const overlap = hitNorms.filter(h=>existNorms.some(e=>e.includes(h)||h.includes(e)));
+        return overlap.length < hits.length * 0.5;
+      }
+
+      if(rowHeaderScore(row) >= 2 && isRowLikelyNewHeader(row, hdrCols)) break;
+
+      // FIX: accept ANY non-blank, non-header row as data when extending
+      // Don't apply isRowUnwanted here — at sheet end, all remaining rows are data
       extendedEnd = r;
     }
   }
 
   COLMAP.activeTableBoundary = {
     dataStart: t.dataStart,
-    dataEnd:   extendedEnd   // ← use extended end for last table
+    dataEnd:   extendedEnd
   };
 
   if(t.detectedType) COLMAP.targetType = t.detectedType;
@@ -5847,7 +5904,10 @@ function buildMappedRows(){
 
       if(isRowBlank(rawRow)){
         consecutiveBlank++;
-        if(consecutiveBlank >= COLMAP_CONFIG.maxConsecutiveBlank) break;
+        // FIX: at end of range, don't cut early — only break if well past the end
+        const isNearEnd = rowIdx >= end - 2;
+        if(consecutiveBlank >= COLMAP_CONFIG.maxConsecutiveBlank && !isNearEnd) break;
+        if(consecutiveBlank >= COLMAP_CONFIG.maxConsecutiveBlank + 4) break; // hard cap
         continue;
       }
       consecutiveBlank = 0;
