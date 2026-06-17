@@ -5970,6 +5970,7 @@ function buildMappedRows(){
   // collect data ranges — either merged tables or single boundary
   const ranges = [];
   const boundary = COLMAP.activeTableBoundary;
+  const itemValues = [];
 
   if(COLMAP.useMergeMode && boundary?.tableRanges?.length > 1){
     boundary.tableRanges.forEach(tr => {
@@ -6045,15 +6046,18 @@ function buildMappedRows(){
       if(!hasValue) continue;
       firstRowSeen = true;
       dataRows.push(obj);
+      itemValues.push(
+        (COLMAP.itemColIdx !== null && COLMAP.useItemColCheck)
+          ? String(rawRow[COLMAP.itemColIdx] ?? '').trim()
+          : undefined
+      );
       if(dataRows.length >= COLMAP_CONFIG.maxDataRows) break;
     }
-
-    if(dataRows.length >= COLMAP_CONFIG.maxDataRows) break;
   }
-  return mergeConsecutiveSplitRows(dataRows); 
+  return mergeConsecutiveSplitRows(dataRows, itemValues);
 }
 
-function mergeConsecutiveSplitRows(rows){
+function mergeConsecutiveSplitRows(rows, itemValues){
   if(!rows || rows.length < 2) return rows;
 
   const KEY_COLS = [
@@ -6074,53 +6078,73 @@ function mergeConsecutiveSplitRows(rows){
   ]);
 
   // Columns that identify a row as a "continuation" when empty
-  const ANCHOR_COLS = [
-    'SPECIFICATION_POINT_NAME',
-    'FEEDER_NAME',
-    'BAY_NAME'
-  ];
-
+  const ANCHOR_COLS = ['SPECIFICATION_POINT_NAME','FEEDER_NAME','BAY_NAME'];
   const allCols = new Set(rows.flatMap(r => Object.keys(r)));
 
   function isAnchorEmpty(row){
-    const existingAnchors = ANCHOR_COLS.filter(k => allCols.has(k));
-    if(!existingAnchors.length) return false;
-    return existingAnchors.every(k => !String(row[k] ?? '').trim());
+    const existing = ANCHOR_COLS.filter(k => allCols.has(k));
+    if(!existing.length) return false;
+    return existing.every(k => !String(row[k] ?? '').trim());
   }
   function hasOwnAddressData(row){
-    return [...ADDRESS_DNP_COLS].some(k => String(row[k] ?? '').trim() !== '');
+    return [...NO_COPY_COLS].some(k => k.startsWith('DNP3') && String(row[k] ?? '').trim() !== '');
   }
   function hasAnyData(row){
-    return Object.entries(row).some(([k, v]) =>
-      !NO_COPY_COLS.has(k) && String(v ?? '').trim() !== ''
-    );
+    return Object.entries(row).some(([k, v]) => !NO_COPY_COLS.has(k) && String(v ?? '').trim() !== '');
   }
 
-  const merged = [];
+  // ── Pass 1: absorb truly-empty noise rows (no address/DNP, no other data,
+  //    anchors empty) into the row above. A differing item number always
+  //    blocks absorption; a matching one reinforces it.
+  const pass1 = [];
+  const pass1Items = [];
   let i = 0;
   while(i < rows.length){
     const current = { ...rows[i] };
+    const currentItem = itemValues ? itemValues[i] : undefined;
     let j = i + 1;
     while(j < rows.length){
       const next = rows[j];
+      const nextItem = itemValues ? itemValues[j] : undefined;
+      const itemSaysNewRecord = itemValues && nextItem !== undefined && nextItem !== '' && nextItem !== currentItem;
 
-      // carries its own address/DNP config → never absorb, it's a real distinct row
-      if(hasOwnAddressData(next)) break;
-
-      if(!isAnchorEmpty(next)) break;          // looks like a new item
-      if(!hasAnyData(next)){ j++; continue; }   // pure noise row — absorb silently
+      if(itemSaysNewRecord) break;
+      if(hasOwnAddressData(next)) break;            // real distinct point — never absorb
+      if(!isAnchorEmpty(next) && !itemValues) break;
+      if(!hasAnyData(next)){ j++; continue; }         // pure noise row — silently absorb
 
       Object.entries(next).forEach(([col, val]) => {
-        if(NO_COPY_COLS.has(col)) return;       // address/DNP/audit fields never fill upward
+        if(NO_COPY_COLS.has(col)) return;
         const trimmed = String(val ?? '').trim();
         if(trimmed && !String(current[col] ?? '').trim()) current[col] = trimmed;
       });
       j++;
     }
-    merged.push(current);
+    pass1.push(current);
+    pass1Items.push(currentItem);
     i = j;
   }
-  return merged;
+
+  // ── Pass 2: fill-down within the same item group only. Rows that legitimately
+  //    own their own address but are missing descriptive text inherit it from
+  //    the nearest row above sharing the same item number. DNP/address/audit
+  //    columns are never touched.
+  let carry = {};
+  let carryItem;
+  pass1.forEach((row, idx)=>{
+    const thisItem = pass1Items[idx];
+    const itemChanged = itemValues && thisItem !== undefined && thisItem !== '' && thisItem !== carryItem;
+    if(itemChanged) carry = {};
+    Object.keys(row).forEach(col=>{
+      if(NO_COPY_COLS.has(col)) return;
+      const v = String(row[col] ?? '').trim();
+      if(v) carry[col] = row[col];
+      else if(carry[col] !== undefined) row[col] = carry[col];
+    });
+    if(thisItem !== undefined && thisItem !== '') carryItem = thisItem;
+  });
+
+  return pass1;
 }
 
 function applyFeederNameGuard(rows, feederName){
