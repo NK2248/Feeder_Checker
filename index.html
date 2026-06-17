@@ -1270,7 +1270,14 @@ function mrUpdateMains() {
   const sub  = document.getElementById('mrSubstation').value;
   const feed = document.getElementById('mrFeeder').value;
   const feedCfg = FEEDER_STRUCTURE[sub]?.feeders[feed];
-  const numSel = document.getElementById('mrNumber');
+  const mainSel = document.getElementById('mrMain');
+
+  if(feedCfg?.hasMain === false){
+    mainSel.innerHTML = `<option value="">— flat feeder, no main —</option>`;
+    mainSel.disabled = true;
+    return;
+  }
+  mainSel.disabled = false;
   
   let mains = ['MAIN_01'];
   if(feedCfg?.hasNumbers) {
@@ -1296,6 +1303,9 @@ async function doManualRouteImport(importMode) {
     const num = feedCfg?.hasNumbers
       ? (document.getElementById('mrNumber')?.value || null)
       : null;
+    const mainVal = feedCfg?.hasMain === false
+      ? null
+      : (document.getElementById('mrMain').value || 'MAIN_01');
 
     // GUARD: feeder must be selected and must exist in structure
     if (!feed || feed === '') {
@@ -1316,8 +1326,8 @@ async function doManualRouteImport(importMode) {
       mode:        'feeder',
       substation:  sub,
       feeder:      feed,
-      main:        document.getElementById('mrMain').value || 'MAIN_01',
-      subset:      document.getElementById('mrMain').value || 'MAIN_01',
+      main: mainVal,
+      subset: mainVal,
       type:        type,
       number: num,
     };
@@ -2315,7 +2325,7 @@ function renderAll(){
       }
     }
     currentSubset = currentFeeder ? (getSubsetNames(firstSub, currentFeeder)[0] || 'MAIN_01') : 'MAIN_01';
-    currentMain   = currentFeeder ? (getMainNames(firstSub, currentFeeder)[0] || 'MAIN_01') : 'MAIN_01';
+    currentMain = currentFeeder ? (getMainNames(firstSub, currentFeeder)[0] ?? null) : null;
 }
 
 renderVoltageTabs();      // ← ADD THIS
@@ -6173,10 +6183,8 @@ function mergeConsecutiveSplitRows(rows, itemValues){
 
 function applyFeederNameGuard(rows, feederName){
   if(!feederName) return rows;
-  const fn = feederName.trim().toUpperCase();
   rows.forEach(r=>{
-    const v = String(r['FEEDER_NAME'] ?? '').trim();
-    if(v && v.toUpperCase() !== fn) r['FEEDER_NAME'] = '';
+    if(!String(r['FEEDER_NAME'] ?? '').trim()) r['FEEDER_NAME'] = feederName;
   });
   return rows;
 }
