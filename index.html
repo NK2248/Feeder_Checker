@@ -1012,7 +1012,7 @@ function updateBreadcrumb(){
   const el = document.getElementById('breadcrumbText');
   if(!el) return;
   if(currentMode === 'feeder'){
-    el.textContent = [currentvoltage,currentSubstation, currentFeeder, currentNumber, currentMain, currentFeederType]
+    el.textContent = [currentVoltage,currentSubstation, currentFeeder, currentNumber, currentMain, currentFeederType]
     .filter(Boolean).join(' › ');
   } else {
     el.textContent = currentDevice + ' › ' + currentType;
