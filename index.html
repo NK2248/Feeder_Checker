@@ -287,6 +287,11 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   <div style="background:var(--surface);border:1px solid var(--border2);border-radius:var(--rlg);padding:8px 14px;margin-bottom:12px;display:flex;flex-direction:column;gap:8px">
   
   <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+    <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;width:80px">Voltage</span>
+    <div id="voltageTabs" style="display:flex;gap:3px;flex-wrap:wrap"></div>
+  </div>
+  
+  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
     <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;width:80px">Substation</span>
     <div id="substationTabs" style="display:flex;gap:3px;flex-wrap:wrap"></div>
     <button class="btn-icon" onclick="openAddSubstation()" style="width:22px;height:22px">
@@ -310,7 +315,7 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
     </button>
   </div>
 
-  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+  <div id="mainRowWrap" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
     <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;width:80px">Main</span>
     <div id="mainTabs" style="display:flex;gap:3px;flex-wrap:wrap"></div>
     <button class="btn-icon" onclick="openAddMain()" style="width:22px;height:22px">
@@ -2262,6 +2267,8 @@ function renderAll(){
     // Wait — loadFeederConfig() already ran above, so FEEDER_STRUCTURE is now from DB
     const firstSub = Object.keys(FEEDER_STRUCTURE)[0];
     if(firstSub){
+      const firstSub = Object.keys(FEEDER_STRUCTURE)[0];
+      currentVoltage = FEEDER_STRUCTURE[firstSub].voltage;
       currentSubstation = firstSub;
       currentFeeder     = getFeederNames(firstSub)[0] || null;
       // set currentNumber for numbered feeders
@@ -2622,120 +2629,126 @@ async function saveNewDevice(){
 // ── Substation / Feeder Mode ─────────────────────────────────────────────────
 const FEEDER_STRUCTURE = {
   "BR & A Half": {
+    voltageLevels: ["115kV"],
     feeders: {
-      "SSMN":  {"hasNumbers": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
-      "TP":    {"hasNumbers": true,
+      "SSMN":  {"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
+      "TP":    {"hasNumbers": true, "hasMain": true,
                 "numbers": {
                   "01": {"mains":["MAIN_01","MAIN_02"], "subsets":["MAIN_01","MAIN_02"]},
                 }
               },
-      "LINE":  {"hasNumbers": true,
+      "LINE":  {"hasNumbers": true, "hasMain": true,
                 "numbers": {
                   "01": {"mains":["MAIN_01","MAIN_02"], "subsets":["MAIN_01","MAIN_02"]},
                 }
               },
-      "CENTER": {"hasNumbers": true, "numbers": {
+      "CENTER": {"hasNumbers": true, "hasMain": true, "numbers": {
                   "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]},
                 }
               },
-      "BUS_ZONE": {"hasNumbers": true, "numbers": {
+      "BUS_ZONE": {"hasNumbers": true, "hasMain": true, "numbers": {
                   "01": {"mains":["MAIN_01", "MAIN_02"], "subsets":["MAIN_01", "MAIN_02"]},
                   "02": {"mains":["MAIN_01", "MAIN_02"], "subsets":["MAIN_01", "MAIN_02"]}
                 }
               },
-      "RCC":   {"hasNumbers": true, "numbers": {
+      "RCC":   {"hasNumbers": true, "hasMain": true, "numbers": {
                   "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]},
                 }
               }
     }
   },
   "DBSB": {
+    voltageLevels: ["115kV"],
     feeders: {
-      "SSMN" :{"hasNumbers": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
-      "TP" :{"hasNumbers": true, "numbers": {
+      "SSMN" :{"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
+      "TP" :{"hasNumbers": true, "hasMain": true, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]},
         }
       }, 
-      "LINE":{"hasNumbers": true, "numbers": {
+      "LINE":{"hasNumbers": true, "hasMain": true, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]},
         }
       },
-      "BUS_COUPLER":{"hasNumbers": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
-      "BUS_ZONE": {"hasNumbers": true, "numbers": {
+      "BUS_COUPLER":{"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
+      "BUS_ZONE": {"hasNumbers": true, "hasMain": true, "numbers": {
                   "01": {"mains":["MAIN_01", "MAIN_02"], "subsets":["MAIN_01", "MAIN_02"]},
                 }
         },
-      "RCC":{"hasNumbers": true, "numbers": {
+      "RCC":{"hasNumbers": true, "hasMain": true, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]},
         }
       }
     }
   },
   "H Scheme": {
+    voltageLevels: ["115kV"],
     feeders: {
-      "SSMN":{"hasNumbers": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
-      "TP":{"hasNumbers": true, "numbers": {
+      "SSMN":{"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
+      "TP":{"hasNumbers": true, "hasMain": true, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}},
       },
-      "LINE":{"hasNumbers": true, "numbers": {
+      "LINE":{"hasNumbers": true, "hasMain": true, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "BUS_TIE":{"hasNumbers": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
-      "RCC":{"hasNumbers": true, "numbers": {
+      "BUS_TIE":{"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
+      "RCC":{"hasNumbers": true, "hasMain": true, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}}
     }
   },
   "Main & Transfer": {
+    voltageLevels: ["115kV"],
     feeders: {
-      "SSMN":{"hasNumbers": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
-      "TP":{"hasNumbers": true, "numbers": {
+      "SSMN":{"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
+      "TP":{"hasNumbers": true, "hasMain": true, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}},
       },
-      "LINE":{"hasNumbers": true, "numbers": {
+      "LINE":{"hasNumbers": true, "hasMain": true, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]},
         "02": {"mains":["MAIN_01"], "subsets":["MAIN_01"]},
       }},
-      "BUS_TIE":{"hasNumbers": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
-      "RCC":{"hasNumbers": true, "numbers": {
+      "BUS_TIE":{"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
+      "RCC":{"hasNumbers": true, "hasMain": true, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}}
     }
   },
   "AIS substation": {
+    voltageLevels: ["22kV"],
     feeders: {
-      "SSMN":{"hasNumbers": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
-      "INC":{"hasNumbers": true, "numbers": {
+      "SSMN":{"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
+      "INC":{"hasNumbers": true, "hasMain": true, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "BS":{"hasNumbers": true,"numbers": {
+      "BS":{"hasNumbers": true, "hasMain": true, "numbers": {
         "1": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "OUT":{"hasNumbers": true, "numbers": {
+      "OUT":{"hasNumbers": true, "hasMain": true, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "TS_CB":{"hasNumbers": true, "numbers": {
+      "TS_CB":{"hasNumbers": true, "hasMain": true, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "TS_LBS":{"hasNumbers": true, "numbers": {
+      "TS_LBS":{"hasNumbers": true, "hasMain": true, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "BUSPT":{"hasNumbers": true,"numbers": {
+      "BUSPT":{"hasNumbers": true,"hasMain": true,"numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "CAP":{"hasNumbers": true, "numbers": {
+      "CAP":{"hasNumbers": true, "hasMain": true, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "CAP_BANK":{"hasNumbers": true, "numbers": {
+      "CAP_BANK":{"hasNumbers": true, "hasMain": true, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
     }
   },
   "GIS substation": {
+    voltageLevels: ["33kV"],
     feeders: {
-      "SSMN":{"hasNumbers": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
-      "INC":{"hasNumbers": true, "numbers": {
+      "SSMN":{"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
+      "INC":{"hasNumbers": true, "hasMain": true, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "BS":{"hasNumbers": true,"numbers": {
+      "BS":{"hasNumbers": true, "hasMain": true, "numbers": {
         "1": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "OUT":{"hasNumbers": true, "numbers": {
+      "OUT":{"hasNumbers": true, "hasMain": true, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "TS_CB":{"hasNumbers": true, "numbers": {
+      "TS_CB":{"hasNumbers": true, "hasMain": true, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "BUSPT":{"hasNumbers": true,"numbers": {
+      "BUSPT":{"hasNumbers": true, "hasMain": true, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "CAP":{"hasNumbers": true, "numbers": {
+      "CAP":{"hasNumbers": true, "hasMain": true, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "CAP_BANK":{"hasNumbers": true, "numbers": {
+      "CAP_BANK":{"hasNumbers": true, "hasMain": true, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}}
     }
   }
@@ -2748,12 +2761,14 @@ function getSubsetNames(sub,feed){ return FEEDER_STRUCTURE[sub]?.feeders[feed]?.
 function getMainNames(sub, feed){
   const f = FEEDER_STRUCTURE[sub]?.feeders[feed];
   if(!f) return ['MAIN_01'];
-  if(f.hasNumbers){
-    return f.numbers[currentNumber]?.mains || ['MAIN_01'];
-  }
+  if(f.hasMain === false) return [null];   // ← new flat case
+  if(f.hasNumbers) return f.numbers[currentNumber]?.mains || ['MAIN_01'];
   return f.mains || ['MAIN_01'];
 }
 // same pattern for getSubsetNames
+function getVoltageLevels(){
+  return [...new Set(Object.values(FEEDER_STRUCTURE).map(s=>s.voltage).filter(Boolean))];
+}
 
 
 const FEEDER_SCHEMA_MAP = {"Status Point":"status","Control Output":"control","Analog Point":"analog"};
@@ -2761,17 +2776,19 @@ const FEEDER_SCHEMA_MAP = {"Status Point":"status","Control Output":"control","A
 let currentMode       = 'feeder';
 let currentSubstation = Object.keys(FEEDER_STRUCTURE)[0];
 let currentFeeder     = Object.keys(FEEDER_STRUCTURE[currentSubstation].feeders)[0];
-let currentSubset     = 'MAIN_01';
-let currentMain       = 'MAIN_01';
+let currentMain = getMainNames(currentSubstation, currentFeeder)[0] ?? null;
+let currentSubset = currentMain;
 let currentFeederType = FEEDER_SUBSETS[0];
+let currentVoltage = null;
 
 const FEEDER_DATASETS = {};
 
 let currentNumber = null; // e.g. "01", "02", or null for flat feeders
 
 function feederKey(sub, feed, subset, main, type, num){
-  const numPart = (num !== undefined ? num : currentNumber) ? '__'+(num !== undefined ? num : currentNumber) : '';
-  return '__feeder__'+sub+'__'+feed+numPart+'__'+subset+'__'+main+'__'+type;
+  const numPart  = (num !== undefined ? num : currentNumber) ? '__'+(num !== undefined ? num : currentNumber) : '';
+  const mainPart = main ? '__'+subset+'__'+main : '__FLAT';
+  return '__feeder__'+sub+'__'+feed+numPart+mainPart+'__'+type;
 }
 function currentFeederKey(){
   return feederKey(currentSubstation, currentFeeder, currentSubset, currentMain, currentFeederType, currentNumber);
@@ -2839,7 +2856,21 @@ function switchMode(mode){
   updateBreadcrumb();
 }
 
+function renderVoltageTabs(){
+  document.getElementById('voltageTabs').innerHTML = getVoltageLevels().map(v =>
+    `<button class="feeder-tab${v===currentVoltage?' active':''}" onclick="switchVoltage('${v.replace(/'/g,"\\'")}')">${v}</button>`
+  ).join('');
+}
+async function switchVoltage(v){
+  if(!confirmIfDirty('Switch voltage level? Unsaved changes may be lost.')) return;
+  currentVoltage = v;
+  renderVoltageTabs();
+  const firstSub = Object.keys(FEEDER_STRUCTURE).find(s => FEEDER_STRUCTURE[s].voltage === v);
+  if(firstSub) await switchSubstation(firstSub);
+}
+
 function renderSubstationTabs(){
+  const entries = Object.entries(FEEDER_STRUCTURE).filter(([s,cfg]) => cfg.voltage === currentVoltage);
   document.getElementById('substationTabs').innerHTML =
     Object.entries(FEEDER_STRUCTURE).map(([s, cfg]) => {
       const isUser = cfg._userAdded;
@@ -2859,8 +2890,8 @@ async function switchSubstation(s){
   if(!confirmIfDirty('Switch substation? Unsaved changes may be lost.')) return;
   currentSubstation=s;
   currentFeeder=getFeederNames(s)[0]||null;
-  currentSubset=currentFeeder?(getSubsetNames(s,currentFeeder)[0]||'MAIN_01'):'MAIN_01';
-  currentMain=currentFeeder?(getMainNames(s,currentFeeder)[0]||'MAIN_01'):'MAIN_01';
+  currentMain = getMainNames(currentSubstation, currentFeeder)[0] ?? null;
+  currentSubset = currentMain;
   currentFeederType=FEEDER_SUBSETS[0];
   selected=new Set();hideDupAlert();
   renderSubstationTabs();renderFeederTabs();renderNumberTabs();renderSubsetTabs();renderMainTabs();renderFeederTypeTabs();
@@ -2896,9 +2927,8 @@ async function switchFeeder(f){
     currentNumber = Object.keys(feedCfg.numbers)[0];
   }
   // NOW safe — currentNumber is set before getMainNames uses it
-  currentSubset = getSubsetNames(currentSubstation, f)[0] || 'MAIN_01';
-  currentMain   = getMainNames(currentSubstation, f)[0]  || 'MAIN_01';
-  currentSubset = currentMain;  // ← keep in sync
+  currentMain = getMainNames(currentSubstation, currentFeeder)[0] ?? null;
+  currentSubset = currentMain;
   currentFeederType = FEEDER_SUBSETS[0];
   selected = new Set(); hideDupAlert();
   renderFeederTabs(); renderNumberTabs(); renderSubsetTabs(); renderMainTabs(); renderFeederTypeTabs();
@@ -3012,10 +3042,16 @@ function feederKeyFor(sub,feed,num,subset,main,type){
 }
 
 function renderMainTabs(){
-  const mains = currentFeeder ? getMainNames(currentSubstation, currentFeeder) : [];
-  const feedCfg = FEEDER_STRUCTURE[currentSubstation]?.feeders[currentFeeder];
-  const userMains = new Set(feedCfg?._userMains || feedCfg?.numbers?.[currentNumber]?._userMains || []);
-
+ const feedCfg = FEEDER_STRUCTURE[currentSubstation]?.feeders[currentFeeder];
+  const wrap = document.getElementById('mainRowWrap');
+  if(feedCfg?.hasMain === false){
+    wrap.style.display = 'none';
+    document.getElementById('mainTabs').innerHTML = '';
+    return;
+  }
+  wrap.style.display = 'flex';
+  const mains = feedCfg.hasNumbers ? feedCfg.numbers[currentNumber]?.mains || ['MAIN_01'] : feedCfg.mains || ['MAIN_01'];
+  const userMains = feedCfg.hasNumbers ? new Set(feedCfg.numbers[currentNumber]?._userMains || []) : new Set(feedCfg._userMains || []);
   document.getElementById('mainTabs').innerHTML = mains.length
     ? mains.map(m => {
         const isUser = userMains.has(m);
@@ -3462,7 +3498,7 @@ function openFeederAddRow(){
     'TP':      ['01YB-03', '01YS-05', '01YS-06', '01YS-08'],
     'LINE':    ['01YB-01','01YS-01','01YS-02','01YS-07','01YG-07'],
     'CENTER':  ['01YB-02','01YS-03','01YS-04'],
-    'BUS_ZONE':['BAY_BZ01'],
+    'BUS_ZONE':['BUS01','BUS02'],
     'RCC':     ['BAY_RCC01'],
   },
   'DBSB': {
@@ -3654,7 +3690,7 @@ async function saveNewSubstation(){
   const name = document.getElementById('newSubstationName').value.trim();
   if(!name){ alert('Enter a substation name.'); return; }
   if(FEEDER_STRUCTURE[name]){ alert('Substation "'+name+'" already exists.'); return; }
-  FEEDER_STRUCTURE[name] = { feeders:{}, _userAdded: true };  // ← add flag
+  FEEDER_STRUCTURE[name] = { voltage: volt, feeders:{}, _userAdded:true }; // ← add flag
   currentSubstation=name; currentFeeder=null; currentMain=null;
   closeModal('addSubstationModal'); await saveFeederConfig();
   renderSubstationTabs(); renderFeederTabs(); renderMainTabs(); renderFeederTypeTabs();
@@ -3740,7 +3776,7 @@ async function exportAllSubstation(){
 
     for(const main of mains){
       for(const subset of subsets){
-        const sheetName = (feed + '_' + main).replace(/[\\/*?:[\]\s&()]/g,'_').substring(0,31);
+        const sheetName = (feed + (main ? '_'+main : '')).replace(/[\\/*?:[\]\s&()]/g,'_').substring(0,31);
         const allSheetData = [];
         let firstTable = true;
 
