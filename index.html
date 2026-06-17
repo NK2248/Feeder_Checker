@@ -6035,93 +6035,67 @@ function buildMappedRows(){
 function mergeConsecutiveSplitRows(rows){
   if(!rows || rows.length < 2) return rows;
 
-  // Determine the key column to group by (first non-empty identifier found)
   const KEY_COLS = [
     'SPECIFICATION_POINT_NAME',
     'DNP3.0_ADDRESS',
-    'BAY_NAME',
-    'FEEDER_NAME'
   ];
 
-  // Find which key cols actually exist in the data
+  // Columns that should NEVER be copied from upper row
+  // (these are truly per-row values)
+  const NO_COPY_COLS = new Set([
+    '__added_by','__added_at','__edited_by','__edited_at'
+  ]);
+
+  // Columns that identify a row as a "continuation" when empty
+  const ANCHOR_COLS = [
+    'SPECIFICATION_POINT_NAME',
+    'FEEDER_NAME',
+    'BAY_NAME'
+  ];
+
   const allCols = new Set(rows.flatMap(r => Object.keys(r)));
-  const keyCols = KEY_COLS.filter(k => allCols.has(k));
 
-  if(!keyCols.length) return rows; // no key column — can't merge
-
-  function getRowKey(row){
-    // build a composite key from all available key columns
-    return keyCols
-      .map(k => String(row[k] ?? '').trim())
-      .join('||');
+  function isAnchorEmpty(row){
+    // row is a continuation if ALL anchor cols that exist are empty
+    const existingAnchors = ANCHOR_COLS.filter(k => allCols.has(k));
+    if(!existingAnchors.length) return false;
+    return existingAnchors.every(k => !String(row[k] ?? '').trim());
   }
 
-  function isEmptyKey(row){
-    return keyCols.every(k => !String(row[k] ?? '').trim());
-  }
-
-  function countNonEmpty(row){
-    return Object.values(row).filter(v => String(v ?? '').trim() !== '').length;
+  function hasAnyData(row){
+    return Object.entries(row).some(([k, v]) =>
+      !NO_COPY_COLS.has(k) && String(v ?? '').trim() !== ''
+    );
   }
 
   const merged = [];
   let i = 0;
 
   while(i < rows.length){
-    const current = {...rows[i]};
-    const currentKey = getRowKey(current);
+    const current = { ...rows[i] };
 
-    // If this row has no key — it might be a continuation of previous row
-    if(isEmptyKey(current) && merged.length > 0){
-      const prev = merged[merged.length - 1];
-      // merge non-empty values from current into previous
-      Object.entries(current).forEach(([col, val]) => {
-        const trimmed = String(val ?? '').trim();
-        if(trimmed && !String(prev[col] ?? '').trim()){
-          prev[col] = trimmed;
-        }
-      });
-      i++;
-      continue;
-    }
-
-    // Look ahead — check if next row has same key or empty key
+    // Collect all consecutive continuation rows below current
     let j = i + 1;
     while(j < rows.length){
       const next = rows[j];
-      const nextKey = getRowKey(next);
 
-      const sameKey = currentKey && nextKey && currentKey === nextKey;
-      const nextEmpty = isEmptyKey(next);
+      // Stop if next row has its own point name — it's a new item
+      if(!isAnchorEmpty(next)) break;
 
-      // Stop if next row is clearly a new independent row
-      if(!sameKey && !nextEmpty) break;
+      // Stop if next row has NO data at all — it's truly blank
+      if(!hasAnyData(next)){ j++; continue; }
 
-      // Stop if next row has MORE non-empty cells than current
-      // (it's probably a real new row, not a continuation)
-      if(!sameKey && nextEmpty && countNonEmpty(next) > countNonEmpty(current) * 0.5){
-        // check if next row has any key data at all
-        const hasAnyKeyData = KEY_COLS.some(k => String(next[k] ?? '').trim());
-        if(hasAnyKeyData) break;
-      }
-
-      // Merge next row into current — fill in missing values only
+      // Merge: fill empty cells in current from next row
       Object.entries(next).forEach(([col, val]) => {
+        if(NO_COPY_COLS.has(col)) return;
         const trimmed = String(val ?? '').trim();
-        if(trimmed && !String(current[col] ?? '').trim()){
+        const existing = String(current[col] ?? '').trim();
+        if(trimmed && !existing){
           current[col] = trimmed;
         }
       });
 
       j++;
-
-      // If same key rows can repeat more than once, keep going
-      // but stop if the next-next row has yet another same key (infinite loop guard)
-      if(j < rows.length){
-        const nextNextKey = getRowKey(rows[j]);
-        if(nextNextKey && nextNextKey === currentKey) continue;
-        if(!isEmptyKey(rows[j])) break;
-      }
     }
 
     merged.push(current);
