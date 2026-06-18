@@ -1271,6 +1271,7 @@ function mrUpdateMains() {
   const feed = document.getElementById('mrFeeder').value;
   const feedCfg = FEEDER_STRUCTURE[sub]?.feeders[feed];
   const mainSel = document.getElementById('mrMain');
+  const numSel  = document.getElementById('mrNumber');
 
   if(feedCfg?.hasMain === false){
     mainSel.innerHTML = `<option value="">— flat feeder, no main —</option>`;
