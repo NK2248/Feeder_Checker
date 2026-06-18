@@ -2842,7 +2842,7 @@ function getVoltageLevels(){
 
 // substation -> feeder -> name root actually used in FEEDER_NAME column
 const FEEDER_NAME_OVERRIDES = {
-  'BR & A Half':      { 'RCC': 'TP' },
+  'BR & A Half':      { 'BUS_ZONE': 'BUS NO.', 'RCC': 'TP_' },
   'DBSB':             { 'RCC': 'TP' },
   'H Scheme':         { 'RCC': 'TP' },
   'Main & Transfer':  { 'RCC': 'TP' },
@@ -2853,7 +2853,7 @@ function defaultFeederNameFor(sub, feed, number){
   const nameRoot = FEEDER_NAME_OVERRIDES[sub]?.[feed] || feed;
   if(feedCfg?.hasNumbers){
     const num = number || currentNumber;
-    return num ? (nameRoot + '_' + num) : nameRoot;
+    return num ? (nameRoot + num) : nameRoot;
   }
   return nameRoot;
 }
