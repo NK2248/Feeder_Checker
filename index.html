@@ -1381,16 +1381,8 @@ async function doManualRouteImport(importMode) {
       d.rows = []; d.manuallyAdded = new Set(); d.originCount = 0;
     }
 
-    // guard against mismatched feeder names, then re-merge so any
-    // row that becomes anchor-empty as a result gets absorbed
-    const guarded = applyFeederNameGuard(
-      importData.map(r => ({...r})), defaultFeederName
-    );
-    // merge wrapped/split rows on the original data first (so the blank-anchor
-    // signal mergeConsecutiveSplitRows relies on is still intact), then stamp
-    // the canonical FEEDER_NAME onto every resulting row
-    const merged = mergeConsecutiveSplitRows(importData.map(r => ({...r})));
     const defaultFeederName = defaultFeederNameFor(route.substation, route.feeder, route.number);
+    const merged = mergeConsecutiveSplitRows(importData.map(r => ({...r})));
     const cleaned = applyFeederNameGuard(merged, defaultFeederName);
 
     cleaned.forEach(r => {
