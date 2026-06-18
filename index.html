@@ -1384,8 +1384,10 @@ async function doManualRouteImport(importMode) {
     // guard against mismatched feeder names, then re-merge so any
     // row that becomes anchor-empty as a result gets absorbed
     const guarded = applyFeederNameGuard(
-      importData.map(r => ({...r})), route.feeder
+      importData.map(r => ({...r})), defaultFeederName
     );
+    const defaultFeederName = defaultFeederNameFor(route.substation, route.feeder, route.number);
+    
     const cleaned = mergeConsecutiveSplitRows(guarded);
 
     cleaned.forEach(r => {
@@ -2816,6 +2818,24 @@ function getVoltageLevels(){
   return [...new Set(Object.values(FEEDER_STRUCTURE).map(s => s.voltage).filter(Boolean))];
 }
 
+// substation -> feeder -> name root actually used in FEEDER_NAME column
+const FEEDER_NAME_OVERRIDES = {
+  'BR & A Half':      { 'RCC': 'TP' },
+  'DBSB':             { 'RCC': 'TP' },
+  'H Scheme':         { 'RCC': 'TP' },
+  'Main & Transfer':  { 'RCC': 'TP' },
+};
+
+function defaultFeederNameFor(sub, feed, number){
+  const feedCfg  = FEEDER_STRUCTURE[sub]?.feeders[feed];
+  const nameRoot = FEEDER_NAME_OVERRIDES[sub]?.[feed] || feed;
+  if(feedCfg?.hasNumbers){
+    const num = number || currentNumber;
+    return num ? (nameRoot + '_' + num) : nameRoot;
+  }
+  return nameRoot;
+}
+
 
 const FEEDER_SCHEMA_MAP = {"Status Point":"status","Control Output":"control","Analog Point":"analog"};
 
@@ -3625,7 +3645,7 @@ function openFeederAddRow(){
   const bayDefault = FEEDER_BAY_DEFAULTS[currentSubstation]?.[currentFeeder] || '';
   const defaults= {
     ...(feederDefaultsMap[currentFeederType] || {}),
-    'FEEDER_NAME': currentFeeder || '',
+    'FEEDER_NAME': defaultFeederNameFor(currentSubstation, currentFeeder, currentNumber) || '',
     'BAY_NAME': bayDefault
   };
   document.getElementById('addFields').innerHTML=c.map(col=>{
