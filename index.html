@@ -5113,6 +5113,8 @@ function classifyRow(row, ri){
   if(ri > lastHdr){
     if(isRowBlank(row)) return 'blank';
 
+    if(COLMAP.hiddenRows?.has(ri) && !COLMAP.includeHiddenRows) return 'hidden-excel';
+
     const effectiveEnd = COLMAP.manualDataEnd ??
       (COLMAP.activeTableBoundary ? COLMAP.activeTableBoundary.dataEnd : null);
     if(effectiveEnd !== null && ri === effectiveEnd) return 'data';
@@ -5380,6 +5382,57 @@ function colMapLoadSheet(sheetName){
     allRawRows.push(row);
   }
 
+  // ── Detect rows/columns hidden in the source Excel file ────────────────
+  // (manually hidden, collapsed grouping, or left hidden by a filter) —
+  // SheetJS still reads the values underneath even though no human saw them
+  const hiddenRows = new Set();
+  const hiddenCols = new Set();
+  if(ws['!rows']){
+    ws['!rows'].forEach((rowMeta, absR)=>{
+      if(rowMeta && rowMeta.hidden){
+        const relIdx = absR - range.s.r;
+        if(relIdx >= 0) hiddenRows.add(relIdx);
+      }
+    });
+  }
+  if(ws['!cols']){
+    ws['!cols'].forEach((colMeta, absC)=>{
+      if(colMeta && colMeta.hidden){
+        const relIdx = absC - range.s.c;
+        if(relIdx >= 0) hiddenCols.add(relIdx);
+      }
+    });
+  }
+  // only flag a hidden row/col if it actually contains data — a hidden
+  // blank row isn't worth warning about
+  COLMAP.hiddenRows = new Set([...hiddenRows].filter(ri => !isRowBlank(allRawRows[ri]||[])));
+  COLMAP.hiddenCols = new Set([...hiddenCols].filter(ci => allRawRows.some(r => String(r[ci]||'').trim() !== '')));
+  COLMAP.includeHiddenRows = false;
+  COLMAP.includeHiddenCols = false;
+
+  // ── Fill down values from Excel's actual merged-cell ranges ────────────
+  // Excel stores a merged cell's value only in its top-left cell — every
+  // other cell in the range reads as empty even though it visually shows
+  // the same value. Filling these in now (using real merge metadata, not
+  // a guess) means the row-merge heuristics below only have to deal with
+  // genuinely wrapped/split rows, not cells Excel already told us about.
+  const mergeFilledCells = new Set(); // "r,c" keys filled from a merge (not the anchor cell)
+  (ws['!merges'] || []).forEach(mr => {
+    const topVal = allRawRows[mr.s.r - range.s.r]?.[mr.s.c - range.s.c] ?? '';
+    if(!topVal) return;
+    for(let R = mr.s.r; R <= mr.e.r; R++){
+      for(let C = mr.s.c; C <= mr.e.c; C++){
+        if(R === mr.s.r && C === mr.s.c) continue; // anchor cell already has it
+        const relR = R - range.s.r, relC = C - range.s.c;
+        if(allRawRows[relR] && allRawRows[relR][relC] === ''){
+          allRawRows[relR][relC] = topVal;
+          mergeFilledCells.add(relR+','+relC);
+        }
+      }
+    }
+  });
+  COLMAP.mergeFilledCells = mergeFilledCells;
+
   COLMAP.allRawRows  = allRawRows.length ? allRawRows : [[]];
   COLMAP.rawRows     = COLMAP.allRawRows; // show all rows in preview
   COLMAP.fullRange   = range;
@@ -5403,6 +5456,8 @@ function colMapLoadSheet(sheetName){
 
   renderColMapPreview();
   renderTableSelector();
+  renderHiddenDataBanner();
+  renderMergeFillBanner();
 
   const autoIdx = autoDetectHeaderRow(COLMAP.rawRows);
   if(autoIdx !== null){
@@ -5496,9 +5551,10 @@ function renderColMapPreview(targetId){
   const thead = `<tr>
     <th style="background:var(--surface2);padding:4px 8px;font-size:10px;font-family:var(--mono);border-bottom:1px solid var(--border);position:sticky;top:0;white-space:nowrap">#</th>
     <th style="background:var(--surface2);padding:4px 8px;font-size:10px;font-family:var(--mono);border-bottom:1px solid var(--border);position:sticky;top:0;white-space:nowrap">role</th>
-    ${Array.from({length:maxCols},(_,ci)=>
-      `<th style="background:var(--surface2);padding:4px 8px;font-size:10px;font-family:var(--mono);border-bottom:1px solid var(--border);position:sticky;top:0;white-space:nowrap">${String.fromCharCode(65+ci)}</th>`
-    ).join('')}
+    ${Array.from({length:maxCols},(_,ci)=>{
+      const isHiddenCol = COLMAP.hiddenCols?.has(ci) && !COLMAP.includeHiddenCols;
+      return `<th style="background:${isHiddenCol?'#f3eaff':'var(--surface2)'};padding:4px 8px;font-size:10px;font-family:var(--mono);border-bottom:1px solid var(--border);position:sticky;top:0;white-space:nowrap;color:${isHiddenCol?'#9b6fd6':'inherit'}" title="${isHiddenCol?'This column is hidden in the original Excel file':''}">${String.fromCharCode(65+ci)}${isHiddenCol?' 🔒':''}</th>`;
+    }).join('')}
   </tr>`;
 
   const tbody = rows.map((row,ri)=>{
@@ -5541,6 +5597,11 @@ function renderColMapPreview(targetId){
       opacity = '0.4';
       badge   = `<span style="font-size:9px;font-family:var(--mono);color:var(--text3)">blank</span>`;
       title   = 'Blank row — will be skipped';
+    } else if(role==='hidden-excel'){
+      rowBg   = 'background:#f3eaff';
+      opacity = '0.55';
+      badge   = `<span style="display:inline-block;font-size:9px;font-family:var(--mono);background:#9b6fd6;color:#fff;border-radius:3px;padding:1px 5px">hidden in Excel</span>`;
+      title   = 'This row was hidden in the original Excel file — excluded by default. Use the toggle above the preview to include it.';
     } else if(role==='unwanted'){
       rowBg   = 'background:#fff8f0';
       opacity = '0.55';
@@ -5582,9 +5643,12 @@ function renderColMapPreview(targetId){
       : '';
 
     // build cells AFTER opacity is set
-    const cells = Array.from({length:maxCols},(_,ci)=>
-      `<td style="padding:4px 8px;font-size:11px;border-bottom:1px solid var(--border);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;opacity:${opacity};font-family:${isHdr?'var(--mono)':'inherit'};font-weight:${isHdr?'600':'400'}">${(row[ci]??'').toString().replace(/</g,'&lt;')}</td>`
-    ).join('');
+    const cells = Array.from({length:maxCols},(_,ci)=>{
+      const isMergeFilled = COLMAP.mergeFilledCells?.has(ri+','+ci);
+      const mergeStyle = isMergeFilled ? 'background:#eef0ff;border-bottom:1px dotted #6b73c4' : '';
+      const mergeTitle  = isMergeFilled ? ' (filled from merged Excel cell)' : '';
+      return `<td style="padding:4px 8px;font-size:11px;border-bottom:1px solid var(--border);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;opacity:${opacity};font-family:${isHdr?'var(--mono)':'inherit'};font-weight:${isHdr?'600':'400'};${mergeStyle}" title="${(row[ci]??'').toString().replace(/"/g,'&quot;')}${mergeTitle}">${(row[ci]??'').toString().replace(/</g,'&lt;')}</td>`;
+    }).join('');
 
     // draw a divider line between detected tables
     let tableMarker = '';
@@ -5746,6 +5810,9 @@ function buildFileColumnsAndMap(){
   COLMAP.colStartIdx = {};
 
   for(let ci=0; ci<maxCols; ci++){
+    // skip columns hidden in the source Excel file unless explicitly included
+    if(COLMAP.hiddenCols?.has(ci) && !COLMAP.includeHiddenCols) continue;
+
     // collect non-empty values from each header row for this column
     const parts = rows.map(r=>(r[ci]||'').trim()).filter(Boolean);
 
@@ -5835,6 +5902,125 @@ function detectItemColumn(headerRows, allRawRows){
   }
 
   return null;
+}
+
+function renderMergeFillBanner(){
+  let el = document.getElementById('mergeFillIndicator');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'mergeFillIndicator';
+    el.style.cssText = 'margin-bottom:8px;';
+    const ref = document.getElementById('hiddenDataIndicator');
+    if(ref) ref.parentNode.insertBefore(el, ref);
+  }
+  const count = COLMAP.mergeFilledCells ? COLMAP.mergeFilledCells.size : 0;
+  if(!count){ el.innerHTML=''; return; }
+  el.innerHTML = `
+    <div style="background:#eef0ff;border:1px solid #b0b8f0;border-radius:var(--r);padding:8px 12px;font-size:11px;font-family:var(--mono);color:#3d4ba0;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;flex-shrink:0"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
+      <strong>${count} cell${count>1?'s':''}</strong> auto-filled from merged Excel cells (value belongs to all rows in the original merge)
+      <button class="btn" style="font-size:10px;padding:2px 8px;margin-left:auto" onclick="showMergeFillDetail()">review</button>
+    </div>`;
+}
+
+function showMergeFillDetail(){
+  const cells = [...(COLMAP.mergeFilledCells||[])].map(k=>{
+    const [r,c] = k.split(',').map(Number);
+    return {r,c,val: COLMAP.allRawRows[r]?.[c] ?? ''};
+  }).sort((a,b)=>a.r-b.r||a.c-b.c);
+
+  document.querySelector('#confirmModal h3').textContent = 'Merged-cell values filled in';
+  const list = cells.length ? cells.slice(0,80).map(e=>
+    `<div style="display:flex;gap:8px;font-size:11px;font-family:var(--mono);padding:4px 6px;border-bottom:1px solid var(--border)">
+      <span style="color:var(--text3);width:90px;flex-shrink:0">row ${e.r+1}, col ${String.fromCharCode(65+e.c)}</span>
+      <span style="color:var(--text2)">${e.val}</span>
+    </div>`
+  ).join('') : '<div style="padding:8px;color:var(--text3);font-size:11px">none</div>';
+
+  document.getElementById('confirmMsg').innerHTML = `
+    <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:8px">
+      These cells were blank in the file but belonged to a merged range — the value from the merge's top-left cell was copied down. Showing first ${Math.min(80,cells.length)}.
+    </div>
+    <div style="max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r)">${list}</div>`;
+  document.getElementById('confirmOkBtn').textContent = 'Close';
+  document.getElementById('confirmOkBtn').style.display = '';
+  document.getElementById('confirmOkBtn').onclick = () => {
+    document.querySelector('#confirmModal h3').textContent = 'Remove rows?';
+    document.getElementById('confirmOkBtn').textContent = 'Remove';
+    closeModal('confirmModal');
+  };
+  document.getElementById('confirmModal').classList.add('open');
+}
+
+function renderHiddenDataBanner(){
+  let el = document.getElementById('hiddenDataIndicator');
+  if(!el) return;
+  const rowCount = COLMAP.hiddenRows ? COLMAP.hiddenRows.size : 0;
+  const colCount = COLMAP.hiddenCols ? COLMAP.hiddenCols.size : 0;
+
+  if(!rowCount && !colCount){ el.innerHTML = ''; return; }
+
+  const parts = [];
+  if(rowCount) parts.push(`${rowCount} hidden row${rowCount>1?'s':''}`);
+  if(colCount) parts.push(`${colCount} hidden column${colCount>1?'s':''}`);
+
+  el.innerHTML = `
+    <div style="background:#f3eaff;border:1px solid #c8a8e8;border-radius:var(--r);padding:8px 12px;font-size:11px;font-family:var(--mono);color:#6b3fa0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;flex-shrink:0"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+      <strong>${parts.join(' and ')}</strong> contain data not visible in the original Excel file — excluded from import by default.
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;margin-left:auto">
+        <input type="checkbox" id="chkIncludeHiddenRows" ${COLMAP.includeHiddenRows?'checked':''}
+          onchange="COLMAP.includeHiddenRows=this.checked;renderColMapPreview();renderTableSelector();updateMappingPreview();"
+          style="cursor:pointer;accent-color:#6b3fa0">
+        <span>include hidden rows</span>
+      </label>
+      ${colCount?`<label style="display:flex;align-items:center;gap:5px;cursor:pointer">
+        <input type="checkbox" id="chkIncludeHiddenCols" ${COLMAP.includeHiddenCols?'checked':''}
+          onchange="COLMAP.includeHiddenCols=this.checked;renderColMapPreview();buildFileColumnsAndMap();"
+          style="cursor:pointer;accent-color:#6b3fa0">
+        <span>include hidden columns</span>
+      </label>`:''}
+      <button class="btn" style="font-size:10px;padding:2px 8px" onclick="showHiddenDataDetail()">review</button>
+    </div>`;
+}
+
+function showHiddenDataDetail(){
+  const rows = [...(COLMAP.hiddenRows||[])].sort((a,b)=>a-b);
+  const cols = [...(COLMAP.hiddenCols||[])].sort((a,b)=>a-b);
+  document.querySelector('#confirmModal h3').textContent = 'Hidden data detected in Excel file';
+
+  const rowList = rows.length ? rows.map(ri=>{
+    const preview = (COLMAP.allRawRows[ri]||[]).filter(c=>c!=='').slice(0,4).join(' · ');
+    return `<div style="display:flex;gap:8px;font-size:11px;font-family:var(--mono);padding:4px 6px;border-bottom:1px solid var(--border)">
+      <span style="color:var(--text3);width:60px;flex-shrink:0">row ${ri+1}</span>
+      <span style="color:var(--text2)">${preview||'(empty preview)'}</span>
+    </div>`;
+  }).join('') : '<div style="padding:8px;color:var(--text3);font-size:11px">none</div>';
+
+  const colList = cols.length ? cols.map(ci=>{
+    const headerVal = COLMAP.headerRows.length ? (COLMAP.allRawRows[COLMAP.headerRows[0]][ci]||'(no header text)') : '(no header text)';
+    return `<div style="display:flex;gap:8px;font-size:11px;font-family:var(--mono);padding:4px 6px;border-bottom:1px solid var(--border)">
+      <span style="color:var(--text3);width:60px;flex-shrink:0">col ${String.fromCharCode(65+ci)}</span>
+      <span style="color:var(--text2)">${headerVal}</span>
+    </div>`;
+  }).join('') : '<div style="padding:8px;color:var(--text3);font-size:11px">none</div>';
+
+  document.getElementById('confirmMsg').innerHTML = `
+    <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:10px">
+      Excluded unless you check "include hidden rows/columns" above.
+    </div>
+    <div style="font-size:10px;font-family:var(--mono);color:var(--text2);text-transform:uppercase;margin-bottom:4px">Hidden rows (${rows.length})</div>
+    <div style="max-height:140px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r);margin-bottom:10px">${rowList}</div>
+    <div style="font-size:10px;font-family:var(--mono);color:var(--text2);text-transform:uppercase;margin-bottom:4px">Hidden columns (${cols.length})</div>
+    <div style="max-height:140px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r)">${colList}</div>`;
+  document.getElementById('confirmOkBtn').textContent = 'Close';
+  document.getElementById('confirmOkBtn').style.display = '';
+  document.getElementById('confirmOkBtn').onclick = () => {
+    document.querySelector('#confirmModal h3').textContent = 'Remove rows?';
+    document.getElementById('confirmOkBtn').textContent = 'Remove';
+    closeModal('confirmModal');
+  };
+  document.getElementById('confirmModal').classList.add('open');
 }
 
 function renderItemColIndicator(result){
@@ -6070,6 +6256,9 @@ function buildMappedRows(){
 
       // manual skip always wins
       if(COLMAP.manualSkipRows.has(rowIdx)) continue;
+
+      // rows hidden in the source Excel file are excluded unless explicitly opted in
+      if(COLMAP.hiddenRows?.has(rowIdx) && !COLMAP.includeHiddenRows) continue;
 
       // protect the true first data row of each sub-table from the
       // repeated-header filter — only apply it from row 2 onward
@@ -6762,6 +6951,9 @@ window.addEventListener('beforeunload', e => {
             reset marks
           </button>
         </div>
+
+        <!-- Hidden Excel rows/columns indicator -->
+        <div id="hiddenDataIndicator" style="margin-bottom:8px"></div>
 
         <!-- Item column indicator -->
         <div id="itemColIndicator" style="margin-bottom:8px"></div>
