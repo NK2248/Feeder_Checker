@@ -2843,11 +2843,11 @@ function getVoltageLevels(){
 // substation -> feeder -> name root actually used in FEEDER_NAME column
 const FEEDER_NAME_OVERRIDES = {
   'BR & A Half':      { 'TP':'TP','LINE':'LINE','CENTER': 'CENTER', 'BUS_ZONE': 'BUS NO.', 'RCC': 'TP' },
-  'DBSB':             { 'TP':'TP_','LINE':'LINE_','CENTER': 'CENTER_', 'BUS_ZONE': 'BUS NO.', 'RCC': 'TP_' },
-  'H Scheme':         { 'TP':'TP_','LINE':'LINE_','CENTER': 'CENTER_', 'BUS_ZONE': 'BUS NO.', 'RCC': 'TP_' },
-  'Main & Transfer':  { 'TP':'TP_','LINE':'LINE_','CENTER': 'CENTER_', 'BUS_ZONE': 'BUS NO.', 'RCC': 'TP_' },
-  'AIS substation':    { 'INC': 'INC_', 'BS': 'BS_', 'OUT': 'OUT_', 'TS_CB': 'TS_CB_', 'TS_LBS': 'TS_LBS_', 'BUSPT': 'BUSPT_', 'CAP': 'CAP_', 'CAP_BANK': 'CAP_BANK_' },
-  'GIS substation':    { 'INC': 'INC_', 'BS': 'BS_', 'OUT': 'OUT_', 'TS_CB': 'TS_CB_', 'BUSPT': 'BUSPT_', 'CAP': 'CAP_', 'CAP_BANK': 'CAP_BANK_' }
+  'DBSB':             { 'TP':'TP','LINE':'LINE','CENTER': 'CENTER', 'BUS_ZONE': 'BUS NO.', 'RCC': 'TP' },
+  'H Scheme':         { 'TP':'TP','LINE':'LINE','CENTER': 'CENTER', 'BUS_ZONE': 'BUS NO.', 'RCC': 'TP' },
+  'Main & Transfer':  { 'TP':'TP','LINE':'LINE','CENTER': 'CENTER', 'BUS_ZONE': 'BUS NO.', 'RCC': 'TP' },
+  'AIS substation':    { 'INC': 'INC', 'BS': 'BS', 'OUT': 'OUT', 'TS_CB': 'TS_CB', 'TS_LBS': 'TS_LBS', 'BUSPT': 'BUSPT', 'CAP': 'CAP', 'CAP_BANK': 'CAP_BANK' },
+  'GIS substation':    { 'INC': 'INC', 'BS': 'BS', 'OUT': 'OUT', 'TS_CB': 'TS_CB', 'BUSPT': 'BUSPT', 'CAP': 'CAP', 'CAP_BANK': 'CAP_BANK' }
 };
 
 function defaultFeederNameFor(sub, feed, number){
@@ -2855,6 +2855,10 @@ function defaultFeederNameFor(sub, feed, number){
   const nameRoot = FEEDER_NAME_OVERRIDES[sub]?.[feed] || feed;
   if(feedCfg?.hasNumbers){
     const num = number || currentNumber;
+    if (feed === 'BUS_ZONE') {
+      // Special case for BUS_ZONE to avoid double numbering (e.g. "BUS NO. 1_01")
+      return num ? (nameRoot + num) : nameRoot;
+    }
     return num ? (nameRoot + '_' + num) : nameRoot;
   }
   return nameRoot;
