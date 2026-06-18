@@ -1291,6 +1291,21 @@ function mrUpdateMains() {
     .map(m => `<option value="${m}">${m}</option>`).join('');
 }
 
+function syncFeederTypeTabCounts() {
+  // For all types of current feeder/main/number,
+  // ensure _preloadCount matches actual rows.length
+  for (const type of FEEDER_SUBSETS) {
+    const k = feederKey(currentSubstation, currentFeeder, 
+                        currentSubset, currentMain, type, currentNumber);
+    const d = FEEDER_DATASETS[k];
+    if (d) {
+      d._preloadCount = d.rows.length;
+      d._countOnly = false;
+    }
+  }
+  renderFeederTypeTabs();
+}
+
 // FIX 3: doManualRouteImport — guard prevents writing to wrong feeder/substation
 async function doManualRouteImport(importMode) {
   const isFeeder = document.getElementById('mrFeederPanel').style.display !== 'none';
@@ -1403,7 +1418,7 @@ async function doManualRouteImport(importMode) {
 
     renderSubstationTabs(); renderFeederTabs();
     renderNumberTabs();
-    renderSubsetTabs(); renderMainTabs(); renderFeederTypeTabs();
+    renderSubsetTabs(); renderMainTabs(); syncFeederTypeTabCounts();
     renderFeederTable(); renderFeederStats();
 
     if (currentFeederKey() !== importedKey) {
@@ -1604,7 +1619,7 @@ async function preloadAllCounts(){
   }
 
   // refresh tabs with counts
-  renderFeederTypeTabs();
+  syncFeederTypeTabCounts();
   renderTypeTabs();
   renderDevTabs();
 }
@@ -1871,7 +1886,7 @@ async function doDeleteFeederSelected(){
   });
   selected=new Set();d.dupInfo={};d.checked=false;hideDupAlert();
   closeModal('confirmModal');renderFeederTable();renderFeederStats();
-  showLoading('Saving…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();renderFeederTypeTabs();setDirty(false);
+  showLoading('Saving…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();syncFeederTypeTabCounts();setDirty(false);
 }
 function confirmDeleteOne(i){
   document.getElementById('confirmMsg').textContent='Remove this row? This cannot be undone.';
@@ -2216,7 +2231,7 @@ async function doClearAll(scope='all'){
     renderAll();
     showLoading('Clearing data…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();
   }
-  renderFeederTypeTabs();
+  syncFeederTypeTabCounts();
   setDirty(false);
 }
 function closeModal(id){document.getElementById(id).classList.remove('open');}
@@ -2332,7 +2347,7 @@ renderFeederTabs();
 renderNumberTabs();
 renderSubsetTabs();
 renderMainTabs();
-renderFeederTypeTabs();
+syncFeederTypeTabCounts();
 
     if(currentFeeder){
       await loadFeederDataset();
@@ -2910,7 +2925,7 @@ function switchMode(mode){
   }
 
   if(mode==='feeder'){
-    renderVoltageTabs();renderSubstationTabs();renderFeederTabs();renderNumberTabs();renderSubsetTabs();renderMainTabs();renderFeederTypeTabs();loadFeederDataset();
+    renderVoltageTabs();renderSubstationTabs();renderFeederTabs();renderNumberTabs();renderSubsetTabs();renderMainTabs();syncFeederTypeTabCounts();loadFeederDataset();
   } else {
     renderAll();
   }
@@ -2947,7 +2962,7 @@ async function switchVoltage(v){
   renderNumberTabs();
   renderSubsetTabs();
   renderMainTabs();
-  renderFeederTypeTabs();
+  syncFeederTypeTabCounts();
   if(currentFeeder) await loadFeederDataset();
   updateBreadcrumb();
 }
@@ -2984,7 +2999,7 @@ async function switchSubstation(s){
   currentSubset = currentMain;
   currentFeederType=FEEDER_SUBSETS[0];
   selected=new Set();hideDupAlert();
-  renderVoltageTabs();renderSubstationTabs();renderFeederTabs();renderNumberTabs();renderSubsetTabs();renderMainTabs();renderFeederTypeTabs();
+  renderVoltageTabs();renderSubstationTabs();renderFeederTabs();renderNumberTabs();renderSubsetTabs();renderMainTabs();syncFeederTypeTabCounts();
   if(currentFeeder) await loadFeederDataset();
   else {
     document.getElementById('tableArea').innerHTML='<div class="empty"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg><p>No feeders in this substation</p><span>Add feeders using the + button.</span></div>';
@@ -3021,7 +3036,7 @@ async function switchFeeder(f){
   currentSubset = currentMain;
   currentFeederType = FEEDER_SUBSETS[0];
   selected = new Set(); hideDupAlert();
-  renderFeederTabs(); renderNumberTabs(); renderSubsetTabs(); renderMainTabs(); renderFeederTypeTabs();
+  renderFeederTabs(); renderNumberTabs(); renderSubsetTabs(); renderMainTabs(); syncFeederTypeTabCounts();
   await loadFeederDataset();
   updateBreadcrumb();
 }
@@ -3041,7 +3056,7 @@ async function switchSubset(s){
   currentSubset=s;currentMain=getMainNames(currentSubstation,currentFeeder)[0]||'MAIN_01';
   currentFeederType=FEEDER_SUBSETS[0];
   selected=new Set();hideDupAlert();
-  renderSubsetTabs();renderMainTabs();renderFeederTypeTabs();
+  renderSubsetTabs();renderMainTabs();syncFeederTypeTabCounts();
   await loadFeederDataset();
   updateBreadcrumb();
 }
@@ -3054,7 +3069,7 @@ function openAddSubsetTab(){
   if(existing.includes(trimmed)){alert('"'+trimmed+'" already exists.');return;}
   FEEDER_STRUCTURE[currentSubstation].feeders[currentFeeder].subsets.push(trimmed);
   currentSubset=trimmed;
-  saveFeederConfig();renderSubsetTabs();renderFeederTypeTabs();loadFeederDataset();
+  saveFeederConfig();renderSubsetTabs();syncFeederTypeTabCounts();loadFeederDataset();
   updateBreadcrumb();
 }
 
@@ -3086,7 +3101,7 @@ async function switchNumber(n){
   currentSubset = currentMain;
   currentFeederType = FEEDER_SUBSETS[0];
   selected = new Set(); hideDupAlert();
-  renderNumberTabs(); renderMainTabs(); renderFeederTypeTabs();
+  renderNumberTabs(); renderMainTabs(); syncFeederTypeTabCounts();
   await loadFeederDataset();
   updateBreadcrumb();
 }
@@ -3123,7 +3138,7 @@ async function saveNewNumber(num){
   }
   hideLoading();
   currentNumber = num;
-  renderNumberTabs(); renderMainTabs(); renderFeederTypeTabs();
+  renderNumberTabs(); renderMainTabs(); syncFeederTypeTabCounts();
   await loadFeederDataset();
 }
 
@@ -3162,7 +3177,7 @@ async function switchMain(m){
   currentSubset = m;  // ← ADD THIS — keep subset in sync
   currentFeederType = FEEDER_SUBSETS[0];
   selected = new Set(); hideDupAlert();
-  renderMainTabs(); renderFeederTypeTabs();
+  renderMainTabs(); syncFeederTypeTabCounts();
   await loadFeederDataset();
   updateBreadcrumb();
 }
@@ -3799,7 +3814,7 @@ async function saveNewFeeder(){
   };
   currentFeeder=name; currentSubset="MAIN_01"; currentMain="MAIN_01"; currentFeederType=FEEDER_SUBSETS[0];
   closeModal('addFeederModal'); await saveFeederConfig();
-  renderFeederTabs(); renderSubsetTabs(); renderMainTabs(); renderFeederTypeTabs(); await loadFeederDataset();
+  renderFeederTabs(); renderSubsetTabs(); renderMainTabs(); syncFeederTypeTabCounts(); await loadFeederDataset();
 }
 
 async function saveFeederConfig(){
