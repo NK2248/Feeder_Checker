@@ -6144,6 +6144,11 @@ function mergeConsecutiveSplitRows(rows, itemValues){
   function hasOwnAddressData(row){
     return [...NO_COPY_COLS].some(k => k.startsWith('DNP3') && String(row[k] ?? '').trim() !== '');
   }
+  function samePointName(a, b){
+    const pa = String(a['SPECIFICATION_POINT_NAME'] ?? '').trim().toLowerCase();
+    const pb = String(b['SPECIFICATION_POINT_NAME'] ?? '').trim().toLowerCase();
+    return pa !== '' && pa === pb;
+  }
   function hasAnyData(row){
     return Object.entries(row).some(([k, v]) => !NO_COPY_COLS.has(k) && String(v ?? '').trim() !== '');
   }
@@ -6162,11 +6167,12 @@ function mergeConsecutiveSplitRows(rows, itemValues){
       const next = rows[j];
       const nextItem = itemValues ? itemValues[j] : undefined;
       const itemSaysNewRecord = itemValues && nextItem !== undefined && nextItem !== '' && nextItem !== currentItem;
+      const sameName = samePointName(current, next);
 
       if(itemSaysNewRecord) break;
-      if(hasOwnAddressData(next)) break;            // real distinct point — never absorb
-      if(!isAnchorEmpty(next) && !itemValues) break;
-      if(!hasAnyData(next)){ j++; continue; }         // pure noise row — silently absorb
+      if(hasOwnAddressData(next)) break;                          // real distinct point — never absorb
+      if(!isAnchorEmpty(next) && !sameName && !itemValues) break;  // ← added !sameName
+      if(!hasAnyData(next)){ j++; continue; }                       // pure noise row — silently absorb
 
       Object.entries(next).forEach(([col, val]) => {
         if(NO_COPY_COLS.has(col)) return;
