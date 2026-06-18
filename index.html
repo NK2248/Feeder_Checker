@@ -2855,7 +2855,7 @@ function defaultFeederNameFor(sub, feed, number){
   const nameRoot = FEEDER_NAME_OVERRIDES[sub]?.[feed] || feed;
   if(feedCfg?.hasNumbers){
     const num = number || currentNumber;
-    return num ? (nameRoot + num) : nameRoot;
+    return num ? (nameRoot + '_' + num) : nameRoot;
   }
   return nameRoot;
 }
