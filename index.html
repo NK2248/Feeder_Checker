@@ -1617,9 +1617,18 @@ async function preloadAllCounts(){
       }
     }
   }
+  for(const type of FEEDER_SUBSETS){
+    const k = feederKey(currentSubstation, currentFeeder,
+                        currentSubset, currentMain, type, currentNumber);
+    const d = FEEDER_DATASETS[k];
+    if(d && !d._countOnly){
+      d._preloadCount = d.rows.length;
+    }
+  }
+
 
   // refresh tabs with counts
-  syncFeederTypeTabCounts();
+  renderFeederTypeTabs();
   renderTypeTabs();
   renderDevTabs();
 }
@@ -2347,18 +2356,21 @@ renderFeederTabs();
 renderNumberTabs();
 renderSubsetTabs();
 renderMainTabs();
-syncFeederTypeTabCounts();
+// AFTER
+if(currentFeeder){
+  await loadFeederDataset();
+}
+hideLoading();
+await loadDataset(currentKey());
 
-    if(currentFeeder){
-      await loadFeederDataset();
-    }
-    hideLoading();
+// preload counts FIRST, then render tabs with real numbers
+showLoading('Loading row counts…');
+await preloadAllCounts();
+hideLoading();
 
-    await loadDataset(currentKey());
-    renderAll();
-    switchMode('feeder');
-    initKeyboardShortcuts();
-    preloadAllCounts();
+renderAll();
+switchMode('feeder');
+initKeyboardShortcuts();
     updateBreadcrumb();
   } catch(err){
     hideLoading();
