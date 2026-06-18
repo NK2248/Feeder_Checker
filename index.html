@@ -1386,9 +1386,12 @@ async function doManualRouteImport(importMode) {
     const guarded = applyFeederNameGuard(
       importData.map(r => ({...r})), defaultFeederName
     );
+    // merge wrapped/split rows on the original data first (so the blank-anchor
+    // signal mergeConsecutiveSplitRows relies on is still intact), then stamp
+    // the canonical FEEDER_NAME onto every resulting row
+    const merged = mergeConsecutiveSplitRows(importData.map(r => ({...r})));
     const defaultFeederName = defaultFeederNameFor(route.substation, route.feeder, route.number);
-    
-    const cleaned = mergeConsecutiveSplitRows(guarded);
+    const cleaned = applyFeederNameGuard(merged, defaultFeederName);
 
     cleaned.forEach(r => {
       const row = {}; c.forEach(col => row[col] = r[col] !== undefined ? r[col] : '');
@@ -6132,8 +6135,11 @@ function mergeConsecutiveSplitRows(rows, itemValues){
     ''
   ]);
 
-  // Columns that identify a row as a "continuation" when empty
-  const ANCHOR_COLS = ['SPECIFICATION_POINT_NAME','FEEDER_NAME','BAY_NAME'];
+  // Columns that identify a row as a "continuation" when empty — now also
+  // covers the value columns, since a row with its own state/scale value
+  // is just as much "real data" as one with its own point name
+  const VALUE_ANCHOR_COLS = ['STATE_0','STATE_1','STATE_2','STATE_3','STATE_CLOSE','STATE_TRIP','SCALE_ACTUAL_DATA','SCALE_RAW_DATA'];
+  const ANCHOR_COLS = ['SPECIFICATION_POINT_NAME','FEEDER_NAME','BAY_NAME', ...VALUE_ANCHOR_COLS];
   const allCols = new Set(rows.flatMap(r => Object.keys(r)));
 
   function isAnchorEmpty(row){
@@ -6141,8 +6147,12 @@ function mergeConsecutiveSplitRows(rows, itemValues){
     if(!existing.length) return false;
     return existing.every(k => !String(row[k] ?? '').trim());
   }
+  // a row owning its own DNP3 address OR its own state/scale value is a real,
+  // complete record — never silently absorb it, even if the point name matches
   function hasOwnAddressData(row){
-    return [...NO_COPY_COLS].some(k => k.startsWith('DNP3') && String(row[k] ?? '').trim() !== '');
+    const hasDnp   = [...NO_COPY_COLS].some(k => k.startsWith('DNP3') && String(row[k] ?? '').trim() !== '');
+    const hasValue = VALUE_ANCHOR_COLS.some(k => String(row[k] ?? '').trim() !== '');
+    return hasDnp || hasValue;
   }
   function samePointName(a, b){
     const pa = String(a['SPECIFICATION_POINT_NAME'] ?? '').trim().toLowerCase();
@@ -6210,9 +6220,7 @@ function mergeConsecutiveSplitRows(rows, itemValues){
 
 function applyFeederNameGuard(rows, feederName){
   if(!feederName) return rows;
-  rows.forEach(r=>{
-    if(!String(r['FEEDER_NAME'] ?? '').trim()) r['FEEDER_NAME'] = feederName;
-  });
+  rows.forEach(r=>{ r['FEEDER_NAME'] = feederName; });
   return rows;
 }
 
