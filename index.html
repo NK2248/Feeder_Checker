@@ -5187,10 +5187,19 @@ function applyDetectedTable(idx){
       }
 
       if(rowHeaderScore(row) >= 2 && isRowLikelyNewHeader(row, hdrCols)) break;
-
-      // FIX: accept ANY non-blank, non-header row as data when extending
-      // Don't apply isRowUnwanted here — at sheet end, all remaining rows are data
-      extendedEnd = r;
+      if(!isRowBlank(row)) extendedEnd = r;  // ← no unwanted/nonNumeric check here
+    }
+    // inside applyDetectedTable(), after the trailing extension loop
+    console.log('Extended boundary:', extendedEnd, 'vs original:', t.dataEnd);
+    console.log('Rows 120-123:');
+    for(let r = t.dataEnd; r <= Math.min(t.dataEnd+5, allRows.length-1); r++){
+      const row = allRows[r];
+      console.log(`Row ${r+1}:`, {
+        blank: isRowBlank(row),
+        unwanted: isRowUnwanted(row, r, true),
+        nonNumeric: isRowNonNumericItem(row, r),
+        cells: row.slice(0,6)
+      });
     }
   }
 
@@ -6380,9 +6389,14 @@ function buildMappedRows(){
 
       // check if this is the boundary end row — always include it
       const effectiveEndRow = COLMAP.manualDataEnd ?? (COLMAP.activeTableBoundary ? COLMAP.activeTableBoundary.dataEnd : null);
+
+      const lastDetectedEnd = COLMAP.detectedTables.length
+        ? COLMAP.detectedTables[COLMAP.detectedTables.length-1].dataEnd
+        : null;
+      const isNearSheetEnd = lastDetectedEnd !== null && rowIdx >= lastDetectedEnd - 2;
       const isBoundaryEndRow = effectiveEndRow !== null && rowIdx === effectiveEndRow;
 
-      if(!isBoundaryEndRow){
+      if(!isBoundaryEndRow && !isNearSheetEnd){
         if(isRowNonNumericItem(rawRow, rowIdx)) continue;
         if(isRowUnwanted(rawRow, rowIdx, firstRowSeen)) continue;
       }
