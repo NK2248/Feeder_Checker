@@ -5186,8 +5186,8 @@ function applyDetectedTable(idx){
         return overlap.length < hits.length * 0.5;
       }
 
-      if(rowHeaderScore(row) >= 2 && isRowLikelyNewHeader(row, hdrCols)) break;
-      if(!isRowBlank(row)) extendedEnd = r;  // ← no unwanted/nonNumeric check here
+      if(rowHeaderScoreStandalone(row) >= 2 && isRowLikelyNewHeaderStandalone(row, hdrCols)) break;
+      if(!isRowBlank(row)) extendedEnd = r;
     }
     // inside applyDetectedTable(), after the trailing extension loop
     console.log('Extended boundary:', extendedEnd, 'vs original:', t.dataEnd);
