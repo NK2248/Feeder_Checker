@@ -5189,18 +5189,7 @@ function applyDetectedTable(idx){
       if(rowHeaderScoreStandalone(row) >= 2 && isRowLikelyNewHeaderStandalone(row, hdrCols)) break;
       if(!isRowBlank(row)) extendedEnd = r;
     }
-    // inside applyDetectedTable(), after the trailing extension loop
-    console.log('Extended boundary:', extendedEnd, 'vs original:', t.dataEnd);
-    console.log('Rows 120-123:');
-    for(let r = t.dataEnd; r <= Math.min(t.dataEnd+5, allRows.length-1); r++){
-      const row = allRows[r];
-      console.log(`Row ${r+1}:`, {
-        blank: isRowBlank(row),
-        unwanted: isRowUnwanted(row, r, true),
-        nonNumeric: isRowNonNumericItem(row, r),
-        cells: row.slice(0,6)
-      });
-    }
+    
   }
 
   COLMAP.activeTableBoundary = {
