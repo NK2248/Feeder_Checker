@@ -1445,6 +1445,7 @@ async function doManualRouteImport(importMode) {
     }
     await saveFeederHistoryPoint('auto');
     hideLoading();
+    syncFeederTypeTabCounts();
     updateBreadcrumb();
 
   } else {
