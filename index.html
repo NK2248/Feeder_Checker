@@ -3395,9 +3395,14 @@ function renderFeederTypeTabs(){
     FEEDER_SUBSETS.map(t => {
       const k = feederKey(currentSubstation, currentFeeder, currentSubset, currentMain, t, currentNumber);
       const d = FEEDER_DATASETS[k];
-      const count = d
-        ? (d._countOnly ? (d._preloadCount ?? 0) : d.rows.length)
-        : 0;
+      const count = (() => {
+      if(!d) return 0;
+      if(d._countOnly) return d._preloadCount ?? 0;
+      if(!d.rows.length) return 0;
+      const cmpCols = FEEDER_SCHEMA_TEMPLATES[FEEDER_SCHEMA_MAP[t]].filter(col => col !== 'DNP3.0_ADDRESS');
+      const itemNoMap = computeItemNoMap(d.rows, cmpCols);
+      return itemNoMap.length ? itemNoMap[itemNoMap.length - 1] : 0;
+      })();
       const badge = `<span style="font-size:10px;font-family:var(--mono);padding:1px 7px;border-radius:20px;
         background:${t===currentFeederType?'rgba(0,0,0,.2)':'var(--surface2)'};
         color:${t===currentFeederType?'#fff':'var(--text2)'};
