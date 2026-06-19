@@ -4480,7 +4480,28 @@ function isRowRepeatedHeader(row){
   return (totalMatches / nonEmpty) >= 0.95;
 }
 
+const SECTION_LABEL_MAP = {
+  'STATUS POINT':'Status Point','STATUS POINTS':'Status Point','STATUS_POINT':'Status Point','STATUS_POINTS':'Status Point',
+  'CONTROL OUTPUT':'Control Output','CONTROL OUTPUTS':'Control Output','CONTROL_OUTPUT':'Control Output','CONTROL_OUTPUTS':'Control Output',
+  'ANALOG POINT':'Analog Point','ANALOG POINTS':'Analog Point','ANALOG_POINT':'Analog Point','ANALOG_POINTS':'Analog Point'
+};
 
+function getSectionLabelFromRow(row){
+  const nonEmpty = row.filter(c=>String(c||'').trim()!=='');
+  if(nonEmpty.length===0 || nonEmpty.length>3) return null;
+  for(const cell of nonEmpty){
+    let norm = String(cell).toUpperCase().trim()
+      .replace(/^[\d]+[.)]\s*/, '')
+      .replace(/^[A-Z][.)]\s*/, '')
+      .replace(/[:：]\s*$/, '')
+      .replace(/\s+/g,' ')
+      .trim();
+    if(SECTION_LABEL_MAP[norm]) return SECTION_LABEL_MAP[norm];
+    const collapsed = norm.replace(/[_\s]+/g,' ');
+    if(SECTION_LABEL_MAP[collapsed]) return SECTION_LABEL_MAP[collapsed];
+  }
+  return null;
+}
 
 function detectAllTables(allRows){
   if(!allRows || !allRows.length) return [];
@@ -4527,31 +4548,7 @@ function detectAllTables(allRows){
     return overlap.length < hits.length * 0.5;
   }
 
-  const SECTION_LABEL_MAP = {
-  'STATUS POINT':'Status Point','STATUS POINTS':'Status Point','STATUS_POINT':'Status Point','STATUS_POINTS':'Status Point',
-  'CONTROL OUTPUT':'Control Output','CONTROL OUTPUTS':'Control Output','CONTROL_OUTPUT':'Control Output','CONTROL_OUTPUTS':'Control Output',
-  'ANALOG POINT':'Analog Point','ANALOG POINTS':'Analog Point','ANALOG_POINT':'Analog Point','ANALOG_POINTS':'Analog Point'
-  };
-
-  function getSectionLabelFromRow(row){
-    // Only check the first 1-3 non-empty cells, with column A given priority
-    const nonEmpty = row.filter(c=>String(c||'').trim()!=='');
-    if(nonEmpty.length===0 || nonEmpty.length>3) return null;
-    for(const cell of nonEmpty){
-      // strip numbering ("1.", "1)", "A."), trailing colons, and surrounding punctuation
-      let norm = String(cell).toUpperCase().trim()
-        .replace(/^[\d]+[.)]\s*/, '')      // "1. STATUS POINT" -> "STATUS POINT"
-        .replace(/^[A-Z][.)]\s*/, '')      // "A) STATUS POINT" -> "STATUS POINT"
-        .replace(/[:：]\s*$/, '')           // trailing colon
-        .replace(/\s+/g,' ')
-        .trim();
-      if(SECTION_LABEL_MAP[norm]) return SECTION_LABEL_MAP[norm];
-      // also try without spaces vs underscores collapsed
-      const collapsed = norm.replace(/[_\s]+/g,' ');
-      if(SECTION_LABEL_MAP[collapsed]) return SECTION_LABEL_MAP[collapsed];
-    }
-    return null;
-  }
+  
 
   const tables = [];
   let i = 0;
@@ -5501,7 +5498,6 @@ function colMapLoadSheet(sheetName){
   COLMAP.selectedTableIdx = 0;
   COLMAP.manualSkipRows    = new Set();
   COLMAP.manualDataEnd     = null;
-  COLMAP.previewMode       = 'header';
   COLMAP.itemColIdx        = null;
   COLMAP.useItemColCheck   = true;
   COLMAP._mergeInitialized = false;
@@ -5513,6 +5509,7 @@ function colMapLoadSheet(sheetName){
   renderTableSelector();
   renderHiddenDataBanner();
   renderMergeFillBanner();
+  setPreviewMode('header');
 
   const autoIdx = autoDetectHeaderRow(COLMAP.rawRows);
   if(autoIdx !== null){
