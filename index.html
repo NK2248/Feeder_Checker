@@ -4503,6 +4503,29 @@ function getSectionLabelFromRow(row){
   return null;
 }
 
+const HEADER_KEYWORDS_STANDALONE = [
+  'FEEDER_NAME','BAY_NAME','SPECIFICATION_POINT_NAME','DNP3.0_ADDRESS',
+  'OBJ','VAR','QII','CLASS','TYPE','REMARK','STATE_0','STATE_CLOSE',
+  'SCALE_ACTUAL_DATA','SPECIFICATION_UNIT'
+];
+function rowHeaderScoreStandalone(row){
+  const norm = s => s.toUpperCase().replace(/[^A-Z0-9]/g,'_');
+  return row.filter(c=>c!==''&&
+    HEADER_KEYWORDS_STANDALONE.some(kw=>norm(c)===norm(kw)||norm(c).includes(norm(kw)))
+  ).length;
+}
+function isRowLikelyNewHeaderStandalone(row, existingHeaderCols){
+  const norm = s => s.toUpperCase().replace(/[^A-Z0-9]/g,'_');
+  const hits = row.filter(c=>c!==''&&
+    HEADER_KEYWORDS_STANDALONE.some(kw=>norm(c)===norm(kw)||norm(c).includes(norm(kw)))
+  );
+  if(hits.length < 2) return false;
+  const hitNorms = hits.map(norm);
+  const existNorms = existingHeaderCols.map(norm);
+  const overlap = hitNorms.filter(h=>existNorms.some(e=>e.includes(h)||h.includes(e)));
+  return overlap.length < hits.length * 0.5;
+}
+
 function detectAllTables(allRows){
   if(!allRows || !allRows.length) return [];
   const HEADER_KEYWORDS = [
@@ -4937,7 +4960,35 @@ function applyMergedTables(){
 
   // set boundary to span all selected tables
   const allDataEnds = selected.map(i => tables[i].dataEnd);
-  const overallEnd  = Math.max(...allDataEnds);
+  let overallEnd  = Math.max(...allDataEnds);
+
+  // extend the merged boundary if the last table is also the last detected table
+  // (mirrors the trailing-row extension applyDetectedTable does for single-table mode)
+  const lastSelectedIdx = selected[selected.length-1];
+  if(lastSelectedIdx === tables.length - 1){
+    const allRows = COLMAP.allRawRows;
+    const lastTbl = tables[lastSelectedIdx];
+    const hdrCols = allRows[lastTbl.hdrRows[0]]?.filter(c=>c!=='') || [];
+    let trailingBlank = 0;
+    const maxScan = Math.min(allRows.length, lastTbl.dataEnd + 1 + COLMAP_CONFIG.maxDataRows);
+
+    for(let r = lastTbl.dataEnd + 1; r < maxScan; r++){
+      const row = allRows[r];
+      if(isRowBlank(row)){
+        trailingBlank++;
+        if(trailingBlank > COLMAP_CONFIG.maxConsecutiveBlank) break;
+        continue;
+      }
+      trailingBlank = 0;
+
+      const secType = getSectionLabelFromRow(row);
+      if(secType) break;
+
+      if(rowHeaderScoreStandalone(row) >= 2 && isRowLikelyNewHeaderStandalone(row, hdrCols)) break;
+
+      overallEnd = r;
+    }
+  }
   COLMAP.activeTableBoundary = {
     dataStart:   firstTable.dataStart,
     dataEnd:     overallEnd,
