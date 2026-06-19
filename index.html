@@ -4899,6 +4899,16 @@ function renderTableSelector(){
         ${COLMAP.mergedTableIdxs.size} table${COLMAP.mergedTableIdxs.size>1?'s':''} selected · ${totalMergedRows} total rows will be merged
         <span style="color:var(--text3)">· data appended in table order</span>
       </div>` : ''}
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;font-family:var(--mono);color:var(--text2)">
+          <input type="checkbox" id="chkIncludeToSheetEnd" ${COLMAP.includeToSheetEnd?'checked':''}
+            onchange="toggleIncludeToSheetEnd(this.checked)"
+            style="cursor:pointer;accent-color:var(--accent)">
+          <span>extend last table to sheet end</span>
+        </label>
+        <span style="color:var(--text3);font-size:10px">— use if the last few rows are missing</span>
+      </div>
+
     </div>`;
 
   // apply current selection
