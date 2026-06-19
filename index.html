@@ -5086,8 +5086,9 @@ function applyDetectedTable(idx){
     const allRows = COLMAP.allRawRows;
     const hdrCols = allRows[t.hdrRows[0]]?.filter(c=>c!=='') || [];
     let trailingBlank = 0;
+    const maxScan = Math.min(allRows.length, t.dataEnd + 1 + COLMAP_CONFIG.maxDataRows);
 
-    for(let r = t.dataEnd + 1; r < allRows.length; r++){
+    for(let r = t.dataEnd + 1; r < maxScan; r++){
       const row = allRows[r];
 
       if(isRowBlank(row)){
