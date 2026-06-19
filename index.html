@@ -4783,19 +4783,27 @@ function renderTableSelector(){
   }
 
   if(tables.length === 1){
-    // FIX: always set selectedTableIdx for single table
-    COLMAP.selectedTableIdx = 0;
-    COLMAP.mergedTableIdxs = new Set([0]);
-    COLMAP.useMergeMode = false;
+  COLMAP.selectedTableIdx = 0;
+  COLMAP.mergedTableIdxs = new Set([0]);
+  COLMAP.useMergeMode = false;
 
-    applyDetectedTable(0);  // this now also extends boundary for last table
-    sel.innerHTML = `
-      <div style="background:var(--green-bg);border:1px solid var(--green-bdr);border-radius:var(--r);padding:8px 12px;font-size:12px;color:var(--green);font-family:var(--mono);margin-bottom:10px;display:flex;align-items:center;gap:8px">
-        <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;flex-shrink:0"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-        1 table detected · rows ${tables[0].hdrRows[0]+1}–${tables[0].dataEnd+1} · ${tables[0].rowCount} data rows
-      </div>`;
-    return;
-  }
+  applyDetectedTable(0);
+  sel.innerHTML = `
+    <div style="background:var(--green-bg);border:1px solid var(--green-bdr);border-radius:var(--r);padding:8px 12px;font-size:12px;color:var(--green);font-family:var(--mono);margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;flex-shrink:0"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      1 table detected · rows ${tables[0].hdrRows[0]+1}–${tables[0].dataEnd+1} · ${tables[0].rowCount} data rows
+    </div>
+    <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);padding:8px 12px;font-size:11px;font-family:var(--mono);color:var(--text2);margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="chkIncludeToSheetEnd" ${COLMAP.includeToSheetEnd?'checked':''}
+          onchange="toggleIncludeToSheetEnd(this.checked)"
+          style="cursor:pointer;accent-color:var(--accent)">
+        <span>extend to sheet end (include all remaining rows)</span>
+      </label>
+      <span style="color:var(--text3);font-size:10px">— use this if the last few rows are missing from the import preview</span>
+    </div>`;
+  return;
+}
 
   // check which tables have same structure as table 0
   const sameAsFirst = tables.map((t,i) =>
@@ -5073,6 +5081,29 @@ function updateBoundaryHint(){
   if(colMapCurrentStep === 2) updateStep2Summary();
 }
 
+function toggleIncludeToSheetEnd(enabled){
+  COLMAP.includeToSheetEnd = enabled;
+  if(enabled){
+    // extend boundary all the way to last non-blank row of sheet
+    const allRows = COLMAP.allRawRows;
+    let lastNonBlank = allRows.length - 1;
+    while(lastNonBlank > 0 && isRowBlank(allRows[lastNonBlank])) lastNonBlank--;
+    COLMAP.activeTableBoundary = {
+      ...COLMAP.activeTableBoundary,
+      dataEnd: lastNonBlank
+    };
+  } else {
+    // restore auto-detected end
+    COLMAP.activeTableBoundary = {
+      ...COLMAP.activeTableBoundary,
+      dataEnd: COLMAP.activeTableBoundary.autoEnd
+    };
+  }
+  renderColMapPreview();
+  updateMappingPreview();
+  if(colMapCurrentStep === 2) updateStep2Summary();
+}
+
 function toggleSkipRow(ri){
   // cannot skip header rows
   if(COLMAP.headerRows.includes(ri)){
@@ -5194,7 +5225,8 @@ function applyDetectedTable(idx){
 
   COLMAP.activeTableBoundary = {
     dataStart: t.dataStart,
-    dataEnd:   extendedEnd
+    dataEnd:   extendedEnd,
+    autoEnd:   extendedEnd,
   };
 
   if(t.detectedType) COLMAP.targetType = t.detectedType;
@@ -5563,6 +5595,8 @@ function colMapLoadSheet(sheetName){
   COLMAP.mergedTableIdxs   = new Set([0]);  // which detected tables to merge
   COLMAP.useMergeMode      = false;         // whether merge mode is active
   COLMAP.manualSplits = new Set(); // row indices where a NEW table starts (manual override)
+  // add alongside other COLMAP resets
+  COLMAP.includeToSheetEnd = false;
 
   renderColMapPreview();
   renderTableSelector();
