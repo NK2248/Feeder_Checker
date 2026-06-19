@@ -367,7 +367,7 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
 </div>
 
 <div class="stats" style="grid-template-columns:repeat(6,minmax(0,1fr))">
-  <div class="stat"><div class="stat-lbl">total rows</div><div class="stat-val" id="sTotal">0</div></div>
+  <div class="stat"><div class="stat-lbl">total items</div><div class="stat-val" id="sTotal">0</div></div>
   <div class="stat"><div class="stat-lbl">origin rows</div><div class="stat-val" id="sOrigin" style="color:#5a3d8a">0</div></div>
   <div class="stat"><div class="stat-lbl">added rows</div><div class="stat-val" id="sAdded" style="color:var(--blue)">0</div></div>
   <div class="stat"><div class="stat-lbl">columns</div><div class="stat-val" id="sCols">0</div></div>
@@ -3466,20 +3466,23 @@ async function saveFeederDataset(){
   }catch(e){setSyncStatus('error','save failed');console.error('Feeder save error:',e);}
 }
 
+function computeItemNoMap(rows, cmpCols){
+  let counter=0, prev=null;
+  return rows.map(r=>{
+    const same = prev && cmpCols.every(col=>String(r[col]??'')===String(prev[col]??''));
+    if(!same) counter++;
+    prev=r;
+    return counter;
+  });
+}
+
 function renderFeederTable(){
   const d=fds();const c = visibleCols(feederCols());;
   const q=(document.getElementById('searchBox').value||'').toLowerCase();
   const area=document.getElementById('tableArea');
 
-  // item no. — same number as previous row when all cols except DNP3.0_ADDRESS match
   const itemCmpCols = feederCols().filter(col=>col!=='DNP3.0_ADDRESS');
-  let _itemCounter=0,_prevRow=null;
-  const itemNoMap = d.rows.map(r=>{
-    const isSame=_prevRow && itemCmpCols.every(col=>String(r[col]??'')===String(_prevRow[col]??''));
-    if(!isSame) _itemCounter++;
-    _prevRow=r;
-    return _itemCounter;
-  });
+  const itemNoMap = computeItemNoMap(d.rows, itemCmpCols);
 
   if(!d.rows.length){
     area.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg><p>No data — ${currentSubstation} / ${currentFeeder} / ${currentFeederType}</p><span>Add rows manually or import a CSV / Excel file.</span></div>`;
@@ -3538,9 +3541,12 @@ function renderFeederTable(){
 
 function renderFeederStats(){
   const d = fds();
+  const itemCmpCols = feederCols().filter(col=>col!=='DNP3.0_ADDRESS');
+  const itemNoMap = computeItemNoMap(d.rows, itemCmpCols);
+  const totalItems = itemNoMap.length ? itemNoMap[itemNoMap.length-1] : 0;
   const originCount = d.originCount || 0;
   const addedCount = d.rows.length - originCount;
-  document.getElementById('sTotal').textContent  = d.rows.length;
+  document.getElementById('sTotal').textContent  = totalItems;
   document.getElementById('sOrigin').textContent = originCount;
   document.getElementById('sAdded').textContent  = Math.max(0, addedCount);
   const allColsList = feederCols();
