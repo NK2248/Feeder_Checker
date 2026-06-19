@@ -4349,7 +4349,11 @@ const ROW_KEY_DATA_COLUMNS = [
   'DNP3.0_ADDRESS','SPECIFICATION_POINT_NAME',
   'STATE_0','STATE_1','STATE_2','STATE_3',
   'STATE_CLOSE','STATE_TRIP',
-  'SCALE_ACTUAL_DATA','SCALE_RAW_DATA'
+  'SCALE_ACTUAL_DATA','SCALE_RAW_DATA',
+  'SPECIFICATION_UNIT',     // ← ADD
+  'FEEDER_NAME',            // ← ADD  
+  'BAY_NAME',               // ← ADD
+  'SPECIFICATION_DESCRIPTOR'
 ];
 
 function rowHasKeyData(row){
@@ -4439,7 +4443,12 @@ function isRowNonNumericItem(row, ri){
       }
       return false;
     });
-    if(rowHasKeyData(row)) return false;  // was checking only DNP3.0_ADDRESS / SPECIFICATION_POINT_NAME before, but if any key data exists in the row, we should keep it even if item cell is empty
+    // change to also check FEEDER_NAME / BAY_NAME as anchors:
+    if(rowHasKeyData(row)) return false;
+    // if FEEDER_NAME or BAY_NAME has a value, it's real data
+    const feederVal = String(row[COLMAP.colStartIdx?.['FEEDER_NAME'] ?? -1] ?? '').trim();
+    const bayVal    = String(row[COLMAP.colStartIdx?.['BAY_NAME']    ?? -1] ?? '').trim();
+    if(feederVal || bayVal) return false;
     return true;
   }
 
