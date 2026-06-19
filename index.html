@@ -368,11 +368,11 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
 
 <div class="stats" style="grid-template-columns:repeat(6,minmax(0,1fr))">
   <div class="stat"><div class="stat-lbl">total items</div><div class="stat-val" id="sTotal">0</div></div>
-  <div class="stat"><div class="stat-lbl">origin rows</div><div class="stat-val" id="sOrigin" style="color:#5a3d8a">0</div></div>
-  <div class="stat"><div class="stat-lbl">added rows</div><div class="stat-val" id="sAdded" style="color:var(--blue)">0</div></div>
+  <div class="stat"><div class="stat-lbl">origin items</div><div class="stat-val" id="sOrigin" style="color:#5a3d8a">0</div></div>
+  <div class="stat"><div class="stat-lbl">added items</div><div class="stat-val" id="sAdded" style="color:var(--blue)">0</div></div>
   <div class="stat"><div class="stat-lbl">columns</div><div class="stat-val" id="sCols">0</div></div>
   <div class="stat"><div class="stat-lbl">duplicate groups</div><div class="stat-val amber" id="sDupG">—</div></div>
-  <div class="stat"><div class="stat-lbl">duplicate rows</div><div class="stat-val red" id="sDupR">—</div></div>
+  <div class="stat"><div class="stat-lbl">duplicate items</div><div class="stat-val red" id="sDupR">—</div></div>
 </div>
 
 <div id="keyBar" style="display:none"><div id="keyChips"></div></div>
@@ -380,7 +380,7 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
 
 <div class="sel-bar" id="selBar" style="display:none">
   <svg style="width:15px;height:15px;stroke:var(--blue);fill:none;stroke-width:2;stroke-linecap:round" viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-  <span class="sel-cnt" id="selCount">0 rows selected</span>
+  <span class="sel-cnt" id="selCount">0 items selected</span>
   <button class="btn danger" onclick="confirmDeleteSelected()">
     <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>
     remove selected
@@ -397,7 +397,7 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
     <input type="text" id="searchBox" placeholder="Search and highlight in current dataset…" oninput="currentMode==='feeder'?renderFeederTable():renderTable()">
   </div>
   <div id="searchCount" style="font-size:11px;font-family:var(--mono);color:var(--text3);white-space:nowrap;display:none">
-    0 rows
+    0 items
   </div>
   <button id="btnToggleHidden" onclick="toggleHiddenColumns()"
     style="font-size:11px;font-family:var(--mono);padding:4px 10px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);cursor:pointer;color:var(--text2);white-space:nowrap;transition:all .15s">
@@ -3544,11 +3544,14 @@ function renderFeederStats(){
   const itemCmpCols = feederCols().filter(col=>col!=='DNP3.0_ADDRESS');
   const itemNoMap = computeItemNoMap(d.rows, itemCmpCols);
   const totalItems = itemNoMap.length ? itemNoMap[itemNoMap.length-1] : 0;
-  const originCount = d.originCount || 0;
-  const addedCount = d.rows.length - originCount;
+
+  const originRowCount = d.originCount || 0;
+  const originItems = originRowCount > 0 ? itemNoMap[originRowCount-1] : 0;
+  const addedItems = totalItems - originItems;
+
   document.getElementById('sTotal').textContent  = totalItems;
-  document.getElementById('sOrigin').textContent = originCount;
-  document.getElementById('sAdded').textContent  = Math.max(0, addedCount);
+  document.getElementById('sOrigin').textContent = originItems;
+  document.getElementById('sAdded').textContent  = Math.max(0, addedItems);
   const allColsList = feederCols();
   const visColsList = visibleCols(allColsList);
   document.getElementById('sCols').textContent = 
