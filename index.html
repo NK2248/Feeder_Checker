@@ -3471,6 +3471,16 @@ function renderFeederTable(){
   const q=(document.getElementById('searchBox').value||'').toLowerCase();
   const area=document.getElementById('tableArea');
 
+  // item no. — same number as previous row when all cols except DNP3.0_ADDRESS match
+  const itemCmpCols = feederCols().filter(col=>col!=='DNP3.0_ADDRESS');
+  let _itemCounter=0,_prevRow=null;
+  const itemNoMap = d.rows.map(r=>{
+    const isSame=_prevRow && itemCmpCols.every(col=>String(r[col]??'')===String(_prevRow[col]??''));
+    if(!isSame) _itemCounter++;
+    _prevRow=r;
+    return _itemCounter;
+  });
+
   if(!d.rows.length){
     area.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg><p>No data — ${currentSubstation} / ${currentFeeder} / ${currentFeederType}</p><span>Add rows manually or import a CSV / Excel file.</span></div>`;
     return;
@@ -3515,7 +3525,7 @@ function renderFeederTable(){
     const fEditedCell=`<td class="meta-cell"><span class="who">${r.__edited_by||''}</span><span>${fmtStamp(r.__edited_at)}</span></td>`;
     return `<tr class="${rc}${isSel?' sel':''}${isFOrigin?' origin-row':''}">
       <td style="text-align:center;width:32px"><input type="checkbox" ${isSel?'checked':''} onchange="toggleFeederSelect(${i},this.checked)" style="cursor:pointer"${isFOrigin?' disabled title="Cannot select origin rows"':''}></td>
-      <td class="rn">${i+1}</td>
+      <td class="rn">${itemNoMap[i]}</td>
       ${fcells}
       <td>${fobadge}</td>
       ${fAddedCell}${fEditedCell}
