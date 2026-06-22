@@ -4479,6 +4479,7 @@ const ROW_KEY_DATA_COLUMNS = [
 
 function rowHasKeyData(row){
   if(!COLMAP.fileColumns || !COLMAP.mappings) return false;
+  if(!COLMAP.colStartIdx) return false;
   return COLMAP.fileColumns.some((fc, ci) => {
     const schema = COLMAP.mappings[fc];
     if(!schema || schema === '— skip —') return false;
@@ -6522,6 +6523,7 @@ function updateMappingPreview(){
 
 function buildMappedRows(){
   if(COLMAP.headerRowIdx === null) return [];
+  if(!COLMAP.allRawRows || !COLMAP.allRawRows.length) return [];
   const range   = COLMAP.fullRange;
   const allRows = COLMAP.allRawRows;
   const dataRows = [];
