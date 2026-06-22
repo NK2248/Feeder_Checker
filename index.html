@@ -3918,22 +3918,43 @@ async function exportAllSubstation(){
   const sub = currentSubstation;
   const feeders = getFeederNames(sub);
   if(!feeders.length){ alert('No feeders in this substation.'); return; }
-  showLoading('Loading all datasets for ' + sub + '…');
+
+  showLoading('Fetching all data for ' + sub + '…');
+
+  // ONE query — get all rows whose key starts with __feeder__<sub>__
+  const prefix = '__feeder__' + sub + '__';
+  let allData = [];
+  try{
+    allData = await sbFetch('GET',
+      TABLE + '?dataset_key=like.' + encodeURIComponent(prefix + '*') +
+      '&order=dataset_key.asc,row_index.asc'
+    );
+  }catch(e){
+    hideLoading();
+    alert('Failed to fetch data: ' + e.message);
+    return;
+  }
+
+  // Group rows by dataset_key
+  const byKey = new Map();
+  allData.forEach(rec => {
+    if(!byKey.has(rec.dataset_key)) byKey.set(rec.dataset_key, []);
+    byKey.get(rec.dataset_key).push(rec);
+  });
+
+  hideLoading();
+
   const wb = XLSX.utils.book_new();
 
   for(const feed of feeders){
     const feedCfg = FEEDER_STRUCTURE[sub]?.feeders[feed];
     if(!feedCfg) continue;
 
-    // Build the list of (number, main, subset) combos to export
-    const combos = []; // { num, main, subset }
-
+    const combos = [];
     if(feedCfg.hasNumbers){
       for(const [num, numCfg] of Object.entries(feedCfg.numbers)){
-        const mains   = numCfg.mains   || ['MAIN_01'];
-        const subsets = numCfg.subsets || ['MAIN_01'];
-        for(const main of mains){
-          for(const subset of subsets){
+        for(const main of (numCfg.mains || ['MAIN_01'])){
+          for(const subset of (numCfg.subsets || ['MAIN_01'])){
             combos.push({ num, main, subset });
           }
         }
@@ -3941,10 +3962,8 @@ async function exportAllSubstation(){
     } else if(feedCfg.hasMain === false){
       combos.push({ num: null, main: null, subset: 'MAIN_01' });
     } else {
-      const mains   = feedCfg.mains   || ['MAIN_01'];
-      const subsets = feedCfg.subsets || ['MAIN_01'];
-      for(const main of mains){
-        for(const subset of subsets){
+      for(const main of (feedCfg.mains || ['MAIN_01'])){
+        for(const subset of (feedCfg.subsets || ['MAIN_01'])){
           combos.push({ num: null, main, subset });
         }
       }
@@ -3954,38 +3973,23 @@ async function exportAllSubstation(){
       const sheetLabel = [feed, num, main].filter(Boolean).join('_');
       const sheetName  = sheetLabel.replace(/[\\/*?:[\]\s&()]/g,'_').substring(0,31);
       const allSheetData = [];
+      allSheetData.push([sub + ' / ' + feed + (num?' / '+num:'') + (main?' / '+main:'')]);
+      allSheetData.push([]);
       let firstTable = true;
 
       for(const type of FEEDER_SUBSETS){
-        // Build the key exactly as feederKey() does, passing num explicitly
         const k = feederKey(sub, feed, subset, main, type, num);
-
-        try{
-          const data = await sbFetch('GET',
-            TABLE + '?dataset_key=eq.' + encodeURIComponent(k) + '&order=row_index.asc'
-          );
-          if(!FEEDER_DATASETS[k]){
-            FEEDER_DATASETS[k] = {
-              rows:[], dbIds:[], manuallyAdded:new Set(),
-              originCount:0, dupInfo:{}, keyColumns:new Set(), checked:false
-            };
-          }
-          FEEDER_DATASETS[k].rows = data.map(r => r.data);
-          FEEDER_DATASETS[k].originCount = data.length ? (data[0].origin_count||0) : 0;
-        }catch(e){ console.error('Load error for '+k, e); }
-
-        const d = FEEDER_DATASETS[k];
-        const c = FEEDER_SCHEMA_TEMPLATES[FEEDER_SCHEMA_MAP[type]];
+        const recs = byKey.get(k) || [];
+        const rows = recs.map(r => r.data);
+        const c    = FEEDER_SCHEMA_TEMPLATES[FEEDER_SCHEMA_MAP[type]];
 
         if(!firstTable){ allSheetData.push([]); allSheetData.push([]); }
         firstTable = false;
 
-        allSheetData.push([sub + ' / ' + feed + (num?' / '+num:'') + (main?' / '+main:'')]);
-        allSheetData.push([]);
         allSheetData.push([type.toUpperCase()]);
         allSheetData.push(c);
-        if(d && d.rows.length){
-          d.rows.forEach(r => allSheetData.push(c.map(col => r[col] ?? '')));
+        if(rows.length){
+          rows.forEach(r => allSheetData.push(c.map(col => r[col] ?? '')));
         } else {
           allSheetData.push(c.map(() => ''));
         }
@@ -3996,8 +4000,9 @@ async function exportAllSubstation(){
     }
   }
 
-  hideLoading();
-  XLSX.writeFile(wb, sub.replace(/[\\/*?:[\]\s&()]/g,'_') + '_' + exportStamp() + '_export.xlsx');
+  XLSX.writeFile(wb,
+    sub.replace(/[\\/*?:[\]\s&()]/g,'_') + '_' + exportStamp() + '_export.xlsx'
+  );
 }
 
 // ── Compare ───────────────────────────────────────────────────────────────────
