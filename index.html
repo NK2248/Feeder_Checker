@@ -3523,6 +3523,7 @@ function computeItemNoMap(rows, cmpCols){
     const same = prev && finalCols.every(col =>
       String(r[col] ?? '').trim() === String(prev[col] ?? '').trim()
     );
+    console.log(`row ${i}: "${r['SPECIFICATION_POINT_NAME']}" | same=${same} | counter=${counter + (same ? 0 : 1)}`);
     if(!same) counter++;
     prev = r;
     return counter;
