@@ -6530,8 +6530,8 @@ function buildMappedRows(){
   // inside buildMappedRows, right after: const allRows = COLMAP.allRawRows;
   console.log('[buildMappedRows] mergeFilledCells:', COLMAP.mergeFilledCells?.size, [...(COLMAP.mergeFilledCells||[])]);
   console.log('[buildMappedRows] sample allRows around header:', 
-    allRawRows.slice(Math.max(0, (COLMAP.headerRowIdx||0)-1), (COLMAP.headerRowIdx||0)+5)
-  );
+    COLMAP.allRawRows.slice(Math.max(0, (COLMAP.headerRowIdx||0)-1), (COLMAP.headerRowIdx||0)+5)
+);
 
   // collect data ranges — either merged tables or single boundary
   const ranges = [];
