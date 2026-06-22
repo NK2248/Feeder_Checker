@@ -3495,14 +3495,32 @@ async function saveFeederDataset(){
 }
 
 function computeItemNoMap(rows, cmpCols){
-  // BAY_NAME varies within the same logical item (split rows),
-  // so exclude it from the sameness check
-  const EXCLUDE_FROM_CMP = new Set(['BAY_NAME', 'FEEDER_NAME']);
-  const effectiveCols = cmpCols.filter(col => !EXCLUDE_FROM_CMP.has(col));
+  // Only these columns determine if two rows are the "same item"
+  const KEY_CMP_COLS = [
+    'SPECIFICATION_POINT_NAME',
+    'SPECIFICATION_DESCRIPTOR', 
+    'DNP3.0_OBJ',
+    'DNP3.0_VAR',
+    'DNP3.0_TYPE',
+    'STATE_0',
+    'STATE_1',
+    'STATE_CLOSE',
+    'STATE_TRIP',
+    'SCALE_ACTUAL_DATA',
+    'SCALE_RAW_DATA',
+  ];
   
+  // Only use columns that actually exist in this dataset
+  const effectiveCols = KEY_CMP_COLS.filter(col => cmpCols.includes(col));
+  
+  // If no key cols found, fall back to original cmpCols minus address
+  const finalCols = effectiveCols.length > 0 
+    ? effectiveCols 
+    : cmpCols.filter(c => c !== 'DNP3.0_ADDRESS' && c !== 'BAY_NAME' && c !== 'FEEDER_NAME');
+
   let counter = 0, prev = null;
   return rows.map(r => {
-    const same = prev && effectiveCols.every(col =>
+    const same = prev && finalCols.every(col =>
       String(r[col] ?? '').trim() === String(prev[col] ?? '').trim()
     );
     if(!same) counter++;
@@ -6603,7 +6621,16 @@ function buildMappedRows(){
       if(dataRows.length >= COLMAP_CONFIG.maxDataRows) break;
     }
   }
-  return mergeConsecutiveSplitRows(dataRows, itemValues);
+  // Filter out artifact rows: BAY_NAME-only rows with no point name
+// These are split-cell artifacts from Excel merged cells
+const REQUIRED_COL = 'SPECIFICATION_POINT_NAME';
+const filteredRows = dataRows.filter(row => {
+  const pointName = String(row[REQUIRED_COL] ?? '').trim();
+  return pointName !== '';
+});
+  return mergeConsecutiveSplitRows(filteredRows, itemValues.filter((_, i) => {
+  return String(dataRows[i][REQUIRED_COL] ?? '').trim() !== '';
+}));
 }
 
 function mergeConsecutiveSplitRows(rows, itemValues){
