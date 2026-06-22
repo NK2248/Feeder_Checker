@@ -3952,17 +3952,16 @@ async function exportAllSubstation(){
 
     const combos = [];
     if(feedCfg.hasNumbers){
-    for(const [num, numCfg] of Object.entries(feedCfg.numbers)){
-      const seen = new Set();
-      for(const main of (numCfg.mains || ['MAIN_01'])){
-        const subset = main; // subset mirrors main in your data model
-        const key = num + '__' + main;
-        if(seen.has(key)) continue;
-        seen.add(key);
-        combos.push({ num, main, subset });
+      for(const [num, numCfg] of Object.entries(feedCfg.numbers)){
+        const seen = new Set();
+        for(const main of (numCfg.mains || ['MAIN_01'])){
+          const subset = main; // subset mirrors main in your data model
+          const key = num + '__' + main;
+          if(seen.has(key)) continue;
+          seen.add(key);
+          combos.push({ num, main, subset });
+        }
       }
-    }
-
     } else if(feedCfg.hasMain === false){
       combos.push({ num: null, main: null, subset: 'MAIN_01' });
     } else {
@@ -3974,16 +3973,12 @@ async function exportAllSubstation(){
     }
 
     for(const { num, main, subset } of combos){
-    // ✅ check per-combo instead, here subset/main/num are valid
-    const hasAnyData = FEEDER_SUBSETS.some(type => {
-      const k = feederKey(sub, feed, subset, main, type, num);
-      return (byKey.get(k) || []).length > 0;
-    });
-    if(!hasAnyData) continue;}
+      const hasAnyData = FEEDER_SUBSETS.some(type => {
+        const k = feederKey(sub, feed, subset, main, type, num);
+        return (byKey.get(k) || []).length > 0;
+      });
+      if(!hasAnyData) continue; // skip empty combo
 
-    const sheetLabel = [feed, num, main].filter(Boolean).join('_');
-
-    for(const { num, main, subset } of combos){
       const sheetLabel = [feed, num, main].filter(Boolean).join('_');
       const sheetName  = sheetLabel.replace(/[\\/*?:[\]\s&()]/g,'_').substring(0,31);
       const allSheetData = [];
