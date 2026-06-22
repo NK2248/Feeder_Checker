@@ -3495,11 +3495,18 @@ async function saveFeederDataset(){
 }
 
 function computeItemNoMap(rows, cmpCols){
-  let counter=0, prev=null;
-  return rows.map(r=>{
-    const same = prev && cmpCols.every(col=>String(r[col]??'')===String(prev[col]??''));
+  // BAY_NAME varies within the same logical item (split rows),
+  // so exclude it from the sameness check
+  const EXCLUDE_FROM_CMP = new Set(['BAY_NAME', 'FEEDER_NAME']);
+  const effectiveCols = cmpCols.filter(col => !EXCLUDE_FROM_CMP.has(col));
+  
+  let counter = 0, prev = null;
+  return rows.map(r => {
+    const same = prev && effectiveCols.every(col =>
+      String(r[col] ?? '').trim() === String(prev[col] ?? '').trim()
+    );
     if(!same) counter++;
-    prev=r;
+    prev = r;
     return counter;
   });
 }
