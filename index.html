@@ -3922,57 +3922,82 @@ async function exportAllSubstation(){
   const wb = XLSX.utils.book_new();
 
   for(const feed of feeders){
-    const mains = getMainNames(sub, feed);
-    const subsets = getSubsetNames(sub, feed);
+    const feedCfg = FEEDER_STRUCTURE[sub]?.feeders[feed];
+    if(!feedCfg) continue;
 
-    for(const main of mains){
-      for(const subset of subsets){
-        const sheetName = (feed + (main ? '_'+main : '')).replace(/[\\/*?:[\]\s&()]/g,'_').substring(0,31);
-        const allSheetData = [];
-        let firstTable = true;
+    // Build the list of (number, main, subset) combos to export
+    const combos = []; // { num, main, subset }
 
-        for(const type of FEEDER_SUBSETS){
-          const k = feederKey(sub, feed, subset, main, type);
-
-          // Always fetch fresh from Supabase — don't rely on cache
-          try{
-            const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(k)+'&order=row_index.asc');
-            if(!FEEDER_DATASETS[k]) FEEDER_DATASETS[k] = {rows:[],dbIds:[],manuallyAdded:new Set(),originCount:0,dupInfo:{},keyColumns:new Set(),checked:false};
-            FEEDER_DATASETS[k].rows = data.map(r => r.data);
-            FEEDER_DATASETS[k].dbIds = data.map(r => r.id);
-            FEEDER_DATASETS[k].originCount = data.length ? (data[0].origin_count||0) : 0;
-          }catch(e){ console.error('Load error for '+k, e); }
-
-          const d = FEEDER_DATASETS[k];
-          const c = FEEDER_SCHEMA_TEMPLATES[FEEDER_SCHEMA_MAP[type]];
-
-          if(!firstTable){
-            allSheetData.push([]);
-            allSheetData.push([]);
-          }
-          firstTable = false;
-
-          allSheetData.push([sub + ' / ' + feed + ' / ' + main]);
-          allSheetData.push([]);
-          allSheetData.push([]);
-          allSheetData.push([type.toUpperCase()]);
-          allSheetData.push(c);
-          if(d && d.rows.length){
-            d.rows.forEach(r => allSheetData.push(c.map(col => r[col] ?? '')));
-          } else {
-            allSheetData.push(c.map(() => ''));
+    if(feedCfg.hasNumbers){
+      for(const [num, numCfg] of Object.entries(feedCfg.numbers)){
+        const mains   = numCfg.mains   || ['MAIN_01'];
+        const subsets = numCfg.subsets || ['MAIN_01'];
+        for(const main of mains){
+          for(const subset of subsets){
+            combos.push({ num, main, subset });
           }
         }
-
-        const ws = XLSX.utils.aoa_to_sheet(allSheetData);
-        XLSX.utils.book_append_sheet(wb, ws, sheetName);
       }
+    } else if(feedCfg.hasMain === false){
+      combos.push({ num: null, main: null, subset: 'MAIN_01' });
+    } else {
+      const mains   = feedCfg.mains   || ['MAIN_01'];
+      const subsets = feedCfg.subsets || ['MAIN_01'];
+      for(const main of mains){
+        for(const subset of subsets){
+          combos.push({ num: null, main, subset });
+        }
+      }
+    }
+
+    for(const { num, main, subset } of combos){
+      const sheetLabel = [feed, num, main].filter(Boolean).join('_');
+      const sheetName  = sheetLabel.replace(/[\\/*?:[\]\s&()]/g,'_').substring(0,31);
+      const allSheetData = [];
+      let firstTable = true;
+
+      for(const type of FEEDER_SUBSETS){
+        // Build the key exactly as feederKey() does, passing num explicitly
+        const k = feederKey(sub, feed, subset, main, type, num);
+
+        try{
+          const data = await sbFetch('GET',
+            TABLE + '?dataset_key=eq.' + encodeURIComponent(k) + '&order=row_index.asc'
+          );
+          if(!FEEDER_DATASETS[k]){
+            FEEDER_DATASETS[k] = {
+              rows:[], dbIds:[], manuallyAdded:new Set(),
+              originCount:0, dupInfo:{}, keyColumns:new Set(), checked:false
+            };
+          }
+          FEEDER_DATASETS[k].rows = data.map(r => r.data);
+          FEEDER_DATASETS[k].originCount = data.length ? (data[0].origin_count||0) : 0;
+        }catch(e){ console.error('Load error for '+k, e); }
+
+        const d = FEEDER_DATASETS[k];
+        const c = FEEDER_SCHEMA_TEMPLATES[FEEDER_SCHEMA_MAP[type]];
+
+        if(!firstTable){ allSheetData.push([]); allSheetData.push([]); }
+        firstTable = false;
+
+        allSheetData.push([sub + ' / ' + feed + (num?' / '+num:'') + (main?' / '+main:'')]);
+        allSheetData.push([]);
+        allSheetData.push([type.toUpperCase()]);
+        allSheetData.push(c);
+        if(d && d.rows.length){
+          d.rows.forEach(r => allSheetData.push(c.map(col => r[col] ?? '')));
+        } else {
+          allSheetData.push(c.map(() => ''));
+        }
+      }
+
+      const ws = XLSX.utils.aoa_to_sheet(allSheetData);
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
     }
   }
 
   hideLoading();
   XLSX.writeFile(wb, sub.replace(/[\\/*?:[\]\s&()]/g,'_') + '_' + exportStamp() + '_export.xlsx');
-
 }
 
 // ── Compare ───────────────────────────────────────────────────────────────────
