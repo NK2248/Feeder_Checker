@@ -851,6 +851,27 @@ async function sbFetch(method, path, body){
   return res.status===204?null:res.json();
 }
 
+async function sbFetchAll(path){
+  let all = [];
+  let offset = 0;
+  const pageSize = 1000;
+  while(true){
+    const res = await fetch(SUPABASE_URL+'/rest/v1/'+path, {
+      headers:{
+        'apikey': SUPABASE_KEY,
+        'Authorization':'Bearer '+SUPABASE_KEY,
+        'Range': offset + '-' + (offset + pageSize - 1)
+      }
+    });
+    if(!res.ok){ const t=await res.text(); throw new Error(t); }
+    const chunk = await res.json();
+    all = all.concat(chunk);
+    if(chunk.length < pageSize) break;
+    offset += pageSize;
+  }
+  return all;
+}
+
 // ── User identity ─────────────────────────────────────────────────────────────
 function getUser(){
   let u = localStorage.getItem('fdm_user');
@@ -943,7 +964,7 @@ function setDirty(val){
 async function loadDataset(key){
   try{
     setSyncStatus('syncing','loading…');
-    const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(key)+'&order=row_index.asc','');
+    const data = await sbFetchAll(TABLE+'?dataset_key=eq.'+encodeURIComponent(key)+'&order=row_index.asc');
     const d=DATASETS[key];
     d.rows=data.map(r=>r.data);
     d.dbIds=data.map(r=>r.id);
@@ -1570,7 +1591,7 @@ async function preloadAllCounts(){
             const k = feederKey(currentSubstation, feed, subset, main, type);
             if(!FEEDER_DATASETS[k] || !FEEDER_DATASETS[k].rows.length){
               try{
-                const data = await sbFetch('GET',
+                const data = await sbFetchAll(
                   TABLE+'?dataset_key=eq.'+encodeURIComponent(k)+
                   '&select=id,origin_count&order=row_index.asc'
                 );
@@ -2257,7 +2278,7 @@ async function exportAllExcel(){
   for(const [type, key] of Object.entries(GROUPS[currentDevice])){
     // Always fetch fresh from Supabase
     try{
-      const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(key)+'&order=row_index.asc');
+      const data = await sbFetchAll(TABLE+'?dataset_key=eq.'+encodeURIComponent(key)+'&order=row_index.asc');
       if(!DATASETS[key]) DATASETS[key] = {rows:[],dbIds:[],manuallyAdded:new Set(),originCount:0,dupInfo:{},keyColumns:new Set(),checked:false};
       DATASETS[key].rows = data.map(r => r.data);
       DATASETS[key].dbIds = data.map(r => r.id);
@@ -3442,7 +3463,7 @@ async function loadFeederDataset(){
   }
   try{
     setSyncStatus('syncing','loading…');
-    const data=await sbFetch('GET',TABLE+'?dataset_key=eq.'+encodeURIComponent(k)+'&order=row_index.asc');
+    const data=await sbFetchAll(TABLE+'?dataset_key=eq.'+encodeURIComponent(k)+'&order=row_index.asc');
     const d=fds();
     d.rows=data.map(r=>r.data);d.dbIds=data.map(r=>r.id);
     d.manuallyAdded=new Set();d.dupInfo={};d.checked=false;
@@ -6809,7 +6830,7 @@ async function openCrossFeederCheck(){
         for(const type of FEEDER_SUBSETS){
           const k = feederKey(currentSubstation, feed, subset, main, type);
           try{
-            const data = await sbFetch('GET',
+            const data = await sbFetchAll(
               TABLE + '?dataset_key=eq.' + encodeURIComponent(k) + '&order=row_index.asc'
             );
             if(!data || !data.length) continue;
