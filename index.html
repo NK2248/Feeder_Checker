@@ -3917,6 +3917,26 @@ async function loadFeederConfig(){
 async function exportAllSubstation(){
   const sub = currentSubstation;
   const feeders = getFeederNames(sub);
+  async function sbFetchAll(path){
+  let all = [];
+  let offset = 0;
+  const pageSize = 1000;
+  while(true){
+    const res = await fetch(SUPABASE_URL+'/rest/v1/'+path, {
+      headers:{
+        'apikey': SUPABASE_KEY,
+        'Authorization':'Bearer '+SUPABASE_KEY,
+        'Range': offset + '-' + (offset + pageSize - 1)
+      }
+    });
+    if(!res.ok){ const t=await res.text(); throw new Error(t); }
+    const chunk = await res.json();
+    all = all.concat(chunk);
+    if(chunk.length < pageSize) break;
+    offset += pageSize;
+  }
+  return all;
+}
   if(!feeders.length){ alert('No feeders in this substation.'); return; }
 
   showLoading('Fetching all data for ' + sub + '…');
@@ -3925,7 +3945,7 @@ async function exportAllSubstation(){
   const prefix = '__feeder__' + sub + '__';
   let allData = [];
   try{
-    allData = await sbFetch('GET',
+    allData = await sbFetchAll(
       TABLE + '?dataset_key=ilike.' + encodeURIComponent(prefix + '*') +
       '&order=dataset_key.asc,row_index.asc'
     );
