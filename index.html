@@ -3519,7 +3519,7 @@ function computeItemNoMap(rows, cmpCols){
     : cmpCols.filter(c => c !== 'DNP3.0_ADDRESS' && c !== 'BAY_NAME' && c !== 'FEEDER_NAME');
 
   let counter = 0, prev = null;
-  return rows.map(r => {
+  return rows.map((r, i) => {
     const same = prev && finalCols.every(col =>
       String(r[col] ?? '').trim() === String(prev[col] ?? '').trim()
     );
