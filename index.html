@@ -3973,11 +3973,15 @@ async function exportAllSubstation(){
       }
     }
 
+    for(const { num, main, subset } of combos){
+    // ✅ check per-combo instead, here subset/main/num are valid
     const hasAnyData = FEEDER_SUBSETS.some(type => {
-    const k = feederKey(sub, feed, subset, main, type, num);
-    return (byKey.get(k) || []).length > 0;
+      const k = feederKey(sub, feed, subset, main, type, num);
+      return (byKey.get(k) || []).length > 0;
     });
-    if(!hasAnyData) continue; // skip empty combo
+    if(!hasAnyData) continue;}
+
+    const sheetLabel = [feed, num, main].filter(Boolean).join('_');
 
     for(const { num, main, subset } of combos){
       const sheetLabel = [feed, num, main].filter(Boolean).join('_');
