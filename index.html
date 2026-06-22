@@ -5689,92 +5689,34 @@ function colMapLoadSheet(sheetName){
   COLMAP.includeHiddenRows = false;
   COLMAP.includeHiddenCols = false;
 
-  // ── Fill down values from Excel's actual merged-cell ranges ────────────
-  // Excel stores a merged cell's value only in its top-left cell — every
-  // other cell in the range reads as empty even though it visually shows
-  // the same value. Filling these in now (using real merge metadata, not
-  // a guess) means the row-merge heuristics below only have to deal with
-  // genuinely wrapped/split rows, not cells Excel already told us about.
-  // Heuristic scan for the DNP3.0_ADDRESS column, used to gate merge-fill below.
-  // Runs before formal header detection, so it just looks for keyword matches
-  // in the first few rows of raw data.
-  function findAddressColumnIndex(rows){
+ const mergeFilledCells = new Set();
+  const addressColIdx = (() => {
     const ADDR_KEYWORDS = ['DNP3.0_ADDRESS','DNP3 ADDRESS','ADDRESS','ADDR'];
     const norm = s => String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
-    const scanRows = Math.min(rows.length, 10);
-    for(let r=0; r<scanRows; r++){
-      const row = rows[r] || [];
+    for(let r=0; r<Math.min(allRawRows.length,10); r++){
+      const row = allRawRows[r] || [];
       for(let c=0; c<row.length; c++){
         const val = norm(row[c]);
-        if(!val) continue;
-        if(ADDR_KEYWORDS.some(kw => val === norm(kw) || val.includes(norm(kw)))){
-          return c;
-        }
+        if(val && ADDR_KEYWORDS.some(kw => val === norm(kw) || val.includes(norm(kw)))) return c;
       }
     }
     return null;
-  }
-
-  const mergeFilledCells = new Set(); // "r,c" keys filled from a merge (not the anchor cell)
-  const addressColIdx = findAddressColumnIndex(allRawRows);
+  })();
 
   (ws['!merges'] || []).forEach(mr => {
-    // FIX 1: only process merges that span multiple ROWS (vertical merges).
-    // Skip merges that only span multiple columns in a single row
-    // (e.g. a merged title/header cell) — those aren't data continuations.
-    const spansRows = mr.e.r > mr.s.r;
-    if(!spansRows) return;
-
-    const topVal = allRawRows[mr.s.r - range.s.r]?.[mr.s.c - range.s.c] ?? '';
-    if(!topVal) return;
-
-    // FIX 3: only fill this merge if the rows it spans contain DIFFERING
-    // address values — i.e. genuinely separate records sharing one label
-    // cell. If every address in range is identical/blank, this merge is
-    // probably decorative (a single record's label spanning rows) and
-    // shouldn't be propagated as if it were multiple records.
-    (ws['!merges'] || []).forEach(mr => {
-    const spansRows = mr.e.r > mr.s.r;
-    if(!spansRows) return;
-
+    if(mr.e.r <= mr.s.r) return; // vertical merges only
     const relTopR = mr.s.r - range.s.r;
     const relTopC = mr.s.c - range.s.c;
     const topVal = allRawRows[relTopR]?.[relTopC] ?? '';
     if(!topVal) return;
-
-    // Only fill columns that are meaningful to propagate
-    // (skip address column — each row must own its own address)
-    if(addressColIdx !== null && (mr.s.c - range.s.c) === addressColIdx) return;
-
+    if(addressColIdx !== null && relTopC === addressColIdx) return; // never fill address col
     for(let R = mr.s.r + 1; R <= mr.e.r; R++){
       const relR = R - range.s.r;
       const rowData = allRawRows[relR];
       if(!rowData || isRowBlank(rowData)) continue;
-
-      const relC = mr.s.c - range.s.c;
-      if(rowData[relC] === ''){
-        rowData[relC] = topVal;
-        mergeFilledCells.add(relR + ',' + relC);
-      }
-    }
-  });
-
-    for(let R = mr.s.r; R <= mr.e.r; R++){
-      if(R === mr.s.r) continue; // anchor row already has the value
-      const relR = R - range.s.r;
-      const rowData = allRawRows[relR];
-      if(!rowData) continue;
-
-      // FIX 2: if the entire row is blank — not just the merged cell — treat
-      // it as a genuine blank/separator row, not a merge continuation.
-      if(isRowBlank(rowData)) continue;
-
-      for(let C = mr.s.c; C <= mr.e.c; C++){
-        const relC = C - range.s.c;
-        if(rowData[relC] === ''){
-          rowData[relC] = topVal;
-          mergeFilledCells.add(relR+','+relC);
-        }
+      if(rowData[relTopC] === ''){
+        rowData[relTopC] = topVal;
+        mergeFilledCells.add(relR + ',' + relTopC);
       }
     }
   });
