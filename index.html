@@ -4950,6 +4950,7 @@ function renderTableSelector(){
         <div style="font-size:11px;font-family:var(--mono);color:var(--text2);font-weight:500">
           ${tables.length} tables detected
           ${autoMergeCount > 1 ? `<span style="color:var(--green);margin-left:6px">· ${autoMergeCount} share same structure</span>` : ''}
+          ${mergeFillCount > 0 ? `<span style="font-size:9px;font-family:var(--mono);background:#eef0ff;color:#3d4ba0;border:1px solid #b0b8f0;border-radius:3px;padding:1px 5px">⬡ ${mergeFillCount} merge-filled cells</span>` : ''}
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;font-family:var(--mono);color:var(--text2)">
@@ -4977,6 +4978,10 @@ function renderTableSelector(){
             ? COLMAP.mergedTableIdxs.has(i)
             : COLMAP.selectedTableIdx === i;
           const isSame = sameAsFirst[i];
+          const mergeFillCount = [...(COLMAP.mergeFilledCells||[])].filter(k => {
+          const r = parseInt(k.split(',')[0]);
+            return r >= t.hdrRows[0] && r <= t.dataEnd;
+          }).length;
           const typeBadge = t.detectedType
             ? `<span style="font-size:9px;font-family:var(--mono);background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bdr);border-radius:3px;padding:1px 5px">📍 ${t.detectedType}</span>`
             : '';
@@ -6631,15 +6636,13 @@ function buildMappedRows(){
     }
   }
   // Filter out artifact rows: BAY_NAME-only rows with no point name
-// These are split-cell artifacts from Excel merged cells
-const REQUIRED_COL = 'SPECIFICATION_POINT_NAME';
-const filteredRows = dataRows.filter(row => {
-  const pointName = String(row[REQUIRED_COL] ?? '').trim();
-  return pointName !== '';
-});
-  return mergeConsecutiveSplitRows(filteredRows, itemValues.filter((_, i) => {
-  return String(dataRows[i][REQUIRED_COL] ?? '').trim() !== '';
-}));
+  // These are split-cell artifacts from Excel merged cells
+  const REQUIRED_COL = 'SPECIFICATION_POINT_NAME';
+  const merged = mergeConsecutiveSplitRows(dataRows, itemValues);
+  return merged.filter(row => {
+    const pointName = String(row[REQUIRED_COL] ?? '').trim();
+    return pointName !== '';
+  });
 }
 
 function mergeConsecutiveSplitRows(rows, itemValues){
@@ -6736,7 +6739,7 @@ function mergeConsecutiveSplitRows(rows, itemValues){
       const sameName = samePointName(current, next);
 
       if(itemSaysNewRecord) break;
-      if(hasOwnAddressData(next)) break;                          // real distinct point — never absorb
+      if(hasOwnAddressData(next) && !samePointName(current, next) && !isAnchorEmpty(next)) break;                        // real distinct point — never absorb
       if(!isAnchorEmpty(next) && !sameName && !itemValues) break;  // ← added !sameName
       if(!hasAnyData(next)){ j++; continue; }                       // pure noise row — silently absorb
 
