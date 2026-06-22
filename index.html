@@ -3495,17 +3495,34 @@ async function saveFeederDataset(){
 }
 
 function computeItemNoMap(rows, cmpCols){
+  const KEY_CMP_COLS = [
+    'SPECIFICATION_POINT_NAME',
+    'SPECIFICATION_DESCRIPTOR', 
+    'DNP3.0_OBJ',
+    'DNP3.0_VAR',
+    'DNP3.0_TYPE',
+    'STATE_0',
+    'STATE_1',
+    'STATE_CLOSE',
+    'STATE_TRIP',
+    'SCALE_ACTUAL_DATA',
+    'SCALE_RAW_DATA',
+  ];
+  
+  const effectiveCols = KEY_CMP_COLS.filter(col => cmpCols.includes(col));
+  const finalCols = effectiveCols.length > 0 
+    ? effectiveCols 
+    : cmpCols.filter(c => c !== 'DNP3.0_ADDRESS' && c !== 'BAY_NAME' && c !== 'FEEDER_NAME');
+
   let counter = 0, prev = null;
   return rows.map((r, i) => {
+    // If SPECIFICATION_POINT_NAME matches, treat as same item
+    // regardless of other columns being empty/different
     const thisName = String(r['SPECIFICATION_POINT_NAME'] ?? '').trim();
     const prevName = prev ? String(prev['SPECIFICATION_POINT_NAME'] ?? '').trim() : null;
-    
-    // empty point name = continuation of previous item
-    const same = prevName !== null && (
-      thisName === prevName ||
-      thisName === ''
-    );
-    
+
+    const same = prevName !== null && thisName !== '' && thisName === prevName;
+
     if(!same) counter++;
     prev = r;
     return counter;
