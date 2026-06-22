@@ -5708,18 +5708,46 @@ function colMapLoadSheet(sheetName){
     const relTopR = mr.s.r - range.s.r;
     const relTopC = mr.s.c - range.s.c;
     const topVal = allRawRows[relTopR]?.[relTopC] ?? '';
+
+    console.log('[merge]', {
+      excelRange: `R${mr.s.r+1}C${mr.s.c+1}:R${mr.e.r+1}C${mr.e.c+1}`,
+      relTopR, relTopC,
+      topVal,
+      spansRows: mr.e.r - mr.s.r,
+      skippedNoVal: !topVal,
+      skippedAddrCol: addressColIdx !== null && relTopC === addressColIdx,
+      addressColIdx
+    });
+
     if(!topVal) return;
     if(addressColIdx !== null && relTopC === addressColIdx) return; // never fill address col
     for(let R = mr.s.r + 1; R <= mr.e.r; R++){
       const relR = R - range.s.r;
       const rowData = allRawRows[relR];
+      const currentVal = rowData?.[relTopC] ?? 'ROW_MISSING';
+      const willFill = rowData && !isRowBlank(rowData) && rowData[relTopC] === '';
+
+      console.log(`  [merge row R${R+1}]`, {
+        relR,
+        currentVal,
+        isBlankRow: rowData ? isRowBlank(rowData) : 'NO_ROW',
+        willFill,
+        topVal
+      });
+
       if(!rowData || isRowBlank(rowData)) continue;
       if(rowData[relTopC] === ''){
         rowData[relTopC] = topVal;
         mergeFilledCells.add(relR + ',' + relTopC);
+
+        console.log(`  ✓ filled R${relR+1}C${relTopC+1} with "${topVal}"`);
+
       }
     }
   });
+
+  console.log('[merge] total filled cells:', mergeFilledCells.size, [...mergeFilledCells]);
+
   COLMAP.mergeFilledCells = mergeFilledCells;
 
   COLMAP.allRawRows  = allRawRows.length ? allRawRows : [[]];
@@ -6497,6 +6525,11 @@ function buildMappedRows(){
   const range   = COLMAP.fullRange;
   const allRows = COLMAP.allRawRows;
   const dataRows = [];
+  // inside buildMappedRows, right after: const allRows = COLMAP.allRawRows;
+  console.log('[buildMappedRows] mergeFilledCells:', COLMAP.mergeFilledCells?.size, [...(COLMAP.mergeFilledCells||[])]);
+  console.log('[buildMappedRows] sample allRows around header:', 
+    allRawRows.slice(Math.max(0, (COLMAP.headerRowIdx||0)-1), (COLMAP.headerRowIdx||0)+5)
+  );
 
   // collect data ranges — either merged tables or single boundary
   const ranges = [];
@@ -6596,7 +6629,15 @@ function buildMappedRows(){
   // Filter out artifact rows: BAY_NAME-only rows with no point name
   // These are split-cell artifacts from Excel merged cells
   const REQUIRED_COL = 'SPECIFICATION_POINT_NAME';
+  console.log('[buildMappedRows] dataRows before merge:', dataRows.length, dataRows.slice(0,3));
   const merged = mergeConsecutiveSplitRows(dataRows, itemValues);
+  console.log('[buildMappedRows] after mergeConsecutiveSplitRows:', merged.length, merged.slice(0,3));
+  const filtered = merged.filter(row => {
+    const pointName = String(row[REQUIRED_COL] ?? '').trim();
+    return pointName !== '';
+  });
+  console.log('[buildMappedRows] after pointName filter:', filtered.length, filtered.slice(0,3));
+  return filtered;
   return merged.filter(row => {
     const pointName = String(row[REQUIRED_COL] ?? '').trim();
     return pointName !== '';
