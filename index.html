@@ -6651,6 +6651,31 @@ function mergeConsecutiveSplitRows(rows, itemValues){
     return Object.entries(row).some(([k, v]) => !NO_COPY_COLS.has(k) && String(v ?? '').trim() !== '');
   }
 
+   // A row with only BAY_NAME/FEEDER_NAME populated and nothing else
+  // is a split cell artifact — merge it upward
+  const NAME_ONLY_COLS = new Set(['BAY_NAME', 'FEEDER_NAME']);
+  const prepass = [];
+  const prepassItems = [];
+  for(let i = 0; i < rows.length; i++){
+    const row = rows[i];
+    const keys = Object.keys(row).filter(k => 
+      !k.startsWith('__') && String(row[k]??'').trim() !== ''
+    );
+    const isNameOnly = keys.length > 0 && keys.every(k => NAME_ONLY_COLS.has(k));
+    
+    if(isNameOnly && prepass.length > 0){
+      // absorb: copy BAY_NAME/FEEDER_NAME up into previous row if empty there
+      const prev = prepass[prepass.length - 1];
+      keys.forEach(k => {
+        if(!String(prev[k]??'').trim()) prev[k] = row[k];
+      });
+      // skip this row — don't push it
+    } else {
+      prepass.push({...row});
+      prepassItems.push(itemValues ? itemValues[i] : undefined);
+    }
+  }
+
   // ── Pass 1: absorb truly-empty noise rows (no address/DNP, no other data,
   //    anchors empty) into the row above. A differing item number always
   //    blocks absorption; a matching one reinforces it.
