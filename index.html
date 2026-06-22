@@ -3495,35 +3495,11 @@ async function saveFeederDataset(){
 }
 
 function computeItemNoMap(rows, cmpCols){
-  // Only these columns determine if two rows are the "same item"
-  const KEY_CMP_COLS = [
-    'SPECIFICATION_POINT_NAME',
-    'SPECIFICATION_DESCRIPTOR', 
-    'DNP3.0_OBJ',
-    'DNP3.0_VAR',
-    'DNP3.0_TYPE',
-    'STATE_0',
-    'STATE_1',
-    'STATE_CLOSE',
-    'STATE_TRIP',
-    'SCALE_ACTUAL_DATA',
-    'SCALE_RAW_DATA',
-  ];
-  
-  // Only use columns that actually exist in this dataset
-  const effectiveCols = KEY_CMP_COLS.filter(col => cmpCols.includes(col));
-  
-  // If no key cols found, fall back to original cmpCols minus address
-  const finalCols = effectiveCols.length > 0 
-    ? effectiveCols 
-    : cmpCols.filter(c => c !== 'DNP3.0_ADDRESS' && c !== 'BAY_NAME' && c !== 'FEEDER_NAME');
-
   let counter = 0, prev = null;
   return rows.map((r, i) => {
-    const same = prev && finalCols.every(col =>
-      String(r[col] ?? '').trim() === String(prev[col] ?? '').trim()
-    );
-    console.log(`row ${i}: "${r['SPECIFICATION_POINT_NAME']}" | same=${same} | counter=${counter + (same ? 0 : 1)}`);
+    const thisName = String(r['SPECIFICATION_POINT_NAME'] ?? '').trim();
+    const prevName = prev ? String(prev['SPECIFICATION_POINT_NAME'] ?? '').trim() : null;
+    const same = prevName !== null && thisName === prevName;
     if(!same) counter++;
     prev = r;
     return counter;
