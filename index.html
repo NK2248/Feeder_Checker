@@ -4950,7 +4950,7 @@ function renderTableSelector(){
         <div style="font-size:11px;font-family:var(--mono);color:var(--text2);font-weight:500">
           ${tables.length} tables detected
           ${autoMergeCount > 1 ? `<span style="color:var(--green);margin-left:6px">· ${autoMergeCount} share same structure</span>` : ''}
-          ${mergeFillCount > 0 ? `<span style="font-size:9px;font-family:var(--mono);background:#eef0ff;color:#3d4ba0;border:1px solid #b0b8f0;border-radius:3px;padding:1px 5px">⬡ ${mergeFillCount} merge-filled cells</span>` : ''}
+          ${COLMAP.mergeFilledCells?.size > 0 ? `<span style="font-size:9px;font-family:var(--mono);background:#eef0ff;color:#3d4ba0;border:1px solid #b0b8f0;border-radius:3px;padding:1px 5px">⬡ ${COLMAP.mergeFilledCells.size} merge-filled cells total</span>` : ''}
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;font-family:var(--mono);color:var(--text2)">
@@ -5733,15 +5733,31 @@ function colMapLoadSheet(sheetName){
     // cell. If every address in range is identical/blank, this merge is
     // probably decorative (a single record's label spanning rows) and
     // shouldn't be propagated as if it were multiple records.
-    if(addressColIdx !== null){
-      const addrVals = new Set();
-      for(let R = mr.s.r; R <= mr.e.r; R++){
-        const relR = R - range.s.r;
-        const v = String(allRawRows[relR]?.[addressColIdx] ?? '').trim();
-        if(v) addrVals.add(v);
+    (ws['!merges'] || []).forEach(mr => {
+    const spansRows = mr.e.r > mr.s.r;
+    if(!spansRows) return;
+
+    const relTopR = mr.s.r - range.s.r;
+    const relTopC = mr.s.c - range.s.c;
+    const topVal = allRawRows[relTopR]?.[relTopC] ?? '';
+    if(!topVal) return;
+
+    // Only fill columns that are meaningful to propagate
+    // (skip address column — each row must own its own address)
+    if(addressColIdx !== null && (mr.s.c - range.s.c) === addressColIdx) return;
+
+    for(let R = mr.s.r + 1; R <= mr.e.r; R++){
+      const relR = R - range.s.r;
+      const rowData = allRawRows[relR];
+      if(!rowData || isRowBlank(rowData)) continue;
+
+      const relC = mr.s.c - range.s.c;
+      if(rowData[relC] === ''){
+        rowData[relC] = topVal;
+        mergeFilledCells.add(relR + ',' + relC);
       }
-      if(addrVals.size < 2) return; // no distinct addresses found — skip fill
     }
+  });
 
     for(let R = mr.s.r; R <= mr.e.r; R++){
       if(R === mr.s.r) continue; // anchor row already has the value
