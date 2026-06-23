@@ -295,12 +295,15 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   </div>
   
   <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-    <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;width:80px">Substation</span>
-    <div id="substationTabs" style="display:flex;gap:3px;flex-wrap:wrap"></div>
-    <button class="btn-icon" onclick="openAddSubstation()" style="width:22px;height:22px">
-      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    </button>
-  </div>
+  <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;width:80px">Substation</span>
+  <div id="substationTabs" style="display:flex;gap:3px;flex-wrap:wrap"></div>
+  <button class="btn-icon" onclick="openAddSubstation()" style="width:22px;height:22px">
+    <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
+  <button class="btn-icon" onclick="openMoveSubstationPicker()" style="width:22px;height:22px" title="Move substation to a different voltage level">
+    <svg viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+  </button>
+</div>
 
   <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
     <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;width:80px">Feeder</span>
@@ -3025,7 +3028,7 @@ function renderVoltageTabs(){
       <button class="feeder-tab${isActive?' active':''}" 
         onclick="switchVoltage('${v.replace(/'/g,"\\'")}')"
         ${isUserExtra ? `ondblclick="promptRenameVoltage('${v.replace(/'/g,"\\'")}')" title="Double-click to rename"` : ''}>
-        ${isLocked ? '🔒 ' : ''}${v}
+        ${v}
       </button>
       ${isUserExtra ? `<button onclick="confirmRemoveVoltage('${v.replace(/'/g,"\\'")}')"
         style="width:16px;height:16px;border-radius:50%;border:none;background:var(--red-bg);color:var(--red);cursor:pointer;font-size:10px;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0" title="Remove voltage level">×</button>` : ''}
@@ -3084,8 +3087,6 @@ function renderSubstationTabs(){
           onclick="switchSubstation('${s.replace(/'/g,"\\'")}')">
           ${s}
         </button>
-        <button onclick="openMoveSubstation('${s.replace(/'/g,"\\'")}');event.stopPropagation();"
-          style="width:16px;height:16px;border-radius:50%;border:none;background:var(--blue-bg);color:var(--blue);cursor:pointer;font-size:9px;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0" title="Move to different voltage level">⇄</button>
         ${isUser ? `<button onclick="confirmRemoveSubstation('${s.replace(/'/g,"\\'")}');"
           style="width:16px;height:16px;border-radius:50%;border:none;background:var(--red-bg);color:var(--red);cursor:pointer;font-size:10px;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0" title="Remove substation">×</button>` : ''}
       </div>`;
@@ -3114,26 +3115,71 @@ async function switchSubstation(s){
   updateBreadcrumb();
 }
 
-function openMoveSubstation(subName){
-  const cfg = FEEDER_STRUCTURE[subName];
-  if(!cfg) return;
-  const allVoltages = getVoltageLevels().filter(v => v !== cfg.voltage);
-  if(!allVoltages.length){ alert('No other voltage levels to move to. Add one first.'); return; }
+function openMoveSubstationPicker(){
+  const subs = Object.keys(FEEDER_STRUCTURE).filter(s => FEEDER_STRUCTURE[s].voltage === currentVoltage);
+  if(!subs.length){ alert('No substations under this voltage level.'); return; }
 
-  const options = allVoltages.map(v => `<option value="${v}">${v}</option>`).join('');
+  const subOptions = subs.map(s => `<option value="${s}">${s}</option>`).join('');
 
-  document.querySelector('#confirmModal h3').textContent = 'Move substation';
+  document.querySelector('#confirmModal h3').textContent = 'Move substation to another voltage';
   document.getElementById('confirmMsg').innerHTML = `
-    <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:10px">
-      Move <strong>${subName}</strong> (currently <span style="font-family:var(--mono)">${cfg.voltage}</span>) to:
+    <div class="frow" style="margin-bottom:10px">
+      <label style="font-size:10px;color:var(--text2);font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;font-weight:500;display:block;margin-bottom:4px">Substation</label>
+      <select id="moveSubSource" onchange="updateMoveSubVoltageOptions()" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%">
+        ${subOptions}
+      </select>
     </div>
-    <select id="moveSubTargetVoltage" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%">
-      ${options}
-    </select>`;
+    <div class="frow">
+      <label style="font-size:10px;color:var(--text2);font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;font-weight:500;display:block;margin-bottom:4px">Move to voltage level</label>
+      <select id="moveSubTargetVoltage" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select>
+    </div>`;
   document.getElementById('confirmOkBtn').textContent = 'Move';
   document.getElementById('confirmOkBtn').style.display = '';
-  document.getElementById('confirmOkBtn').onclick = () => doMoveSubstation(subName);
+  document.getElementById('confirmOkBtn').onclick = doMoveSubstationFromPicker;
   document.getElementById('confirmModal').classList.add('open');
+
+  updateMoveSubVoltageOptions();
+}
+
+function updateMoveSubVoltageOptions(){
+  const subName = document.getElementById('moveSubSource').value;
+  const cfg = FEEDER_STRUCTURE[subName];
+  const targetSel = document.getElementById('moveSubTargetVoltage');
+  const opts = getVoltageLevels().filter(v => v !== cfg.voltage);
+  targetSel.innerHTML = opts.length
+    ? opts.map(v => `<option value="${v}">${v}</option>`).join('')
+    : `<option value="">— no other voltage levels —</option>`;
+}
+
+async function doMoveSubstationFromPicker(){
+  const subName = document.getElementById('moveSubSource').value;
+  const newVoltage = document.getElementById('moveSubTargetVoltage').value;
+  if(!subName || !newVoltage){ alert('Select both a substation and a target voltage.'); return; }
+
+  FEEDER_STRUCTURE[subName].voltage = newVoltage;
+  await saveFeederConfig();
+
+  closeModal('confirmModal');
+  document.querySelector('#confirmModal h3').textContent = 'Remove rows?';
+  document.getElementById('confirmOkBtn').textContent = 'Remove';
+
+  if(currentSubstation === subName){
+    await switchVoltage(newVoltage);
+    currentSubstation = subName;
+    currentFeeder = getFeederNames(subName)[0] || null;
+    if(currentFeeder){
+      const feedCfg = FEEDER_STRUCTURE[subName]?.feeders[currentFeeder];
+      currentNumber = feedCfg?.hasNumbers ? Object.keys(feedCfg.numbers)[0] : null;
+    }
+    currentMain = currentFeeder ? getMainNames(subName, currentFeeder)[0] ?? null : null;
+    currentSubset = currentMain;
+    renderSubstationTabs(); renderFeederTabs(); renderNumberTabs(); renderSubsetTabs(); renderMainTabs(); syncFeederTypeTabCounts();
+    if(currentFeeder) await loadFeederDataset();
+    updateBreadcrumb();
+  } else {
+    renderVoltageTabs();
+    renderSubstationTabs();
+  }
 }
 
 async function doMoveSubstation(subName){
