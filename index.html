@@ -2941,7 +2941,7 @@ let currentVoltage = null;
 
 const FEEDER_DATASETS = {};
 
-let EXTRA_VOLTAGES = new Set(); // voltage levels added manually, with no substations yet
+let EXTRA_VOLTAGES = new Set(['115-22kV','115-33kV']); // voltage levels added manually, with no substations yet
 
 let currentNumber = null; // e.g. "01", "02", or null for flat feeders
 
@@ -3019,13 +3019,13 @@ function switchMode(mode){
 function renderVoltageTabs(){
   document.getElementById('voltageTabs').innerHTML = getVoltageLevels().map(v => {
     const isActive = v === currentVoltage;
+    const isUserExtra = EXTRA_VOLTAGES.has(v);   // ← only these are removable/renamable
     return `<div style="display:inline-flex;align-items:center;gap:2px">
       <button class="feeder-tab${isActive?' active':''}" 
         onclick="switchVoltage('${v.replace(/'/g,"\\'")}')"
-        ondblclick="promptRenameVoltage('${v.replace(/'/g,"\\'")}')"
-        title="Double-click to rename">${v}</button>
-      <button onclick="confirmRemoveVoltage('${v.replace(/'/g,"\\'")}')"
-        style="width:16px;height:16px;border-radius:50%;border:none;background:var(--red-bg);color:var(--red);cursor:pointer;font-size:10px;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0" title="Remove voltage level">×</button>
+        ${isUserExtra ? `ondblclick="promptRenameVoltage('${v.replace(/'/g,"\\'")}')" title="Double-click to rename"` : ''}>${v}</button>
+      ${isUserExtra ? `<button onclick="confirmRemoveVoltage('${v.replace(/'/g,"\\'")}')"
+        style="width:16px;height:16px;border-radius:50%;border:none;background:var(--red-bg);color:var(--red);cursor:pointer;font-size:10px;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0" title="Remove voltage level">×</button>` : ''}
     </div>`;
   }).join('');
 }
@@ -3362,50 +3362,31 @@ async function saveNewMain(){
 }
 
 function confirmRemoveVoltage(v){
-  const subsUnderV = Object.entries(FEEDER_STRUCTURE).filter(([_,cfg]) => cfg.voltage === v).map(([name])=>name);
+  if(!EXTRA_VOLTAGES.has(v)) return; // safety guard, shouldn't be reachable via UI
 
-  if(subsUnderV.length === 0){
-    // empty voltage — just remove it, no confirmation needed for data loss
-    EXTRA_VOLTAGES.delete(v);
-    saveFeederConfig();
-    if(currentVoltage === v){
-      const remaining = getVoltageLevels();
-      if(remaining.length) switchVoltage(remaining[0]);
-      else { currentVoltage = null; renderVoltageTabs(); showEmptyVoltageState(); }
-    } else {
-      renderVoltageTabs();
-    }
-    return;
+  EXTRA_VOLTAGES.delete(v);
+  saveFeederConfig();
+  if(currentVoltage === v){
+    const remaining = getVoltageLevels();
+    if(remaining.length) switchVoltage(remaining[0]);
+    else { currentVoltage = null; renderVoltageTabs(); showEmptyVoltageState(); }
+  } else {
+    renderVoltageTabs();
   }
-
-  // voltage has substations under it — block deletion, guide the user instead
-  document.getElementById('confirmMsg').innerHTML = `
-    <div style="font-size:13px;color:var(--text2);line-height:1.6">
-      "${v}" has <strong>${subsUnderV.length} substation(s)</strong> under it: <span style="font-family:var(--mono);color:var(--text)">${subsUnderV.join(', ')}</span>.
-      <br><br>
-      Remove or reassign those substations first, then this voltage level will disappear automatically.
-    </div>`;
-  document.getElementById('confirmOkBtn').style.display = 'none';
-  document.getElementById('confirmModal').classList.add('open');
-  document.querySelector('#confirmModal h3').textContent = 'Cannot remove voltage level';
 }
 
 function renameVoltage(oldV, newV){
-  // update substations referencing this voltage
-  Object.values(FEEDER_STRUCTURE).forEach(cfg => {
-    if(cfg.voltage === oldV) cfg.voltage = newV;
-  });
-  // update the empty-voltage tracker too
-  if(EXTRA_VOLTAGES.has(oldV)){
-    EXTRA_VOLTAGES.delete(oldV);
-    EXTRA_VOLTAGES.add(newV);
-  }
+  if(!EXTRA_VOLTAGES.has(oldV)) return; // safety guard
+
+  EXTRA_VOLTAGES.delete(oldV);
+  EXTRA_VOLTAGES.add(newV);
   if(currentVoltage === oldV) currentVoltage = newV;
   saveFeederConfig();
   renderVoltageTabs();
 }
 
 function promptRenameVoltage(oldV){
+  if(!EXTRA_VOLTAGES.has(oldV)) return;
   const newV = prompt('Rename voltage level:', oldV);
   if(!newV || !newV.trim() || newV.trim() === oldV) return;
   const trimmed = newV.trim();
