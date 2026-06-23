@@ -3722,8 +3722,12 @@ function computeItemNoMap(rows, cmpCols){
     // regardless of other columns being empty/different
     const thisName = String(r['SPECIFICATION_POINT_NAME'] ?? '').trim();
     const prevName = prev ? String(prev['SPECIFICATION_POINT_NAME'] ?? '').trim() : null;
+    const thisBay  = String(r['BAY_NAME'] ?? '').trim();
+    const prevBay  = prev ? String(prev['BAY_NAME'] ?? '').trim() : null;
 
-    const same = prevName !== null && thisName !== '' && thisName === prevName;
+    const sameName = prevName !== null && thisName !== '' && thisName === prevName;
+    const sameBay  = prevBay  !== null && thisBay  === prevBay;   // empty-to-empty also matches
+    const same = sameName && sameBay;
 
     if(!same) counter++;
     prev = r;
