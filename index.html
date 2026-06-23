@@ -2677,6 +2677,48 @@ async function loadConfig(){
   return false;
 }
 
+function openAddVoltage(){
+  const name = prompt('Enter new voltage level (e.g. 66kV):','');
+  if(!name || !name.trim()) return;
+  const v = name.trim();
+  if(getVoltageLevels().includes(v)){ alert('Voltage level "'+v+'" already exists.'); return; }
+
+  EXTRA_VOLTAGES.add(v);
+  saveFeederConfig();
+
+  currentVoltage = v;
+  currentSubstation = null;
+  currentFeeder = null;
+  currentNumber = null;
+  currentMain = null;
+  currentSubset = null;
+  selected = new Set(); hideDupAlert();
+
+  renderVoltageTabs();
+  renderSubstationTabs();
+  renderFeederTabs();
+  renderNumberTabs();
+  renderSubsetTabs();
+  renderMainTabs();
+  renderFeederTypeTabs();
+  showEmptyVoltageState();
+  updateBreadcrumb();
+}
+
+function showEmptyVoltageState(){
+  document.getElementById('tableArea').innerHTML = `<div class="empty">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+    <p>No substations under this voltage level yet</p>
+    <span>Click the + button next to Substation to add one.</span>
+  </div>`;
+  document.getElementById('sTotal').textContent  = '0';
+  document.getElementById('sOrigin').textContent = '0';
+  document.getElementById('sAdded').textContent  = '0';
+  document.getElementById('sCols').textContent   = '—';
+  document.getElementById('sDupG').textContent   = '—';
+  document.getElementById('sDupR').textContent   = '—';
+}
+
 // ── Add Device ────────────────────────────────────────────────────────────────
 function openAddDevice(){
   document.getElementById('newDeviceName').value='';
@@ -2858,7 +2900,8 @@ function getMainNames(sub, feed){
 }
 // same pattern for getSubsetNames
 function getVoltageLevels(){
-  return [...new Set(Object.values(FEEDER_STRUCTURE).map(s => s.voltage).filter(Boolean))];
+  const fromSubs = Object.values(FEEDER_STRUCTURE).map(s => s.voltage).filter(Boolean);
+  return [...new Set([...fromSubs, ...EXTRA_VOLTAGES])];
 }
 
 // substation -> feeder -> name root actually used in FEEDER_NAME column
@@ -2897,6 +2940,8 @@ let currentFeederType = FEEDER_SUBSETS[0];
 let currentVoltage = null;
 
 const FEEDER_DATASETS = {};
+
+let EXTRA_VOLTAGES = new Set(); // voltage levels added manually, with no substations yet
 
 let currentNumber = null; // e.g. "01", "02", or null for flat feeders
 
@@ -2982,7 +3027,7 @@ async function switchVoltage(v){
   if(!confirmIfDirty('Switch voltage level? Unsaved changes may be lost.')) return;
   currentVoltage = v;
   renderVoltageTabs();
-  // auto-select first substation under this voltage
+
   const firstSub = Object.keys(FEEDER_STRUCTURE).find(s => FEEDER_STRUCTURE[s].voltage === v);
   if(firstSub){
     currentSubstation = firstSub;
@@ -2995,14 +3040,25 @@ async function switchVoltage(v){
     currentMain = currentFeeder ? getMainNames(firstSub, currentFeeder)[0] ?? null : null;
     currentSubset = currentMain;
     currentFeederType = FEEDER_SUBSETS[0];
+  } else {
+    // voltage level exists but has no substations yet
+    currentSubstation = null;
+    currentFeeder = null;
+    currentNumber = null;
+    currentMain = null;
+    currentSubset = null;
   }
+
   renderSubstationTabs();
   renderFeederTabs();
   renderNumberTabs();
   renderSubsetTabs();
   renderMainTabs();
   syncFeederTypeTabCounts();
+
   if(currentFeeder) await loadFeederDataset();
+  else showEmptyVoltageState();
+
   updateBreadcrumb();
 }
 
@@ -3189,6 +3245,12 @@ function feederKeyFor(sub,feed,num,subset,main,type){
 function renderMainTabs(){
  const feedCfg = FEEDER_STRUCTURE[currentSubstation]?.feeders[currentFeeder];
   const wrap = document.getElementById('mainRowWrap');
+
+  if(!feedCfg){                         // ← ADD THIS GUARD
+    wrap.style.display = 'none';
+    document.getElementById('mainTabs').innerHTML = '';
+    return;
+  }
   if(feedCfg?.hasMain === false){
     wrap.style.display = 'none';
     document.getElementById('mainTabs').innerHTML = '';
@@ -3893,12 +3955,13 @@ async function saveNewSubstation(){
   const name = document.getElementById('newSubstationName').value.trim();
   if(!name){ alert('Enter a substation name.'); return; }
   if(FEEDER_STRUCTURE[name]){ alert('Substation "'+name+'" already exists.'); return; }
-  const volt = prompt('Enter voltage level (e.g. 115kV, 22kV, 33kV):', '115kV') || '115kV';
-  FEEDER_STRUCTURE[name] = { voltage: volt, feeders:{}, _userAdded:true }; // ← add flag
+  const volt = prompt('Enter voltage level (e.g. 115kV, 22kV, 33kV):', currentVoltage || '115kV')
+               || (currentVoltage || '115kV');     // ← defaults to whatever voltage tab is active
+  FEEDER_STRUCTURE[name] = { voltage: volt, feeders:{}, _userAdded:true };
   currentSubstation=name; currentFeeder=null; currentMain=null;
   closeModal('addSubstationModal'); await saveFeederConfig();
-  renderSubstationTabs(); renderFeederTabs(); renderMainTabs(); renderFeederTypeTabs();
-  document.getElementById('tableArea').innerHTML='<div class="empty">...</div>';
+  renderVoltageTabs(); renderSubstationTabs(); renderFeederTabs(); renderMainTabs(); renderFeederTypeTabs();
+  document.getElementById('tableArea').innerHTML='<div class="empty">No feeders yet — click + to add one.</div>';
 }
 
 function openAddFeeder(){document.getElementById('addFeederSubstationName').textContent=currentSubstation;document.getElementById('newFeederName').value='';document.getElementById('addFeederModal').classList.add('open');}
@@ -3917,7 +3980,11 @@ async function saveNewFeeder(){
 async function saveFeederConfig(){
   try{
     await sbFetch('DELETE',TABLE+'?dataset_key=eq.__feeder_config__');
-    await sbFetch('POST',TABLE,[{dataset_key:'__feeder_config__',row_index:0,data:{structure:FEEDER_STRUCTURE}}]);
+    await sbFetch('POST',TABLE,[{
+      dataset_key:'__feeder_config__',
+      row_index:0,
+      data:{ structure: FEEDER_STRUCTURE, extraVoltages: [...EXTRA_VOLTAGES] }   // ← ADDED
+    }]);
     try{localStorage.setItem('fdm_feeder_structure',JSON.stringify(FEEDER_STRUCTURE));}catch(e){}
   }catch(e){console.error('Feeder config save error:',e);}
 }
@@ -3926,7 +3993,8 @@ async function loadFeederConfig(){
   try{
     const data = await sbFetch('GET', TABLE+'?dataset_key=eq.__feeder_config__&limit=1');
     if(data && data.length){
-      const s = data[0].data.structure;
+      const cfgData = data[0].data;
+      const s = cfgData.structure;
       Object.entries(s).forEach(([sub, val]) => {
         if(!FEEDER_STRUCTURE[sub]){
           // fully user-added substation — restore entirely
@@ -3961,6 +4029,9 @@ async function loadFeederConfig(){
           });
         }
       });
+      if(Array.isArray(cfgData.extraVoltages)){          // ← ADDED
+        cfgData.extraVoltages.forEach(v => EXTRA_VOLTAGES.add(v));
+      }
     }
   } catch(e){ console.error('Feeder config load error:', e); }
 }
