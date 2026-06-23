@@ -2841,21 +2841,21 @@ const FEEDER_STRUCTURE = {
     voltage: "22kV",
     feeders: {
       "SSMN":{"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
-      "INC":{"hasNumbers": true, "hasMain": true, "numbers": {
+      "INC":{"hasNumbers": true, "hasMain": false, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "BS":{"hasNumbers": true, "hasMain": true, "numbers": {
+      "BS":{"hasNumbers": true, "hasMain": false, "numbers": {
         "1": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "OUT":{"hasNumbers": true, "hasMain": true, "numbers": {
+      "OUT":{"hasNumbers": true, "hasMain": false, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "TS_CB":{"hasNumbers": true, "hasMain": true, "numbers": {
+      "TS_CB":{"hasNumbers": true, "hasMain": false, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "TS_LBS":{"hasNumbers": true, "hasMain": true, "numbers": {
+      "TS_LBS":{"hasNumbers": true, "hasMain": false, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "BUSPT":{"hasNumbers": true,"hasMain": true,"numbers": {
+      "BUSPT":{"hasNumbers": true,"hasMain": false,"numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "CAP":{"hasNumbers": true, "hasMain": true, "numbers": {
+      "CAP":{"hasNumbers": true, "hasMain": false, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "CAP_BANK":{"hasNumbers": true, "hasMain": true, "numbers": {
+      "CAP_BANK":{"hasNumbers": true, "hasMain": false, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
     }
   },
@@ -3931,8 +3931,8 @@ function openFeederAddRow(){
   },
   'AIS substation': {
     'SSMN':       ['SSMN'],
-    'INC':     ['BAY_INC01'],
-    'BS1':        ['BAY_BS1'],
+    'INC':     ['1BVB-01'],
+    'BS1':        ['0BVB-01'],
     'OUT':     ['BAY_OUT01'],
     'TS_CB':  ['BAY_TS01CB'],
     'TS_LBS': ['BAY_TS01LBS'],
