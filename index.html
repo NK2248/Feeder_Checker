@@ -6633,7 +6633,7 @@ function buildMappedRows(){
   // Filter out artifact rows: BAY_NAME-only rows with no point name
   // These are split-cell artifacts from Excel merged cells
   const REQUIRED_COL = 'SPECIFICATION_POINT_NAME';
-  
+
   console.log('[buildMappedRows] dataRows before merge:', dataRows.length, dataRows.slice(0,3));
 
   const merged = mergeConsecutiveSplitRows(dataRows, itemValues);
@@ -6743,32 +6743,43 @@ for(let i = 0; i < rows.length; i++){
   const pass1 = [];
   const pass1Items = [];
   let i = 0;
-  while(i < rows.length){
-    const current = { ...rows[i] };
-    const currentItem = itemValues ? itemValues[i] : undefined;
-    let j = i + 1;
-    while(j < rows.length){
-      const next = rows[j];
-      const nextItem = itemValues ? itemValues[j] : undefined;
-      const itemSaysNewRecord = itemValues && nextItem !== undefined && nextItem !== '' && nextItem !== currentItem;
-      const sameName = samePointName(current, next);
-
-      if(itemSaysNewRecord) break;
-      if(hasOwnAddressData(next) && !samePointName(current, next) && !isAnchorEmpty(next)) break;                        // real distinct point — never absorb
-      if(!isAnchorEmpty(next) && !sameName && !itemValues) break;  // ← added !sameName
-      if(!hasAnyData(next)){ j++; continue; }                       // pure noise row — silently absorb
-
-      Object.entries(next).forEach(([col, val]) => {
+  // In Pass 1, replace the while(j < rows.length) absorption loop with this:
+  let j = i + 1;
+  while(j < rows.length){
+    const next = rows[j];
+    const nextItem = itemValues ? itemValues[j] : undefined;
+    
+    // If item numbers are being used and next row HAS an item number → new record
+    const itemSaysNewRecord = itemValues && nextItem !== undefined 
+                           && nextItem !== '' 
+                           && nextItem !== currentItem;
+    if(itemSaysNewRecord) break;
+    
+    // If next row has its own DNP3 address data → it's a real separate row
+    // but ONLY break if point name also differs (sub-rows share point name)
+    if(hasOwnAddressData(next) && !samePointName(current, next)) break;
+    
+    // KEY FIX: if next row has SPECIFICATION_POINT_NAME filled (from merge)
+    // AND it matches current — it's a valid sub-row, keep it as-is
+    const nextPointName = String(next['SPECIFICATION_POINT_NAME'] ?? '').trim();
+    const currPointName = String(current['SPECIFICATION_POINT_NAME'] ?? '').trim();
+    if(nextPointName !== '' && nextPointName === currPointName){
+        // It's a continuation sub-row — do NOT absorb, keep as separate row
+        break;
+    }
+    
+    if(!hasAnyData(next)){ j++; continue; }
+    
+    // only absorb truly empty anchor rows
+    if(!isAnchorEmpty(next)) break;
+    
+    Object.entries(next).forEach(([col, val]) => {
         if(NO_COPY_COLS.has(col)) return;
         const trimmed = String(val ?? '').trim();
         if(trimmed && !String(current[col] ?? '').trim()) current[col] = trimmed;
-      });
-      j++;
-    }
-    pass1.push(current);
-    pass1Items.push(currentItem);
-    i = j;
-  }
+    });
+    j++;
+}
 
   // ── Pass 2: fill-down within the same item group only. Rows that legitimately
   //    own their own address but are missing descriptive text inherit it from
