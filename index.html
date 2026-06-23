@@ -6607,14 +6607,16 @@ function buildMappedRows(){
 
       const obj = {};
       let hasValue = false;
-      COLMAP.fileColumns.forEach(fileCol => {
-        const schemaCol = COLMAP.mappings[fileCol];
-        if(schemaCol && schemaCol !== '— skip —'){
-          const ci  = COLMAP.colStartIdx[fileCol] ?? COLMAP.fileColumns.indexOf(fileCol);
-          const val = rawRow[ci] ?? '';
-          obj[schemaCol] = val;
-          if(val !== '') hasValue = true;
-        }
+      // In buildMappedRows, replace the cell value extraction:
+      COLMAP.fileColumns.forEach((fileCol, fi) => {
+          const schemaCol = COLMAP.mappings[fileCol];
+          if(schemaCol && schemaCol !== '— skip —'){
+              // Use colStartIdx first, fall back to position in fileColumns array
+              const ci = COLMAP.colStartIdx?.[fileCol] ?? fi;
+              const val = String(rawRow[ci] ?? '').trim();
+              obj[schemaCol] = val;
+              if(val !== '') hasValue = true;
+            }
       });
 
       if(!hasValue) continue;
@@ -6631,9 +6633,13 @@ function buildMappedRows(){
   // Filter out artifact rows: BAY_NAME-only rows with no point name
   // These are split-cell artifacts from Excel merged cells
   const REQUIRED_COL = 'SPECIFICATION_POINT_NAME';
+  
   console.log('[buildMappedRows] dataRows before merge:', dataRows.length, dataRows.slice(0,3));
+
   const merged = mergeConsecutiveSplitRows(dataRows, itemValues);
+
   console.log('[buildMappedRows] after mergeConsecutiveSplitRows:', merged.length, merged.slice(0,3));
+
   const filtered = merged.filter(row => {
     const pointName = String(row[REQUIRED_COL] ?? '').trim();
     return pointName !== '';
@@ -6701,27 +6707,35 @@ function mergeConsecutiveSplitRows(rows, itemValues){
    // A row with only BAY_NAME/FEEDER_NAME populated and nothing else
   // is a split cell artifact — merge it upward
   const NAME_ONLY_COLS = new Set(['BAY_NAME', 'FEEDER_NAME']);
-  const prepass = [];
-  const prepassItems = [];
-  for(let i = 0; i < rows.length; i++){
+  // Replace the NAME_ONLY_COLS pre-pass with this safer version:
+const prepass = [];
+const prepassItems = [];
+for(let i = 0; i < rows.length; i++){
     const row = rows[i];
     const keys = Object.keys(row).filter(k => 
-      !k.startsWith('__') && String(row[k]??'').trim() !== ''
+        !k.startsWith('__') && String(row[k]??'').trim() !== ''
     );
     const isNameOnly = keys.length > 0 && keys.every(k => NAME_ONLY_COLS.has(k));
     
     if(isNameOnly && prepass.length > 0){
-      // absorb: copy BAY_NAME/FEEDER_NAME up into previous row if empty there
-      const prev = prepass[prepass.length - 1];
-      keys.forEach(k => {
-        if(!String(prev[k]??'').trim()) prev[k] = row[k];
-      });
-      // skip this row — don't push it
+        const prev = prepass[prepass.length - 1];
+        const prevAlreadyHasValue = keys.every(k => String(prev[k]??'').trim() !== '');
+        
+        if(prevAlreadyHasValue){
+            // Previous row already has these values — this is a real separate row, keep it
+            prepass.push({...row});
+            prepassItems.push(itemValues ? itemValues[i] : undefined);
+        } else {
+            // Fill missing values up, then discard this artifact row
+            keys.forEach(k => {
+                if(!String(prev[k]??'').trim()) prev[k] = row[k];
+            });
+        }
     } else {
-      prepass.push({...row});
-      prepassItems.push(itemValues ? itemValues[i] : undefined);
+        prepass.push({...row});
+        prepassItems.push(itemValues ? itemValues[i] : undefined);
     }
-  }
+}
 
   // ── Pass 1: absorb truly-empty noise rows (no address/DNP, no other data,
   //    anchors empty) into the row above. A differing item number always
