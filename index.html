@@ -2903,7 +2903,7 @@ function getVoltageLevels(){
 const FEEDER_NAME_OVERRIDES = {
   'BR & A Half':      { 'TP':'TP','LINE':'LINE','CENTER': 'CENTER', 'BUS_ZONE': 'BUS NO.', 'RCC': 'TP' },
   'DBSB':             { 'TP':'TP','LINE':'LINE','CENTER': 'CENTER', 'BUS_COUPLER': 'BUS COUPLER','BUS_ZONE': 'BUS ZONE', 'RCC': 'TP' },
-  'H Scheme':         { 'TP':'TP','LINE':'LINE','CENTER': 'CENTER', 'BUS_ZONE': 'BUS NO.', 'RCC': 'TP' },
+  'H Scheme':         { 'TP':'TP','LINE':'LINE','CENTER': 'CENTER', 'BUS_TIE': 'BUS ZONE', 'RCC': 'TP' },
   'Main & Transfer':  { 'TP':'TP','LINE':'LINE','CENTER': 'CENTER', 'BUS_ZONE': 'BUS NO.', 'RCC': 'TP' },
   'AIS substation':    { 'INC': 'INC', 'BS': 'BS', 'OUT': 'OUT', 'TS_CB': 'TS_CB', 'TS_LBS': 'TS_LBS', 'BUSPT': 'BUSPT', 'CAP': 'CAP', 'CAP_BANK': 'CAP_BANK' },
   'GIS substation':    { 'INC': 'INC', 'BS': 'BS', 'OUT': 'OUT', 'TS_CB': 'TS_CB', 'BUSPT': 'BUSPT', 'CAP': 'CAP', 'CAP_BANK': 'CAP_BANK' }
@@ -3918,7 +3918,7 @@ function openFeederAddRow(){
   },
   'H Scheme': {
     'SSMN':       ['SSMN'],
-    'TP':      ['BAY_TP01'],
+    'TP':      ['02YB-01', '02YS-01', '02YG-01'],
     'LINE':    ['BAY_LINE01'],
     'BUS_TIE': ['BAY_TIE'],
     'RCC':     ['TP_01'],
