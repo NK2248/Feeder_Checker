@@ -2817,7 +2817,7 @@ const FEEDER_STRUCTURE = {
       },
       "LINE":{"hasNumbers": true, "hasMain": true, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "BUS_TIE":{"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
+      "BUS_TIE":{"hasNumbers": false, "hasMain": true, "subsets":["MAIN_01", "MAIN_02"], "mains":["MAIN_01", "MAIN_02"]},
       "RCC":{"hasNumbers": true, "hasMain": true, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}}
     }
@@ -2903,7 +2903,7 @@ function getVoltageLevels(){
 const FEEDER_NAME_OVERRIDES = {
   'BR & A Half':      { 'TP':'TP','LINE':'LINE','CENTER': 'CENTER', 'BUS_ZONE': 'BUS NO.', 'RCC': 'TP' },
   'DBSB':             { 'TP':'TP','LINE':'LINE','CENTER': 'CENTER', 'BUS_COUPLER': 'BUS COUPLER','BUS_ZONE': 'BUS ZONE', 'RCC': 'TP' },
-  'H Scheme':         { 'TP':'TP','LINE':'LINE','CENTER': 'CENTER', 'BUS_TIE': 'BUS ZONE', 'RCC': 'TP' },
+  'H Scheme':         { 'TP':'TP','LINE':'LINE', 'BUS_TIE': 'BUS ZONE', 'RCC': 'TP' },
   'Main & Transfer':  { 'TP':'TP','LINE':'LINE','CENTER': 'CENTER', 'BUS_ZONE': 'BUS NO.', 'RCC': 'TP' },
   'AIS substation':    { 'INC': 'INC', 'BS': 'BS', 'OUT': 'OUT', 'TS_CB': 'TS_CB', 'TS_LBS': 'TS_LBS', 'BUSPT': 'BUSPT', 'CAP': 'CAP', 'CAP_BANK': 'CAP_BANK' },
   'GIS substation':    { 'INC': 'INC', 'BS': 'BS', 'OUT': 'OUT', 'TS_CB': 'TS_CB', 'BUSPT': 'BUSPT', 'CAP': 'CAP', 'CAP_BANK': 'CAP_BANK' }
@@ -3919,8 +3919,8 @@ function openFeederAddRow(){
   'H Scheme': {
     'SSMN':       ['SSMN'],
     'TP':      ['02YB-01', '02YS-01', '02YG-01'],
-    'LINE':    ['BAY_LINE01'],
-    'BUS_TIE': ['BAY_TIE'],
+    'LINE':    ['01YB-01','01YS-01','01YS-02','01YG-01','01YG-02'],
+    'BUS_TIE': ['BAY ZONE'],
     'RCC':     ['TP_01'],
   },
   'Main & Transfer': {
