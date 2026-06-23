@@ -2910,7 +2910,7 @@ function getVoltageLevels(){
 // substation -> feeder -> name root actually used in FEEDER_NAME column
 const FEEDER_NAME_OVERRIDES = {
   'BR & A Half':      { 'TP':'TP','LINE':'LINE','CENTER': 'CENTER', 'BUS_ZONE': 'BUS NO.', 'RCC': 'TP' },
-  'DBSB':             { 'TP':'TP','LINE':'LINE','CENTER': 'CENTER', 'RCC': 'TP' },
+  'DBSB':             { 'TP':'TP','LINE':'LINE','CENTER': 'CENTER', 'BUS_COUPLER': 'BUS COUPLER','BUS_ZONE': 'BUS ZONE', 'RCC': 'TP' },
   'H Scheme':         { 'TP':'TP','LINE':'LINE','CENTER': 'CENTER', 'BUS_ZONE': 'BUS NO.', 'RCC': 'TP' },
   'Main & Transfer':  { 'TP':'TP','LINE':'LINE','CENTER': 'CENTER', 'BUS_ZONE': 'BUS NO.', 'RCC': 'TP' },
   'AIS substation':    { 'INC': 'INC', 'BS': 'BS', 'OUT': 'OUT', 'TS_CB': 'TS_CB', 'TS_LBS': 'TS_LBS', 'BUSPT': 'BUSPT', 'CAP': 'CAP', 'CAP_BANK': 'CAP_BANK' },
@@ -2922,7 +2922,7 @@ function defaultFeederNameFor(sub, feed, number){
   const nameRoot = FEEDER_NAME_OVERRIDES[sub]?.[feed] || feed;
   if(feedCfg?.hasNumbers){
     const num = number || currentNumber;
-    if (feed === 'BUS_ZONE') {
+    if (feed === 'BUS_ZONE' && sub === 'BR & A Half') {
       // Special case for BUS_ZONE to avoid double numbering (e.g. "BUS NO. 1_01")
       return num ? (nameRoot + num) : nameRoot;
     }
