@@ -4240,9 +4240,10 @@ async function exportAllSubstation(){
     if(feedCfg.hasNumbers){
       for(const [num, numCfg] of Object.entries(feedCfg.numbers)){
         const seen = new Set();
-        for(const main of (numCfg.mains || ['MAIN_01'])){
-          const subset = main; // subset mirrors main in your data model
-          const key = num + '__' + main;
+        const mains = feedCfg.hasMain === false ? [null] : (numCfg.mains || ['MAIN_01']);
+        for(const main of mains){
+          const subset = main ?? 'MAIN_01';
+          const key = num + '__' + (main ?? 'FLAT');
           if(seen.has(key)) continue;
           seen.add(key);
           combos.push({ num, main, subset });
