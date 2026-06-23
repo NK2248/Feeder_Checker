@@ -2901,7 +2901,7 @@ function getMainNames(sub, feed){
 // same pattern for getSubsetNames
 function getVoltageLevels(){
   const fromSubs = Object.values(FEEDER_STRUCTURE).map(s => s.voltage).filter(Boolean);
-  return [...new Set([...fromSubs, ...EXTRA_VOLTAGES])];
+  return [...new Set([...fromSubs, ...DEFAULT_VOLTAGES, ...EXTRA_VOLTAGES])];
 }
 
 // substation -> feeder -> name root actually used in FEEDER_NAME column
@@ -2940,8 +2940,8 @@ let currentFeederType = FEEDER_SUBSETS[0];
 let currentVoltage = null;
 
 const FEEDER_DATASETS = {};
-
-let EXTRA_VOLTAGES = new Set(['115-22kV','115-33kV']); // voltage levels added manually, with no substations yet
+const DEFAULT_VOLTAGES = new Set(['115-22kV','115-33kV']);   // ← hardcoded, never editable/removable
+let EXTRA_VOLTAGES = new Set();                // ← user-added via + button, fully editable
 
 let currentNumber = null; // e.g. "01", "02", or null for flat feeders
 
@@ -3019,17 +3019,19 @@ function switchMode(mode){
 function renderVoltageTabs(){
   document.getElementById('voltageTabs').innerHTML = getVoltageLevels().map(v => {
     const isActive = v === currentVoltage;
-    const isUserExtra = EXTRA_VOLTAGES.has(v);   // ← only these are removable/renamable
+    const isLocked = DEFAULT_VOLTAGES.has(v);
+    const isUserExtra = EXTRA_VOLTAGES.has(v);
     return `<div style="display:inline-flex;align-items:center;gap:2px">
       <button class="feeder-tab${isActive?' active':''}" 
         onclick="switchVoltage('${v.replace(/'/g,"\\'")}')"
-        ${isUserExtra ? `ondblclick="promptRenameVoltage('${v.replace(/'/g,"\\'")}')" title="Double-click to rename"` : ''}>${v}</button>
+        ${isUserExtra ? `ondblclick="promptRenameVoltage('${v.replace(/'/g,"\\'")}')" title="Double-click to rename"` : ''}>
+        ${isLocked ? '🔒 ' : ''}${v}
+      </button>
       ${isUserExtra ? `<button onclick="confirmRemoveVoltage('${v.replace(/'/g,"\\'")}')"
         style="width:16px;height:16px;border-radius:50%;border:none;background:var(--red-bg);color:var(--red);cursor:pointer;font-size:10px;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0" title="Remove voltage level">×</button>` : ''}
     </div>`;
   }).join('');
 }
-
 async function switchVoltage(v){
   if(!confirmIfDirty('Switch voltage level? Unsaved changes may be lost.')) return;
   currentVoltage = v;
@@ -3082,6 +3084,8 @@ function renderSubstationTabs(){
           onclick="switchSubstation('${s.replace(/'/g,"\\'")}')">
           ${s}
         </button>
+        <button onclick="openMoveSubstation('${s.replace(/'/g,"\\'")}');event.stopPropagation();"
+          style="width:16px;height:16px;border-radius:50%;border:none;background:var(--blue-bg);color:var(--blue);cursor:pointer;font-size:9px;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0" title="Move to different voltage level">⇄</button>
         ${isUser ? `<button onclick="confirmRemoveSubstation('${s.replace(/'/g,"\\'")}');"
           style="width:16px;height:16px;border-radius:50%;border:none;background:var(--red-bg);color:var(--red);cursor:pointer;font-size:10px;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0" title="Remove substation">×</button>` : ''}
       </div>`;
@@ -3108,6 +3112,59 @@ async function switchSubstation(s){
     renderFeederStats();
   }
   updateBreadcrumb();
+}
+
+function openMoveSubstation(subName){
+  const cfg = FEEDER_STRUCTURE[subName];
+  if(!cfg) return;
+  const allVoltages = getVoltageLevels().filter(v => v !== cfg.voltage);
+  if(!allVoltages.length){ alert('No other voltage levels to move to. Add one first.'); return; }
+
+  const options = allVoltages.map(v => `<option value="${v}">${v}</option>`).join('');
+
+  document.querySelector('#confirmModal h3').textContent = 'Move substation';
+  document.getElementById('confirmMsg').innerHTML = `
+    <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:10px">
+      Move <strong>${subName}</strong> (currently <span style="font-family:var(--mono)">${cfg.voltage}</span>) to:
+    </div>
+    <select id="moveSubTargetVoltage" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%">
+      ${options}
+    </select>`;
+  document.getElementById('confirmOkBtn').textContent = 'Move';
+  document.getElementById('confirmOkBtn').style.display = '';
+  document.getElementById('confirmOkBtn').onclick = () => doMoveSubstation(subName);
+  document.getElementById('confirmModal').classList.add('open');
+}
+
+async function doMoveSubstation(subName){
+  const newVoltage = document.getElementById('moveSubTargetVoltage').value;
+  if(!newVoltage) return;
+
+  FEEDER_STRUCTURE[subName].voltage = newVoltage;
+  await saveFeederConfig();
+
+  closeModal('confirmModal');
+  document.querySelector('#confirmModal h3').textContent = 'Remove rows?'; // restore default title
+  document.getElementById('confirmOkBtn').textContent = 'Remove';          // restore default label
+
+  // if we're currently viewing the moved substation, follow it to its new voltage tab
+  if(currentSubstation === subName){
+    await switchVoltage(newVoltage);
+    currentSubstation = subName;
+    currentFeeder = getFeederNames(subName)[0] || null;
+    if(currentFeeder){
+      const feedCfg = FEEDER_STRUCTURE[subName]?.feeders[currentFeeder];
+      currentNumber = feedCfg?.hasNumbers ? Object.keys(feedCfg.numbers)[0] : null;
+    }
+    currentMain = currentFeeder ? getMainNames(subName, currentFeeder)[0] ?? null : null;
+    currentSubset = currentMain;
+    renderSubstationTabs(); renderFeederTabs(); renderNumberTabs(); renderSubsetTabs(); renderMainTabs(); syncFeederTypeTabCounts();
+    if(currentFeeder) await loadFeederDataset();
+    updateBreadcrumb();
+  } else {
+    renderVoltageTabs();
+    renderSubstationTabs();
+  }
 }
 
 function renderFeederTabs(){
