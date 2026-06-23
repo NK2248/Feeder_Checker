@@ -6740,45 +6740,53 @@ for(let i = 0; i < rows.length; i++){
   // ── Pass 1: absorb truly-empty noise rows (no address/DNP, no other data,
   //    anchors empty) into the row above. A differing item number always
   //    blocks absorption; a matching one reinforces it.
-  const pass1 = [];
-  const pass1Items = [];
-  let i = 0;
-  // In Pass 1, replace the while(j < rows.length) absorption loop with this:
-  let j = i + 1;
-  while(j < rows.length){
-    const next = rows[j];
-    const nextItem = itemValues ? itemValues[j] : undefined;
-    
-    // If item numbers are being used and next row HAS an item number → new record
-    const itemSaysNewRecord = itemValues && nextItem !== undefined 
-                           && nextItem !== '' 
-                           && nextItem !== currentItem;
-    if(itemSaysNewRecord) break;
-    
-    // If next row has its own DNP3 address data → it's a real separate row
-    // but ONLY break if point name also differs (sub-rows share point name)
-    if(hasOwnAddressData(next) && !samePointName(current, next)) break;
-    
-    // KEY FIX: if next row has SPECIFICATION_POINT_NAME filled (from merge)
-    // AND it matches current — it's a valid sub-row, keep it as-is
-    const nextPointName = String(next['SPECIFICATION_POINT_NAME'] ?? '').trim();
-    const currPointName = String(current['SPECIFICATION_POINT_NAME'] ?? '').trim();
-    if(nextPointName !== '' && nextPointName === currPointName){
-        // It's a continuation sub-row — do NOT absorb, keep as separate row
-        break;
+  // ── Pass 1: absorb truly-empty noise rows into the row above
+const pass1 = [];
+const pass1Items = [];
+let i = 0;
+while(i < prepass.length){
+    const current = { ...prepass[i] };
+    const currentItem = prepassItems[i];
+    let j = i + 1;
+
+    while(j < prepass.length){
+        const next = prepass[j];
+        const nextItem = prepassItems[j];
+
+        // Different item number → definitely a new record
+        const itemSaysNewRecord = itemValues && nextItem !== undefined
+                               && nextItem !== ''
+                               && nextItem !== currentItem;
+        if(itemSaysNewRecord) break;
+
+        // Next row has its own address/DNP data AND different point name → new record
+        if(hasOwnAddressData(next) && !samePointName(current, next)) break;
+
+        // KEY FIX: same point name + has data → valid sub-row, keep separate
+        const nextPointName = String(next['SPECIFICATION_POINT_NAME'] ?? '').trim();
+        const currPointName = String(current['SPECIFICATION_POINT_NAME'] ?? '').trim();
+        if(nextPointName !== '' && nextPointName === currPointName && hasAnyData(next)){
+            break;
+        }
+
+        // Pure noise row → silently skip
+        if(!hasAnyData(next)){ j++; continue; }
+
+        // Has anchor data but no matching point name → keep separate
+        if(!isAnchorEmpty(next)) break;
+
+        // Absorb: copy non-empty fields from next into current
+        Object.entries(next).forEach(([col, val]) => {
+            if(NO_COPY_COLS.has(col)) return;
+            const trimmed = String(val ?? '').trim();
+            if(trimmed && !String(current[col] ?? '').trim()) current[col] = trimmed;
+        });
+        j++;
     }
-    
-    if(!hasAnyData(next)){ j++; continue; }
-    
-    // only absorb truly empty anchor rows
-    if(!isAnchorEmpty(next)) break;
-    
-    Object.entries(next).forEach(([col, val]) => {
-        if(NO_COPY_COLS.has(col)) return;
-        const trimmed = String(val ?? '').trim();
-        if(trimmed && !String(current[col] ?? '').trim()) current[col] = trimmed;
-    });
-    j++;
+
+    pass1.push(current);
+    pass1Items.push(currentItem);
+    i = j;
 }
 
   // ── Pass 2: fill-down within the same item group only. Rows that legitimately
