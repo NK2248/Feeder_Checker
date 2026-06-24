@@ -2863,19 +2863,19 @@ const FEEDER_STRUCTURE = {
     voltage: "33kV",
     feeders: {
       "SSMN":{"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
-      "INC":{"hasNumbers": true, "hasMain": true, "numbers": {
+      "INC":{"hasNumbers": true, "hasMain": false, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "BS":{"hasNumbers": true, "hasMain": true, "numbers": {
+      "BS":{"hasNumbers": true, "hasMain": false, "numbers": {
         "1": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "OUT":{"hasNumbers": true, "hasMain": true, "numbers": {
+      "OUT":{"hasNumbers": true, "hasMain": false, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "TS_CB":{"hasNumbers": true, "hasMain": true, "numbers": {
+      "TS_CB":{"hasNumbers": true, "hasMain": false, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "BUSPT":{"hasNumbers": true, "hasMain": true, "numbers": {
+      "BUSPT":{"hasNumbers": true, "hasMain": false, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "CAP":{"hasNumbers": true, "hasMain": true, "numbers": {
+      "CAP":{"hasNumbers": true, "hasMain": false, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}},
-      "CAP_BANK":{"hasNumbers": true, "hasMain": true, "numbers": {
+      "CAP_BANK":{"hasNumbers": true, "hasMain": false, "numbers": {
         "01": {"mains":["MAIN_01"], "subsets":["MAIN_01"]}}}
     }
   }
@@ -2905,7 +2905,7 @@ const FEEDER_NAME_OVERRIDES = {
   'H Scheme':         { 'TP':'TP','LINE':'LINE', 'BUS_TIE': 'BUS ZONE', 'RCC': 'TP' },
   'Main & Transfer':  { 'TP':'TP','LINE':'LINE', 'BUS_TIE': 'TIE', 'RCC': 'TP' },
   'AIS substation':    { 'INC': 'INC', 'BS': 'BS', 'OUT': 'OUT', 'TS_CB': 'TS', 'TS_LBS': 'TS', 'BUSPT': 'BUSPT', 'CAP': 'CAP', 'CAP_BANK': 'CAP' },
-  'GIS substation':    { 'INC': 'INC', 'BS': 'BS', 'OUT': 'OUT', 'TS_CB': 'TS_CB', 'BUSPT': 'BUSPT', 'CAP': 'CAP', 'CAP_BANK': 'CAP_BANK' }
+  'GIS substation':    { 'INC': 'INC', 'BS': 'BS', 'OUT': 'OUT', 'TS_CB': 'TS', 'BUSPT': 'BUSPT', 'CAP': 'CAP', 'CAP_BANK': 'CAP' }
 };
 
 function defaultFeederNameFor(sub, feed, number){
@@ -2913,7 +2913,7 @@ function defaultFeederNameFor(sub, feed, number){
   const nameRoot = FEEDER_NAME_OVERRIDES[sub]?.[feed] || feed;
   if(feedCfg?.hasNumbers){
     const num = number || currentNumber;
-    if (feed === 'BUSPT' && sub === 'AIS substation'){
+    if (feed === 'BUSPT'){
       // Special case for BUSPT feeders to avoid double numbering (e.g. "BUSPT 1_01")
       return num ? (nameRoot + '' + num.slice(1)) : nameRoot;
     }
@@ -3950,13 +3950,13 @@ function openFeederAddRow(){
   },
   'GIS substation': {
     'SSMN':       ['SSMN'], 
-    'INC':     ['BAY_INC01'],
-    'BS1':        ['BAY_BS1'],
-    'OUT':     ['BAY_OUT01'],
-    'TS_CB':  ['BAY_TS01CB'],
-    'BUSPT':   ['BAY_BUSPT01'],
-    'CAP':     ['BAY_CAP01'],
-    'CAP_BANK': ['BAY_CAPBANK01']
+    'INC':     ['1BWB-01', '1BWG-01','1BWG-02','1BWG-03', '1BWS-01', '1BWS-02','1BWS-03'],
+    'BS1':        ['0BWB-01', '0BWG-01','0BWG-02', '0BWS-01', '0BWS-02'],
+    'OUT':     ['01WB-01','01WG-01','01WS-01'],
+    'TS_CB':  ['1TWB-01','1TWG-01','1TWS-01'],
+    'BUSPT':   ['1BWP-01','1BWS-01','1BWS-02','1BWS-03','1BWG-01','1BWG-02','1BWG-03'],
+    'CAP':     ['1CWB-01','1CWG-01','1CWS-01'],
+    'CAP_BANK': ['CAP01']
   },
   // add other substations as needed
 };
