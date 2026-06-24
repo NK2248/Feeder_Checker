@@ -3333,23 +3333,48 @@ async function saveNewNumber(num){
     const srcKey = feederKeyFor(currentSubstation, currentFeeder, lastNum, subset, main, type);
     const dstKey = feederKeyFor(currentSubstation, currentFeeder, num, subset, main, type);
     const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(srcKey)+'&order=row_index.asc');
-    if(data.length){
-      const newFeederName = defaultFeederNameFor(currentSubstation, currentFeeder, num);
-      const newRows = data.map(r => {
-        const row = {...r.data};
-        if(row['FEEDER_NAME'] !== undefined) row['FEEDER_NAME'] = newFeederName;
-        return row;
-      });
-      const ins = newRows.map((row,i)=>({
-        dataset_key: dstKey,
-        row_index: i,
-        data: row,
-        origin_count: 0
-      }));
-      await sbFetch('POST', TABLE, ins);
+    const feedNumCfg = feedCfg.numbers[num];
+    const hasMains = feedCfg.hasMain !== false;
+
+    if(hasMains){
+      for(const main of feedNumCfg.mains || ['MAIN_01']){
+        const subset = main;
+        for(const type of FEEDER_SUBSETS){
+          const srcKey = feederKeyFor(currentSubstation, currentFeeder, lastNum, subset, main, type);
+          const dstKey = feederKeyFor(currentSubstation, currentFeeder, num, subset, main, type);
+          const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(srcKey)+'&order=row_index.asc');
+          if(data.length){
+            const newFeederName = defaultFeederNameFor(currentSubstation, currentFeeder, num);
+            const newRows = data.map(r => {
+              const row = {...r.data};
+              if(row['FEEDER_NAME'] !== undefined) row['FEEDER_NAME'] = newFeederName;
+              return row;
+            });
+            const ins = newRows.map((row,i)=>({dataset_key:dstKey,row_index:i,data:row,origin_count:0}));
+            await sbFetch('POST', TABLE, ins);
+          }
+        }
+      }
+    } else {
+      // flat feeder — no main, key uses __FLAT
+      for(const type of FEEDER_SUBSETS){
+        const srcKey = feederKeyFor(currentSubstation, currentFeeder, lastNum, null, null, type);
+        const dstKey = feederKeyFor(currentSubstation, currentFeeder, num, null, null, type);
+        const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(srcKey)+'&order=row_index.asc');
+        if(data.length){
+          const newFeederName = defaultFeederNameFor(currentSubstation, currentFeeder, num);
+          const newRows = data.map(r => {
+            const row = {...r.data};
+            if(row['FEEDER_NAME'] !== undefined) row['FEEDER_NAME'] = newFeederName;
+            return row;
+          });
+          const ins = newRows.map((row,i)=>({dataset_key:dstKey,row_index:i,data:row,origin_count:0}));
+          await sbFetch('POST', TABLE, ins);
+        }
+      }
     }
   }
-  }
+}
   hideLoading();
   currentNumber = num;
   renderNumberTabs(); renderMainTabs(); syncFeederTypeTabCounts();
