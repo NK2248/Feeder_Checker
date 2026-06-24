@@ -3459,7 +3459,7 @@ async function saveNewMain(){
     try{
       const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(srcKey)+'&order=row_index.asc');
       if(data.length){
-        const ins = data.map((r,i)=>({dataset_key:dstKey, row_index:i, data:r.data, origin_count:r.origin_count||0}));
+        const ins = data.map((r,i)=>({dataset_key:dstKey, row_index:i, data:r.data, origin_count:0}));
         await sbFetch('POST', TABLE, ins);
         // FIX: update local cache so the newly loaded dataset reflects copied data
         if(!FEEDER_DATASETS[dstKey]){
