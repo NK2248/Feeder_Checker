@@ -3328,8 +3328,6 @@ async function saveNewNumber(num){
   await saveFeederConfig();
   showLoading('Copying data from '+lastNum+'…');
   const feedNumCfg = feedCfg.numbers[num];
-
-  // mirror switchNumber()'s logic exactly — never null, always defaults to MAIN_01
   const mains = feedNumCfg.mains && feedNumCfg.mains.length ? feedNumCfg.mains : ['MAIN_01'];
 
   for(const main of mains){
@@ -3337,7 +3335,7 @@ async function saveNewNumber(num){
     for(const type of FEEDER_SUBSETS){
       const srcKey = feederKeyFor(currentSubstation, currentFeeder, lastNum, subset, main, type);
       const dstKey = feederKeyFor(currentSubstation, currentFeeder, num, subset, main, type);
-      const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(srcKey)+'&order=row_index.asc');
+      const data = await sbFetchAll(TABLE+'?dataset_key=eq.'+encodeURIComponent(srcKey)+'&order=row_index.asc'); // ← fixed
       if(data.length){
         const newFeederName = defaultFeederNameFor(currentSubstation, currentFeeder, num);
         const newRows = data.map(r => {
@@ -3346,7 +3344,7 @@ async function saveNewNumber(num){
           return row;
         });
         const ins = newRows.map((row,i)=>({dataset_key:dstKey,row_index:i,data:row,origin_count:0}));
-        await sbFetch('POST', TABLE, ins);
+        await sbFetch('POST', TABLE, ins);   // insert is fine as-is (no 1000-row read limit on POST)
       }
     }
   }
@@ -3456,7 +3454,7 @@ async function saveNewMain(){
     const srcKey = feederKeyFor(currentSubstation, currentFeeder, numAtCopy, subsetAtCopy, prevMain, type);
     const dstKey = feederKeyFor(currentSubstation, currentFeeder, numAtCopy, name, name, type);
     try{
-      const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(srcKey)+'&order=row_index.asc');
+      const data = await sbFetchAll(TABLE+'?dataset_key=eq.'+encodeURIComponent(srcKey)+'&order=row_index.asc');;
       if(data.length){
         const ins = data.map((r,i)=>({dataset_key:dstKey, row_index:i, data:r.data, origin_count:0}));
         await sbFetch('POST', TABLE, ins);
