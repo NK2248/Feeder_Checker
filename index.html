@@ -2913,11 +2913,15 @@ function defaultFeederNameFor(sub, feed, number){
   const nameRoot = FEEDER_NAME_OVERRIDES[sub]?.[feed] || feed;
   if(feedCfg?.hasNumbers){
     const num = number || currentNumber;
+    if (feed === 'BUSPT' && sub === 'AIS substation'){
+      // Special case for BUSPT feeders to avoid double numbering (e.g. "BUSPT 1_01")
+      return num ? (nameRoot + '' + num.slice(1)) : nameRoot;
+    }
     if (feed === 'BS'){
       // Special case for BS feeders to avoid double numbering (e.g. "BS 1_01")
       return num ? (nameRoot + '_0' + num) : nameRoot;
     }
-    if ((feed === 'BUS_ZONE' && sub === 'BR & A Half')||(feed === 'BUSPT' && sub === 'AIS substation')) {
+    if ((feed === 'BUS_ZONE' && sub === 'BR & A Half')) {
       // Special case for BUS_ZONE to avoid double numbering (e.g. "BUS NO. 1_01")
       return num ? (nameRoot + num) : nameRoot;
     }
