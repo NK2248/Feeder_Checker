@@ -2904,7 +2904,7 @@ const FEEDER_NAME_OVERRIDES = {
   'DBSB':             { 'TP':'TP','LINE':'LINE','CENTER': 'CENTER', 'BUS_COUPLER': 'BUS COUPLER','BUS_ZONE': 'BUS ZONE', 'RCC': 'TP' },
   'H Scheme':         { 'TP':'TP','LINE':'LINE', 'BUS_TIE': 'BUS ZONE', 'RCC': 'TP' },
   'Main & Transfer':  { 'TP':'TP','LINE':'LINE', 'BUS_TIE': 'TIE', 'RCC': 'TP' },
-  'AIS substation':    { 'INC': 'INC', 'BS': 'BS', 'OUT': 'OUT', 'TS_CB': 'TS_CB', 'TS_LBS': 'TS_LBS', 'BUSPT': 'BUSPT', 'CAP': 'CAP', 'CAP_BANK': 'CAP_BANK' },
+  'AIS substation':    { 'INC': 'INC', 'BS': 'BS', 'OUT': 'OUT', 'TS_CB': 'TS', 'TS_LBS': 'TS', 'BUSPT': 'BUSPT', 'CAP': 'CAP', 'CAP_BANK': 'CAP' },
   'GIS substation':    { 'INC': 'INC', 'BS': 'BS', 'OUT': 'OUT', 'TS_CB': 'TS_CB', 'BUSPT': 'BUSPT', 'CAP': 'CAP', 'CAP_BANK': 'CAP_BANK' }
 };
 
@@ -2913,7 +2913,7 @@ function defaultFeederNameFor(sub, feed, number){
   const nameRoot = FEEDER_NAME_OVERRIDES[sub]?.[feed] || feed;
   if(feedCfg?.hasNumbers){
     const num = number || currentNumber;
-    if (feed === 'BUS_ZONE' && sub === 'BR & A Half') {
+    if ((feed === 'BUS_ZONE' && sub === 'BR & A Half')&&(feed === 'BUSPT' && sub === 'AIS substation')) {
       // Special case for BUS_ZONE to avoid double numbering (e.g. "BUS NO. 1_01")
       return num ? (nameRoot + num) : nameRoot;
     }
@@ -3933,12 +3933,12 @@ function openFeederAddRow(){
     'SSMN':       ['SSMN'],
     'INC':     ['1BVB-01'],
     'BS1':        ['0BVB-01'],
-    'OUT':     ['BAY_OUT01'],
-    'TS_CB':  ['BAY_TS01CB'],
-    'TS_LBS': ['BAY_TS01LBS'],
-    'BUSPT':   ['BAY_BUSPT01'],
-    'CAP':     ['BAY_CAP01'],
-    'CAP_BANK':['BAY_CAPBANK01'],
+    'OUT':     ['01VB-01','01VG-01'],
+    'TS_CB':  ['1TVB-01','1TVG-01'],
+    'TS_LBS': ['1TVS-01'],
+    'BUSPT':   ['1BVP-01'],
+    'CAP':     ['1CVB-01'],
+    'CAP_BANK':['CAP01'],
   },
   'GIS substation': {
     'SSMN':       ['SSMN'], 
