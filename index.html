@@ -3328,31 +3328,27 @@ async function saveNewNumber(num){
   await saveFeederConfig();
   showLoading('Copying data from '+lastNum+'…');
   for(const main of feedCfg.numbers[num].mains){
-    for(const subset of feedCfg.numbers[num].subsets){
-      for(const type of FEEDER_SUBSETS){
-        const srcKey = feederKeyFor(currentSubstation,currentFeeder,lastNum,subset,main,type);
-        const dstKey = feederKeyFor(currentSubstation,currentFeeder,num,subset,main,type);
-        const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(srcKey)+'&order=row_index.asc');
-        if(data.length){
-          // Compute the correct FEEDER_NAME for the new number
-          const newFeederName = defaultFeederNameFor(currentSubstation, currentFeeder, num);
-          const newRows = data.map(r => {
-            const row = {...r.data};
-            // Update FEEDER_NAME to reflect new number (e.g. TP_02 instead of TP_01)
-            if(row['FEEDER_NAME'] !== undefined) row['FEEDER_NAME'] = newFeederName;
-            return row;
-          });
-          // originCount=0 so all copied rows are fully editable
-          const ins = newRows.map((row,i)=>({
-            dataset_key: dstKey,
-            row_index: i,
-            data: row,
-            origin_count: 0
-          }));
-          await sbFetch('POST', TABLE, ins);
-        }
-      }
+  const subset = main;  // subset always mirrors main
+  for(const type of FEEDER_SUBSETS){
+    const srcKey = feederKeyFor(currentSubstation, currentFeeder, lastNum, subset, main, type);
+    const dstKey = feederKeyFor(currentSubstation, currentFeeder, num, subset, main, type);
+    const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(srcKey)+'&order=row_index.asc');
+    if(data.length){
+      const newFeederName = defaultFeederNameFor(currentSubstation, currentFeeder, num);
+      const newRows = data.map(r => {
+        const row = {...r.data};
+        if(row['FEEDER_NAME'] !== undefined) row['FEEDER_NAME'] = newFeederName;
+        return row;
+      });
+      const ins = newRows.map((row,i)=>({
+        dataset_key: dstKey,
+        row_index: i,
+        data: row,
+        origin_count: 0
+      }));
+      await sbFetch('POST', TABLE, ins);
     }
+  }
   }
   hideLoading();
   currentNumber = num;
