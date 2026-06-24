@@ -3466,11 +3466,8 @@ async function saveNewMain(){
           FEEDER_DATASETS[dstKey] = {rows:[],dbIds:[],manuallyAdded:new Set(),originCount:0,dupInfo:{},keyColumns:new Set(FEEDER_DEFAULT_KEYS),checked:false};
         }
         FEEDER_DATASETS[dstKey].rows = data.map(r=>({...r.data}));
-        // Copied rows are fully editable — originCount=0, all marked as added
         FEEDER_DATASETS[dstKey].originCount = 0;
-        FEEDER_DATASETS[dstKey].manuallyAdded = new Set(
-          FEEDER_DATASETS[dstKey].rows.map((_,i)=>i)
-        );
+        FEEDER_DATASETS[dstKey].manuallyAdded = new Set(FEEDER_DATASETS[dstKey].rows.map((_,i)=>i));
       }
     }catch(e){ console.error('Copy error:', e); }
   }
