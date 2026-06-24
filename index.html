@@ -2913,6 +2913,10 @@ function defaultFeederNameFor(sub, feed, number){
   const nameRoot = FEEDER_NAME_OVERRIDES[sub]?.[feed] || feed;
   if(feedCfg?.hasNumbers){
     const num = number || currentNumber;
+    if (feed === 'BS'){
+      // Special case for BS feeders to avoid double numbering (e.g. "BS 1_01")
+      return num ? (nameRoot + '_0' + num) : nameRoot;
+    }
     if ((feed === 'BUS_ZONE' && sub === 'BR & A Half')&&(feed === 'BUSPT' && sub === 'AIS substation')) {
       // Special case for BUS_ZONE to avoid double numbering (e.g. "BUS NO. 1_01")
       return num ? (nameRoot + num) : nameRoot;
