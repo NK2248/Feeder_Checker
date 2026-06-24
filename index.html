@@ -3298,10 +3298,13 @@ function renderNumberTabs(){
 async function switchNumber(n){
   if(!confirmIfDirty('Switch number? Unsaved changes may be lost.')) return;
   currentNumber = n;
-  // get mains for this specific number
   const feedCfg = FEEDER_STRUCTURE[currentSubstation]?.feeders[currentFeeder];
-  const mains = feedCfg?.numbers?.[n]?.mains || ['MAIN_01'];
-  currentMain = mains[0] || 'MAIN_01';
+  if(feedCfg?.hasMain === false){
+    currentMain = null;                 // ← flat: match switchFeeder/getMainNames
+  } else {
+    const mains = feedCfg?.numbers?.[n]?.mains || ['MAIN_01'];
+    currentMain = mains[0] || 'MAIN_01';
+  }
   currentSubset = currentMain;
   currentFeederType = FEEDER_SUBSETS[0];
   selected = new Set(); hideDupAlert();
@@ -3327,15 +3330,16 @@ async function saveNewNumber(num){
 
   await saveFeederConfig();
   showLoading('Copying data from '+lastNum+'…');
-  const feedNumCfg = feedCfg.numbers[num];
-  const mains = feedNumCfg.mains && feedNumCfg.mains.length ? feedNumCfg.mains : ['MAIN_01'];
+
+  const isFlat = feedCfg.hasMain === false;
+  const mains = isFlat ? [null] : (feedCfg.numbers[num].mains?.length ? feedCfg.numbers[num].mains : ['MAIN_01']);
 
   for(const main of mains){
-    const subset = main;
+    const subset = main; // null when flat — feederKeyFor turns this into __FLAT
     for(const type of FEEDER_SUBSETS){
       const srcKey = feederKeyFor(currentSubstation, currentFeeder, lastNum, subset, main, type);
       const dstKey = feederKeyFor(currentSubstation, currentFeeder, num, subset, main, type);
-      const data = await sbFetchAll(TABLE+'?dataset_key=eq.'+encodeURIComponent(srcKey)+'&order=row_index.asc'); // ← fixed
+      const data = await sbFetchAll(TABLE+'?dataset_key=eq.'+encodeURIComponent(srcKey)+'&order=row_index.asc');
       if(data.length){
         const newFeederName = defaultFeederNameFor(currentSubstation, currentFeeder, num);
         const newRows = data.map(r => {
@@ -3344,12 +3348,14 @@ async function saveNewNumber(num){
           return row;
         });
         const ins = newRows.map((row,i)=>({dataset_key:dstKey,row_index:i,data:row,origin_count:0}));
-        await sbFetch('POST', TABLE, ins);   // insert is fine as-is (no 1000-row read limit on POST)
+        await sbFetch('POST', TABLE, ins);
       }
     }
   }
   hideLoading();
   currentNumber = num;
+  currentMain = isFlat ? null : (mains[0] ?? 'MAIN_01');   // keep state consistent after the copy
+  currentSubset = currentMain;
   renderNumberTabs(); renderMainTabs(); syncFeederTypeTabCounts();
   await loadFeederDataset();
 }
@@ -3548,9 +3554,12 @@ async function doRemoveNumber(num){
   showLoading('Deleting number data…');
   const feedCfg = FEEDER_STRUCTURE[currentSubstation].feeders[currentFeeder];
   const nc = feedCfg.numbers[num];
+  const isFlat = feedCfg.hasMain === false;
   if(nc){
-    for(const main of nc.mains || ['MAIN_01']){
-      for(const subset of nc.subsets || ['MAIN_01']){
+    const mains = isFlat ? [null] : (nc.mains || ['MAIN_01']);
+    const subsets = isFlat ? [null] : (nc.subsets || ['MAIN_01']);
+    for(const main of mains){
+      for(const subset of (isFlat ? [null] : subsets)){
         for(const type of FEEDER_SUBSETS){
           const k = feederKeyFor(currentSubstation, currentFeeder, num, subset, main, type);
           try{ await sbFetch('DELETE', TABLE+'?dataset_key=eq.'+encodeURIComponent(k)); }catch(e){}
