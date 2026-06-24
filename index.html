@@ -3455,7 +3455,7 @@ async function saveNewMain(){
 
   for(const type of FEEDER_SUBSETS){
     const srcKey = feederKeyFor(currentSubstation, currentFeeder, numAtCopy, subsetAtCopy, prevMain, type);
-    const dstKey = feederKeyFor(currentSubstation, currentFeeder, numAtCopy, subsetAtCopy, name, type);
+    const dstKey = feederKeyFor(currentSubstation, currentFeeder, numAtCopy, name, name, type);
     try{
       const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(srcKey)+'&order=row_index.asc');
       if(data.length){
