@@ -3334,7 +3334,21 @@ async function saveNewNumber(num){
         const dstKey = feederKeyFor(currentSubstation,currentFeeder,num,subset,main,type);
         const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(srcKey)+'&order=row_index.asc');
         if(data.length){
-          const ins = data.map((r,i)=>({dataset_key:dstKey, row_index:i, data:r.data, origin_count:r.origin_count||0}));
+          // Compute the correct FEEDER_NAME for the new number
+          const newFeederName = defaultFeederNameFor(currentSubstation, currentFeeder, num);
+          const newRows = data.map(r => {
+            const row = {...r.data};
+            // Update FEEDER_NAME to reflect new number (e.g. TP_02 instead of TP_01)
+            if(row['FEEDER_NAME'] !== undefined) row['FEEDER_NAME'] = newFeederName;
+            return row;
+          });
+          // originCount=0 so all copied rows are fully editable
+          const ins = newRows.map((row,i)=>({
+            dataset_key: dstKey,
+            row_index: i,
+            data: row,
+            origin_count: 0
+          }));
           await sbFetch('POST', TABLE, ins);
         }
       }
@@ -3451,8 +3465,12 @@ async function saveNewMain(){
         if(!FEEDER_DATASETS[dstKey]){
           FEEDER_DATASETS[dstKey] = {rows:[],dbIds:[],manuallyAdded:new Set(),originCount:0,dupInfo:{},keyColumns:new Set(FEEDER_DEFAULT_KEYS),checked:false};
         }
-        FEEDER_DATASETS[dstKey].rows = data.map(r=>r.data);
-        FEEDER_DATASETS[dstKey].originCount = data.length ? (data[0].origin_count||0) : 0;
+        FEEDER_DATASETS[dstKey].rows = data.map(r=>({...r.data}));
+        // Copied rows are fully editable — originCount=0, all marked as added
+        FEEDER_DATASETS[dstKey].originCount = 0;
+        FEEDER_DATASETS[dstKey].manuallyAdded = new Set(
+          FEEDER_DATASETS[dstKey].rows.map((_,i)=>i)
+        );
       }
     }catch(e){ console.error('Copy error:', e); }
   }
