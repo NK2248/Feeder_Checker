@@ -287,23 +287,33 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   <div style="background:var(--surface);border:1px solid var(--border2);border-radius:var(--rlg);padding:8px 14px;margin-bottom:12px;display:flex;flex-direction:column;gap:8px">
   
   <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+    <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;width:80px">Substation</span>
+    <div id="substationChip" style="display:none;align-items:center;gap:6px"></div>
+    <div id="substationSearchWrap" style="position:relative;flex:1;min-width:180px;max-width:320px">
+      <input type="text" id="substationSearchInput" placeholder="Type a substation name…"
+        oninput="onSubstationSearchInput(this.value)"
+        onfocus="onSubstationSearchInput(this.value)"
+        style="padding:6px 10px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%;outline:none">
+      <div id="substationSearchResults" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:20;max-height:220px;overflow-y:auto"></div>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
     <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;width:80px">Voltage</span>
     <div id="voltageTabs" style="display:flex;gap:3px;flex-wrap:wrap"></div>
     <button class="btn-icon" onclick="openAddVoltage()" style="width:22px;height:22px">
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </button>
   </div>
-  
-  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-  <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;width:80px">Substation</span>
-  <div id="substationTabs" style="display:flex;gap:3px;flex-wrap:wrap"></div>
-  <button class="btn-icon" onclick="openAddSubstation()" style="width:22px;height:22px">
-    <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-  </button>
-  <button class="btn-icon" onclick="openMoveSubstationPicker()" style="width:22px;height:22px" title="Move substation to a different voltage level">
-    <svg viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
-  </button>
-</div>
+
+  <div id="schemeRowWrap" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
+    <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;width:80px">Scheme</span>
+    <div id="schemeTabs" style="display:flex;gap:3px;flex-wrap:wrap"></div>
+    <button class="btn-icon" onclick="openAddScheme()" style="width:22px;height:22px" title="Add a scheme (cloned from a template)">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+  </div>
+
 
   <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
     <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;width:80px">Feeder</span>
@@ -656,19 +666,6 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   </div>
 </div>
 
-<!-- Add Substation Modal -->
-<div class="overlay" id="addSubstationModal">
-  <div class="modal" style="width:380px">
-    <h3>Add New Substation</h3>
-    <div class="fgrid">
-      <div class="frow"><label>Substation Name</label><input type="text" id="newSubstationName" placeholder="e.g. Station North"></div>
-    </div>
-    <div class="mfooter">
-      <button class="btn" onclick="closeModal('addSubstationModal')">Cancel</button>
-      <button class="btn primary" onclick="saveNewSubstation()">Add Substation</button>
-    </div>
-  </div>
-</div>
 
 <!-- Add Feeder Modal -->
 <div class="overlay" id="addFeederModal">
@@ -1266,7 +1263,7 @@ function mrUpdateFeeders() {
 function mrUpdateNumbers() {
   const sub  = document.getElementById('mrSubstation').value;
   const feed = document.getElementById('mrFeeder').value;
-  const feedCfg = FEEDER_STRUCTURE[sub]?.feeders[feed];
+  const feedCfg = schemeNode(sub)?.feeders?.[feed];
   const numRow = document.getElementById('mrNumberRow');
   const numSel = document.getElementById('mrNumber');
 
@@ -1285,7 +1282,7 @@ function mrUpdateNumbers() {
 function mrUpdateMains() {
   const sub  = document.getElementById('mrSubstation').value;
   const feed = document.getElementById('mrFeeder').value;
-  const feedCfg = FEEDER_STRUCTURE[sub]?.feeders[feed];
+  const feedCfg = schemeNode(sub)?.feeders?.[feed];
   const mainSel = document.getElementById('mrMain');
   const numSel  = document.getElementById('mrNumber');
 
@@ -1331,7 +1328,7 @@ async function doManualRouteImport(importMode) {
     const sub  = document.getElementById('mrSubstation').value;
     const feed = document.getElementById('mrFeeder').value;
     const type = document.getElementById('mrTypeFeeder').value;
-    const feedCfg = FEEDER_STRUCTURE[sub]?.feeders[feed];
+    const feedCfg = schemeNode(sub)?.feeders?.[feed];
     const num = feedCfg?.hasNumbers
       ? (document.getElementById('mrNumber')?.value || null)
       : null;
@@ -1344,7 +1341,7 @@ async function doManualRouteImport(importMode) {
       alert('Please select a feeder before importing.');
       return;
     }
-    if (!FEEDER_STRUCTURE[sub]?.feeders[feed]) {
+    if (!schemeNode(sub)?.feeders?.[feed]) {
       alert(`Feeder "${feed}" not found in "${sub}". Please add it first using the + button.`);
       return;
     }
@@ -1432,7 +1429,7 @@ async function doManualRouteImport(importMode) {
     // Lock in the key NOW, before any render call can change currentNumber/currentMain etc.
     const importedKey = currentFeederKey();
 
-    renderSubstationTabs(); renderFeederTabs();
+    renderVoltageTabs(); renderSchemeTabs(); renderFeederTabs();
     renderNumberTabs();
     renderSubsetTabs(); renderMainTabs(); syncFeederTypeTabCounts();
     renderFeederTable(); renderFeederStats();
@@ -2349,47 +2346,57 @@ function renderAll(){
     await loadConfig();
     await loadFeederConfig();
 
-    // Wait — loadFeederConfig() already ran above, so FEEDER_STRUCTURE is now from DB
-    const firstSub = Object.keys(FEEDER_STRUCTURE)[0];
-    if(firstSub){
-      const firstSub = Object.keys(FEEDER_STRUCTURE)[0];
-      currentVoltage = FEEDER_STRUCTURE[firstSub].voltage;
-      currentSubstation = firstSub;
-      currentFeeder     = getFeederNames(firstSub)[0] || null;
-      // set currentNumber for numbered feeders
+    // No substation auto-selected — user types one into the search box.
+    // If config restored a previously-picked substation/voltage/scheme, honor it.
+    if(currentSubstation && FEEDER_STRUCTURE[currentSubstation]){
+      const voltages = getVoltagesForSub(currentSubstation);
+      if(!currentVoltage || !voltages.includes(currentVoltage)) currentVoltage = voltages[0] || null;
+      const schemes = currentVoltage ? getSchemesFor(currentSubstation, currentVoltage) : [];
+      if(!currentScheme || !schemes.includes(currentScheme)) currentScheme = schemes[0] || null;
+      currentFeeder = currentScheme ? (getFeederNames(currentSubstation)[0] || null) : null;
       if(currentFeeder){
-        const feedCfg = FEEDER_STRUCTURE[firstSub]?.feeders[currentFeeder];
-        if(feedCfg?.hasNumbers){
-          currentNumber = Object.keys(feedCfg.numbers)[0];
-        } else {
-          currentNumber = null;
+        const feedCfg = schemeNode(currentSubstation)?.feeders?.[currentFeeder];
+        currentNumber = feedCfg?.hasNumbers ? (Object.keys(feedCfg.numbers)[0] || null) : null;
+      } else {
+        currentNumber = null;
       }
+      currentSubset = currentFeeder ? (getSubsetNames(currentSubstation, currentFeeder)[0] || 'MAIN_01') : 'MAIN_01';
+      currentMain   = currentFeeder ? (getMainNames(currentSubstation, currentFeeder)[0] ?? null) : null;
+
+      const chip = document.getElementById('substationChip');
+      chip.style.display = 'flex';
+      chip.innerHTML = `<span style="font-size:12px;font-weight:600;padding:5px 12px;border-radius:20px;background:var(--accent);color:#fff;display:inline-flex;align-items:center;gap:6px">
+        ${currentSubstation}
+        <span onclick="event.stopPropagation();changeSubstation()" style="cursor:pointer;opacity:.8" title="change substation">✕</span>
+      </span>`;
+      document.getElementById('substationSearchWrap').style.display = 'none';
+    } else {
+      currentSubstation = null; currentVoltage = null; currentScheme = null;
+      currentFeeder = null; currentNumber = null; currentSubset = null; currentMain = null;
     }
-    currentSubset = currentFeeder ? (getSubsetNames(firstSub, currentFeeder)[0] || 'MAIN_01') : 'MAIN_01';
-    currentMain = currentFeeder ? (getMainNames(firstSub, currentFeeder)[0] ?? null) : null;
-}
 
-renderVoltageTabs();      // ← ADD THIS
-renderSubstationTabs();
-renderFeederTabs();
-renderNumberTabs();
-renderSubsetTabs();
-renderMainTabs();
-// AFTER
-if(currentFeeder){
-  await loadFeederDataset();
-}
-hideLoading();
-await loadDataset(currentKey());
+    renderVoltageTabs();
+    renderSchemeTabs();
+    renderFeederTabs();
+    renderNumberTabs();
+    renderSubsetTabs();
+    renderMainTabs();
+    if(currentFeeder){
+      await loadFeederDataset();
+    } else {
+      showEmptySubstationState();
+    }
+    hideLoading();
+    await loadDataset(currentKey());
 
-// preload counts FIRST, then render tabs with real numbers
-showLoading('Loading row counts…');
-await preloadAllCounts();
-hideLoading();
+    // preload counts FIRST, then render tabs with real numbers
+    showLoading('Loading row counts…');
+    await preloadAllCounts();
+    hideLoading();
 
-renderAll();
-switchMode('feeder');
-initKeyboardShortcuts();
+    renderAll();
+    switchMode('feeder');
+    initKeyboardShortcuts();
     updateBreadcrumb();
   } catch(err){
     hideLoading();
@@ -2673,16 +2680,18 @@ async function loadConfig(){
 }
 
 function openAddVoltage(){
-  const name = prompt('Enter new voltage level (e.g. 66kV):','');
+  if(!currentSubstation){ alert('Select (or create) a substation first.'); return; }
+  const name = prompt('Enter new voltage level for ' + currentSubstation + ' (e.g. 115kV, 22kV):','');
   if(!name || !name.trim()) return;
   const v = name.trim();
-  if(getVoltageLevels().includes(v)){ alert('Voltage level "'+v+'" already exists.'); return; }
+  if(!FEEDER_STRUCTURE[currentSubstation].voltages) FEEDER_STRUCTURE[currentSubstation].voltages = {};
+  if(FEEDER_STRUCTURE[currentSubstation].voltages[v]){ alert('Voltage level "'+v+'" already exists under '+currentSubstation+'.'); return; }
 
-  EXTRA_VOLTAGES.add(v);
+  FEEDER_STRUCTURE[currentSubstation].voltages[v] = { schemes: {} };
   saveFeederConfig();
 
   currentVoltage = v;
-  currentSubstation = null;
+  currentScheme = null;
   currentFeeder = null;
   currentNumber = null;
   currentMain = null;
@@ -2690,13 +2699,17 @@ function openAddVoltage(){
   selected = new Set(); hideDupAlert();
 
   renderVoltageTabs();
-  renderSubstationTabs();
+  renderSchemeTabs();
   renderFeederTabs();
   renderNumberTabs();
   renderSubsetTabs();
   renderMainTabs();
   renderFeederTypeTabs();
-  showEmptyVoltageState();
+  document.getElementById('tableArea').innerHTML = `<div class="empty">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+    <p>No scheme yet under ${v}</p>
+    <span>Click the + button next to Scheme to clone one from a template.</span>
+  </div>`;
   updateBreadcrumb();
 }
 
@@ -2758,9 +2771,10 @@ async function saveNewDevice(){
 }
 
 // ── Substation / Feeder Mode ─────────────────────────────────────────────────
-const FEEDER_STRUCTURE = {
+// SCHEME_TEMPLATES: cloneable scheme blueprints. A real substation+voltage
+// gets one of these cloned into FEEDER_STRUCTURE[sub].voltages[v].schemes[schemeType].
+const SCHEME_TEMPLATES = {
   "BR & A Half": {
-    voltage: "115kV",
     feeders: {
       "SSMN":  {"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
       "TP":    {"hasNumbers": true, "hasMain": true,
@@ -2789,7 +2803,6 @@ const FEEDER_STRUCTURE = {
     }
   },
   "DBSB": {
-    voltage: "115kV",
     feeders: {
       "SSMN" :{"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
       "TP" :{"hasNumbers": true, "hasMain": true, "numbers": {
@@ -2809,7 +2822,6 @@ const FEEDER_STRUCTURE = {
     }
   },
   "H Scheme": {
-    voltage: "115kV",
     feeders: {
       "SSMN":{"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
       "TP":{"hasNumbers": true, "hasMain": true, "numbers": {
@@ -2823,7 +2835,6 @@ const FEEDER_STRUCTURE = {
     }
   },
   "Main & Transfer": {
-    voltage: "115kV",
     feeders: {
       "SSMN":{"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
       "TP":{"hasNumbers": true, "hasMain": true, "numbers": {
@@ -2838,7 +2849,6 @@ const FEEDER_STRUCTURE = {
     }
   },
   "AIS substation": {
-    voltage: "22kV",
     feeders: {
       "SSMN":{"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
       "INC":{"hasNumbers": true, "hasMain": false, "numbers": {
@@ -2860,7 +2870,6 @@ const FEEDER_STRUCTURE = {
     }
   },
   "GIS substation": {
-    voltage: "33kV",
     feeders: {
       "SSMN":{"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
       "INC":{"hasNumbers": true, "hasMain": false, "numbers": {
@@ -2883,22 +2892,44 @@ const FEEDER_STRUCTURE = {
 
 const FEEDER_SUBSETS = ["Status Point","Control Output","Analog Point"];
 
-function getFeederNames(sub){ return Object.keys(FEEDER_STRUCTURE[sub]?.feeders || {}); }
-function getSubsetNames(sub,feed){ return FEEDER_STRUCTURE[sub]?.feeders[feed]?.subsets || ["MAIN_01"]; }
-function getMainNames(sub, feed){
-  const f = FEEDER_STRUCTURE[sub]?.feeders[feed];
+// ── Real installed sites. Empty by default — user types a substation name,
+// adds a voltage level under it, then clones a scheme template under that. ──
+const FEEDER_STRUCTURE = {};
+
+function getVoltagesForSub(sub){
+  return Object.keys(FEEDER_STRUCTURE[sub]?.voltages || {});
+}
+function getSchemesFor(sub, voltage){
+  const v = voltage !== undefined ? voltage : currentVoltage;
+  return Object.keys(FEEDER_STRUCTURE[sub]?.voltages?.[v]?.schemes || {});
+}
+function schemeNode(sub, voltage, scheme){
+  const v  = voltage !== undefined ? voltage : currentVoltage;
+  const sc = scheme  !== undefined ? scheme  : currentScheme;
+  return FEEDER_STRUCTURE[sub]?.voltages?.[v]?.schemes?.[sc] || null;
+}
+function getFeederNames(sub, voltage, scheme){
+  return Object.keys(schemeNode(sub, voltage, scheme)?.feeders || {});
+}
+function getSubsetNames(sub, feed, voltage, scheme){
+  return schemeNode(sub, voltage, scheme)?.feeders?.[feed]?.subsets || ["MAIN_01"];
+}
+function getMainNames(sub, feed, voltage, scheme){
+  const f = schemeNode(sub, voltage, scheme)?.feeders?.[feed];
   if(!f) return ['MAIN_01'];
-  if(f.hasMain === false) return [null];   // ← new flat case
+  if(f.hasMain === false) return [null];   // ← flat case
   if(f.hasNumbers) return f.numbers[currentNumber]?.mains || ['MAIN_01'];
   return f.mains || ['MAIN_01'];
 }
-// same pattern for getSubsetNames
+// kept for any leftover callers — voltage levels are now per-substation,
+// see getVoltagesForSub(). This returns the defaults + any extras only.
 function getVoltageLevels(){
-  const fromSubs = Object.values(FEEDER_STRUCTURE).map(s => s.voltage).filter(Boolean);
-  return [...new Set([...fromSubs, ...DEFAULT_VOLTAGES, ...EXTRA_VOLTAGES])];
+  return [...new Set([...DEFAULT_VOLTAGES, ...EXTRA_VOLTAGES])];
 }
 
-// substation -> feeder -> name root actually used in FEEDER_NAME column
+// scheme type -> feeder -> name root actually used in FEEDER_NAME column
+// (keyed by scheme type, since the scheme — not the physical substation —
+// defines feeder naming conventions)
 const FEEDER_NAME_OVERRIDES = {
   'BR & A Half':      { 'TP':'TP','LINE':'LINE','CENTER': 'CENTER', 'BUS_ZONE': 'BUS NO.', 'RCC': 'TP' },
   'DBSB':             { 'TP':'TP','LINE':'LINE','CENTER': 'CENTER', 'BUS_COUPLER': 'BUS COUPLER','BUS_ZONE': 'BUS ZONE', 'RCC': 'TP' },
@@ -2908,9 +2939,10 @@ const FEEDER_NAME_OVERRIDES = {
   'GIS substation':    { 'INC': 'INC', 'BS': 'BS', 'OUT': 'OUT', 'TS_CB': 'TS', 'BUSPT': 'BUSPT', 'CAP': 'CAP', 'CAP_BANK': 'CAP' }
 };
 
-function defaultFeederNameFor(sub, feed, number){
-  const feedCfg  = FEEDER_STRUCTURE[sub]?.feeders[feed];
-  const nameRoot = FEEDER_NAME_OVERRIDES[sub]?.[feed] || feed;
+function defaultFeederNameFor(sub, feed, number, scheme){
+  const sc = scheme || currentScheme;
+  const feedCfg  = schemeNode(sub, undefined, sc)?.feeders?.[feed];
+  const nameRoot = FEEDER_NAME_OVERRIDES[sc]?.[feed] || feed;
   if(feedCfg?.hasNumbers){
     const num = number || currentNumber;
     if (feed === 'BUSPT'){
@@ -2921,7 +2953,7 @@ function defaultFeederNameFor(sub, feed, number){
       // Special case for BS feeders to avoid double numbering (e.g. "BS 1_01")
       return num ? (nameRoot + '_0' + num) : nameRoot;
     }
-    if ((feed === 'BUS_ZONE' && sub === 'BR & A Half')) {
+    if ((feed === 'BUS_ZONE' && sc === 'BR & A Half')) {
       // Special case for BUS_ZONE to avoid double numbering (e.g. "BUS NO. 1_01")
       return num ? (nameRoot + num) : nameRoot;
     }
@@ -2934,12 +2966,13 @@ function defaultFeederNameFor(sub, feed, number){
 const FEEDER_SCHEMA_MAP = {"Status Point":"status","Control Output":"control","Analog Point":"analog"};
 
 let currentMode       = 'feeder';
-let currentSubstation = Object.keys(FEEDER_STRUCTURE)[0];
-let currentFeeder     = Object.keys(FEEDER_STRUCTURE[currentSubstation].feeders)[0];
-let currentMain = getMainNames(currentSubstation, currentFeeder)[0] ?? null;
-let currentSubset = currentMain;
+let currentSubstation = null;   // real site, e.g. "Bang Rak" — chosen via search box
+let currentVoltage    = null;   // e.g. "115kV" — under the chosen substation
+let currentScheme     = null;   // e.g. "H Scheme" — cloned from SCHEME_TEMPLATES
+let currentFeeder     = null;
+let currentMain       = null;
+let currentSubset     = null;
 let currentFeederType = FEEDER_SUBSETS[0];
-let currentVoltage = null;
 
 const FEEDER_DATASETS = {};
 const DEFAULT_VOLTAGES = new Set(['115-22kV','115-33kV']);   // ← hardcoded, never editable/removable
@@ -2947,13 +2980,15 @@ let EXTRA_VOLTAGES = new Set();                // ← user-added via + button, f
 
 let currentNumber = null; // e.g. "01", "02", or null for flat feeders
 
-function feederKey(sub, feed, subset, main, type, num){
+function feederKey(sub, feed, subset, main, type, num, voltage, scheme){
+  const v   = voltage !== undefined ? voltage : currentVoltage;
+  const sc  = scheme  !== undefined ? scheme  : currentScheme;
   const numPart  = (num !== undefined ? num : currentNumber) ? '__'+(num !== undefined ? num : currentNumber) : '';
   const mainPart = main ? '__'+subset+'__'+main : '__FLAT';
-  return '__feeder__'+sub+'__'+feed+numPart+mainPart+'__'+type;
+  return '__feeder__'+sub+'__'+(v||'NOVOLT')+'__'+(sc||'NOSCHEME')+'__'+feed+numPart+mainPart+'__'+type;
 }
 function currentFeederKey(){
-  return feederKey(currentSubstation, currentFeeder, currentSubset, currentMain, currentFeederType, currentNumber);
+  return feederKey(currentSubstation, currentFeeder, currentSubset, currentMain, currentFeederType, currentNumber, currentVoltage, currentScheme);
 }
 function feederCols(){
   return FEEDER_SCHEMA_TEMPLATES[FEEDER_SCHEMA_MAP[currentFeederType]];
@@ -3011,7 +3046,8 @@ function switchMode(mode){
   }
 
   if(mode==='feeder'){
-    renderVoltageTabs();renderSubstationTabs();renderFeederTabs();renderNumberTabs();renderSubsetTabs();renderMainTabs();syncFeederTypeTabCounts();loadFeederDataset();
+    renderVoltageTabs();renderSchemeTabs();renderFeederTabs();renderNumberTabs();renderSubsetTabs();renderMainTabs();syncFeederTypeTabCounts();
+    if(currentFeeder) loadFeederDataset(); else showEmptySubstationState();
   } else {
     renderAll();
   }
@@ -3019,48 +3055,41 @@ function switchMode(mode){
 }
 
 function renderVoltageTabs(){
-  document.getElementById('voltageTabs').innerHTML = getVoltageLevels().map(v => {
+  const el = document.getElementById('voltageTabs');
+  if(!currentSubstation){ el.innerHTML = ''; return; }
+  const voltages = getVoltagesForSub(currentSubstation);
+  el.innerHTML = voltages.map(v => {
     const isActive = v === currentVoltage;
-    const isLocked = DEFAULT_VOLTAGES.has(v);
-    const isUserExtra = EXTRA_VOLTAGES.has(v);
     return `<div style="display:inline-flex;align-items:center;gap:2px">
-      <button class="feeder-tab${isActive?' active':''}" 
+      <button class="feeder-tab${isActive?' active':''}"
         onclick="switchVoltage('${v.replace(/'/g,"\\'")}')"
-        ${isUserExtra ? `ondblclick="promptRenameVoltage('${v.replace(/'/g,"\\'")}')" title="Double-click to rename"` : ''}>
+        ondblclick="promptRenameVoltage('${v.replace(/'/g,"\\'")}')" title="Double-click to rename">
         ${v}
       </button>
-      ${isUserExtra ? `<button onclick="confirmRemoveVoltage('${v.replace(/'/g,"\\'")}')"
-        style="width:16px;height:16px;border-radius:50%;border:none;background:var(--red-bg);color:var(--red);cursor:pointer;font-size:10px;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0" title="Remove voltage level">×</button>` : ''}
+      <button onclick="confirmRemoveVoltage('${v.replace(/'/g,"\\'")}')"
+        style="width:16px;height:16px;border-radius:50%;border:none;background:var(--red-bg);color:var(--red);cursor:pointer;font-size:10px;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0" title="Remove voltage level">×</button>
     </div>`;
   }).join('');
 }
+
 async function switchVoltage(v){
   if(!confirmIfDirty('Switch voltage level? Unsaved changes may be lost.')) return;
   currentVoltage = v;
-  renderVoltageTabs();
 
-  const firstSub = Object.keys(FEEDER_STRUCTURE).find(s => FEEDER_STRUCTURE[s].voltage === v);
-  if(firstSub){
-    currentSubstation = firstSub;
-    currentFeeder = getFeederNames(firstSub)[0] || null;
-    currentNumber = null;
-    if(currentFeeder){
-      const feedCfg = FEEDER_STRUCTURE[currentSubstation]?.feeders[currentFeeder];
-      if(feedCfg?.hasNumbers) currentNumber = Object.keys(feedCfg.numbers)[0];
-    }
-    currentMain = currentFeeder ? getMainNames(firstSub, currentFeeder)[0] ?? null : null;
-    currentSubset = currentMain;
-    currentFeederType = FEEDER_SUBSETS[0];
-  } else {
-    // voltage level exists but has no substations yet
-    currentSubstation = null;
-    currentFeeder = null;
-    currentNumber = null;
-    currentMain = null;
-    currentSubset = null;
+  const schemes = getSchemesFor(currentSubstation, v);
+  currentScheme = schemes[0] || null;
+  currentFeeder = currentScheme ? (getFeederNames(currentSubstation)[0] || null) : null;
+  currentNumber = null;
+  if(currentFeeder){
+    const feedCfg = schemeNode(currentSubstation)?.feeders?.[currentFeeder];
+    if(feedCfg?.hasNumbers) currentNumber = Object.keys(feedCfg.numbers)[0];
   }
+  currentMain = currentFeeder ? (getMainNames(currentSubstation, currentFeeder)[0] ?? null) : null;
+  currentSubset = currentMain;
+  currentFeederType = FEEDER_SUBSETS[0];
 
-  renderSubstationTabs();
+  renderVoltageTabs();
+  renderSchemeTabs();
   renderFeederTabs();
   renderNumberTabs();
   renderSubsetTabs();
@@ -3068,153 +3097,21 @@ async function switchVoltage(v){
   syncFeederTypeTabCounts();
 
   if(currentFeeder) await loadFeederDataset();
-  else showEmptyVoltageState();
-
-  updateBreadcrumb();
-}
-
-function renderSubstationTabs(){
-  const entries = Object.entries(FEEDER_STRUCTURE)
-    .filter(([s, cfg]) => cfg.voltage === currentVoltage);
-  
-  document.getElementById('substationTabs').innerHTML =
-    entries.map(([s, cfg]) => {
-      const isUser = cfg._userAdded;
-      const isActive = s === currentSubstation;
-      return `<div style="display:inline-flex;align-items:center;gap:2px">
-        <button style="padding:4px 12px;border-radius:var(--r);border:1px solid ${isActive?'var(--accent)':'var(--border2)'};background:${isActive?'var(--accent)':'transparent'};color:${isActive?'#fff':'var(--text2)'};cursor:pointer;font-size:12px;font-family:var(--font);font-weight:500;transition:all .15s;white-space:nowrap"
-          onclick="switchSubstation('${s.replace(/'/g,"\\'")}')">
-          ${s}
-        </button>
-        ${isUser ? `<button onclick="confirmRemoveSubstation('${s.replace(/'/g,"\\'")}');"
-          style="width:16px;height:16px;border-radius:50%;border:none;background:var(--red-bg);color:var(--red);cursor:pointer;font-size:10px;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0" title="Remove substation">×</button>` : ''}
-      </div>`;
-    }).join('');
-}
-
-async function switchSubstation(s){
-  if(!confirmIfDirty('Switch substation? Unsaved changes may be lost.')) return;
-  currentSubstation=s;
-  currentFeeder=getFeederNames(s)[0]||null;
-  currentNumber = null;
-  if(currentFeeder){
-    const feedCfg = FEEDER_STRUCTURE[currentSubstation]?.feeders[currentFeeder];
-    if(feedCfg?.hasNumbers) currentNumber = Object.keys(feedCfg.numbers)[0];
-  }
-  currentMain = getMainNames(currentSubstation, currentFeeder)[0] ?? null;
-  currentSubset = currentMain;
-  currentFeederType=FEEDER_SUBSETS[0];
-  selected=new Set();hideDupAlert();
-  renderVoltageTabs();renderSubstationTabs();renderFeederTabs();renderNumberTabs();renderSubsetTabs();renderMainTabs();syncFeederTypeTabCounts();
-  if(currentFeeder) await loadFeederDataset();
   else {
-    document.getElementById('tableArea').innerHTML='<div class="empty"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg><p>No feeders in this substation</p><span>Add feeders using the + button.</span></div>';
+    document.getElementById('tableArea').innerHTML = `<div class="empty">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+      <p>No scheme yet under ${v}</p>
+      <span>Click the + button next to Scheme to clone one from a template.</span>
+    </div>`;
     renderFeederStats();
   }
+
   updateBreadcrumb();
-}
-
-function openMoveSubstationPicker(){
-  const subs = Object.keys(FEEDER_STRUCTURE).filter(s => FEEDER_STRUCTURE[s].voltage === currentVoltage);
-  if(!subs.length){ alert('No substations under this voltage level.'); return; }
-
-  const subOptions = subs.map(s => `<option value="${s}">${s}</option>`).join('');
-
-  document.querySelector('#confirmModal h3').textContent = 'Move substation to another voltage';
-  document.getElementById('confirmMsg').innerHTML = `
-    <div class="frow" style="margin-bottom:10px">
-      <label style="font-size:10px;color:var(--text2);font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;font-weight:500;display:block;margin-bottom:4px">Substation</label>
-      <select id="moveSubSource" onchange="updateMoveSubVoltageOptions()" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%">
-        ${subOptions}
-      </select>
-    </div>
-    <div class="frow">
-      <label style="font-size:10px;color:var(--text2);font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;font-weight:500;display:block;margin-bottom:4px">Move to voltage level</label>
-      <select id="moveSubTargetVoltage" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select>
-    </div>`;
-  document.getElementById('confirmOkBtn').textContent = 'Move';
-  document.getElementById('confirmOkBtn').style.display = '';
-  document.getElementById('confirmOkBtn').onclick = doMoveSubstationFromPicker;
-  document.getElementById('confirmModal').classList.add('open');
-
-  updateMoveSubVoltageOptions();
-}
-
-function updateMoveSubVoltageOptions(){
-  const subName = document.getElementById('moveSubSource').value;
-  const cfg = FEEDER_STRUCTURE[subName];
-  const targetSel = document.getElementById('moveSubTargetVoltage');
-  const opts = getVoltageLevels().filter(v => v !== cfg.voltage);
-  targetSel.innerHTML = opts.length
-    ? opts.map(v => `<option value="${v}">${v}</option>`).join('')
-    : `<option value="">— no other voltage levels —</option>`;
-}
-
-async function doMoveSubstationFromPicker(){
-  const subName = document.getElementById('moveSubSource').value;
-  const newVoltage = document.getElementById('moveSubTargetVoltage').value;
-  if(!subName || !newVoltage){ alert('Select both a substation and a target voltage.'); return; }
-
-  FEEDER_STRUCTURE[subName].voltage = newVoltage;
-  await saveFeederConfig();
-
-  closeModal('confirmModal');
-  document.querySelector('#confirmModal h3').textContent = 'Remove rows?';
-  document.getElementById('confirmOkBtn').textContent = 'Remove';
-
-  if(currentSubstation === subName){
-    await switchVoltage(newVoltage);
-    currentSubstation = subName;
-    currentFeeder = getFeederNames(subName)[0] || null;
-    if(currentFeeder){
-      const feedCfg = FEEDER_STRUCTURE[subName]?.feeders[currentFeeder];
-      currentNumber = feedCfg?.hasNumbers ? Object.keys(feedCfg.numbers)[0] : null;
-    }
-    currentMain = currentFeeder ? getMainNames(subName, currentFeeder)[0] ?? null : null;
-    currentSubset = currentMain;
-    renderSubstationTabs(); renderFeederTabs(); renderNumberTabs(); renderSubsetTabs(); renderMainTabs(); syncFeederTypeTabCounts();
-    if(currentFeeder) await loadFeederDataset();
-    updateBreadcrumb();
-  } else {
-    renderVoltageTabs();
-    renderSubstationTabs();
-  }
-}
-
-async function doMoveSubstation(subName){
-  const newVoltage = document.getElementById('moveSubTargetVoltage').value;
-  if(!newVoltage) return;
-
-  FEEDER_STRUCTURE[subName].voltage = newVoltage;
-  await saveFeederConfig();
-
-  closeModal('confirmModal');
-  document.querySelector('#confirmModal h3').textContent = 'Remove rows?'; // restore default title
-  document.getElementById('confirmOkBtn').textContent = 'Remove';          // restore default label
-
-  // if we're currently viewing the moved substation, follow it to its new voltage tab
-  if(currentSubstation === subName){
-    await switchVoltage(newVoltage);
-    currentSubstation = subName;
-    currentFeeder = getFeederNames(subName)[0] || null;
-    if(currentFeeder){
-      const feedCfg = FEEDER_STRUCTURE[subName]?.feeders[currentFeeder];
-      currentNumber = feedCfg?.hasNumbers ? Object.keys(feedCfg.numbers)[0] : null;
-    }
-    currentMain = currentFeeder ? getMainNames(subName, currentFeeder)[0] ?? null : null;
-    currentSubset = currentMain;
-    renderSubstationTabs(); renderFeederTabs(); renderNumberTabs(); renderSubsetTabs(); renderMainTabs(); syncFeederTypeTabCounts();
-    if(currentFeeder) await loadFeederDataset();
-    updateBreadcrumb();
-  } else {
-    renderVoltageTabs();
-    renderSubstationTabs();
-  }
 }
 
 function renderFeederTabs(){
   document.getElementById('feederTabs').innerHTML =
-    Object.entries(FEEDER_STRUCTURE[currentSubstation]?.feeders || {}).map(([f, cfg]) => {
+    Object.entries(schemeNode(currentSubstation)?.feeders || {}).map(([f, cfg]) => {
       const isUser = cfg._userAdded;
       const isActive = f === currentFeeder;
       return `<div style="display:inline-flex;align-items:center;gap:2px">
@@ -3231,7 +3128,7 @@ async function switchFeeder(f){
   if(!confirmIfDirty('Switch feeder? Unsaved changes may be lost.')) return;
   currentFeeder = f;
   currentNumber = null;
-  const feedCfg = FEEDER_STRUCTURE[currentSubstation]?.feeders[f];
+  const feedCfg = schemeNode(currentSubstation)?.feeders?.[f];
   if(feedCfg?.hasNumbers){
     currentNumber = Object.keys(feedCfg.numbers)[0];
   }
@@ -3271,7 +3168,7 @@ function openAddSubsetTab(){
   const trimmed=name.trim().toUpperCase();
   const existing=getSubsetNames(currentSubstation,currentFeeder);
   if(existing.includes(trimmed)){alert('"'+trimmed+'" already exists.');return;}
-  FEEDER_STRUCTURE[currentSubstation].feeders[currentFeeder].subsets.push(trimmed);
+  schemeNode(currentSubstation).feeders[currentFeeder].subsets.push(trimmed);
   currentSubset=trimmed;
   saveFeederConfig();renderSubsetTabs();syncFeederTypeTabCounts();loadFeederDataset();
   updateBreadcrumb();
@@ -3279,7 +3176,7 @@ function openAddSubsetTab(){
 
 function renderNumberTabs(){
   const wrap = document.getElementById('numberBarWrap');
-  const feedCfg = FEEDER_STRUCTURE[currentSubstation]?.feeders[currentFeeder];
+  const feedCfg = schemeNode(currentSubstation)?.feeders?.[currentFeeder];
   if(!feedCfg || !feedCfg.hasNumbers){ wrap.style.display='none'; currentNumber=null; return; }
   wrap.style.display='flex';
   const nums = Object.keys(feedCfg.numbers);
@@ -3298,7 +3195,7 @@ function renderNumberTabs(){
 async function switchNumber(n){
   if(!confirmIfDirty('Switch number? Unsaved changes may be lost.')) return;
   currentNumber = n;
-  const feedCfg = FEEDER_STRUCTURE[currentSubstation]?.feeders[currentFeeder];
+  const feedCfg = schemeNode(currentSubstation)?.feeders?.[currentFeeder];
   if(feedCfg?.hasMain === false){
     currentMain = null;                 // ← flat: match switchFeeder/getMainNames
   } else {
@@ -3320,7 +3217,7 @@ function openAddNumber(){
 }
 
 async function saveNewNumber(num){
-  const feedCfg = FEEDER_STRUCTURE[currentSubstation].feeders[currentFeeder];
+  const feedCfg = schemeNode(currentSubstation).feeders[currentFeeder];
   const nums = Object.keys(feedCfg.numbers);
   if(nums.includes(num)){ alert('Number "'+num+'" already exists.'); return; }
 
@@ -3361,15 +3258,17 @@ async function saveNewNumber(num){
 }
 
 // helper that builds key for an arbitrary number (not relying on global currentNumber)
-function feederKeyFor(sub,feed,num,subset,main,type){
+function feederKeyFor(sub,feed,num,subset,main,type,voltage,scheme){
+  const v = voltage !== undefined ? voltage : currentVoltage;
+  const sc = scheme !== undefined ? scheme : currentScheme;
   const numPart = num ? '__'+num : '';
   const mainPart = main ? '__'+subset+'__'+main : '__FLAT';
-  return '__feeder__'+sub+'__'+feed+numPart+mainPart+'__'+type;
+  return '__feeder__'+sub+'__'+(v||'NOVOLT')+'__'+(sc||'NOSCHEME')+'__'+feed+numPart+mainPart+'__'+type;
 }
 
 
 function renderMainTabs(){
- const feedCfg = FEEDER_STRUCTURE[currentSubstation]?.feeders[currentFeeder];
+ const feedCfg = schemeNode(currentSubstation)?.feeders?.[currentFeeder];
   const wrap = document.getElementById('mainRowWrap');
 
   if(!feedCfg){                         // ← ADD THIS GUARD
@@ -3424,7 +3323,7 @@ async function saveNewMain(){
   const mains = getMainNames(currentSubstation, currentFeeder);
   if(mains.includes(name)){ alert('"'+name+'" already exists in '+currentFeeder+'.'); return; }
   const prevMain = mains[mains.length-1];
-  const feedCfg = FEEDER_STRUCTURE[currentSubstation].feeders[currentFeeder];
+  const feedCfg = schemeNode(currentSubstation).feeders[currentFeeder];
 
   if(!feedCfg.hasNumbers){
     if(!feedCfg.mains) feedCfg.mains = ['MAIN_01'];
@@ -3482,35 +3381,41 @@ async function saveNewMain(){
 }
 
 function confirmRemoveVoltage(v){
-  if(!EXTRA_VOLTAGES.has(v)) return; // safety guard, shouldn't be reachable via UI
+  if(!currentSubstation) return;
+  if(!confirm('Remove voltage level "'+v+'" and ALL its scheme/feeder data from '+currentSubstation+'? This cannot be undone.')) return;
 
-  EXTRA_VOLTAGES.delete(v);
+  delete FEEDER_STRUCTURE[currentSubstation].voltages[v];
   saveFeederConfig();
   if(currentVoltage === v){
-    const remaining = getVoltageLevels();
+    const remaining = getVoltagesForSub(currentSubstation);
     if(remaining.length) switchVoltage(remaining[0]);
-    else { currentVoltage = null; renderVoltageTabs(); showEmptyVoltageState(); }
+    else {
+      currentVoltage = null; currentScheme = null; currentFeeder = null; currentMain = null; currentSubset = null;
+      renderVoltageTabs(); renderSchemeTabs(); renderFeederTabs(); renderMainTabs();
+      showEmptySubstationState();
+    }
   } else {
     renderVoltageTabs();
   }
 }
 
 function renameVoltage(oldV, newV){
-  if(!EXTRA_VOLTAGES.has(oldV)) return; // safety guard
-
-  EXTRA_VOLTAGES.delete(oldV);
-  EXTRA_VOLTAGES.add(newV);
+  if(!currentSubstation) return;
+  const voltages = FEEDER_STRUCTURE[currentSubstation].voltages;
+  if(!voltages[oldV]) return;
+  voltages[newV] = voltages[oldV];
+  delete voltages[oldV];
   if(currentVoltage === oldV) currentVoltage = newV;
   saveFeederConfig();
   renderVoltageTabs();
 }
 
 function promptRenameVoltage(oldV){
-  if(!EXTRA_VOLTAGES.has(oldV)) return;
+  if(!currentSubstation) return;
   const newV = prompt('Rename voltage level:', oldV);
   if(!newV || !newV.trim() || newV.trim() === oldV) return;
   const trimmed = newV.trim();
-  if(getVoltageLevels().includes(trimmed)){ alert('"'+trimmed+'" already exists.'); return; }
+  if(getVoltagesForSub(currentSubstation).includes(trimmed)){ alert('"'+trimmed+'" already exists under '+currentSubstation+'.'); return; }
   renameVoltage(oldV, trimmed);
 }
 
@@ -3527,7 +3432,7 @@ async function doRemoveMain(name){
     const k = feederKeyFor(currentSubstation, currentFeeder, currentNumber, currentSubset, name, type);
     try{ await sbFetch('DELETE', TABLE+'?dataset_key=eq.'+encodeURIComponent(k)); }catch(e){}
   }
-  const feedCfg = FEEDER_STRUCTURE[currentSubstation].feeders[currentFeeder];
+  const feedCfg = schemeNode(currentSubstation).feeders[currentFeeder];
   if(!feedCfg.hasNumbers){
     feedCfg.mains = feedCfg.mains.filter(m => m !== name);
     if(feedCfg._userMains) feedCfg._userMains = feedCfg._userMains.filter(m => m !== name);
@@ -3552,7 +3457,7 @@ function confirmRemoveNumber(num){
 
 async function doRemoveNumber(num){
   showLoading('Deleting number data…');
-  const feedCfg = FEEDER_STRUCTURE[currentSubstation].feeders[currentFeeder];
+  const feedCfg = schemeNode(currentSubstation).feeders[currentFeeder];
   const nc = feedCfg.numbers[num];
   const isFlat = feedCfg.hasMain === false;
   if(nc){
@@ -3584,25 +3489,36 @@ function confirmRemoveSubstation(name){
 }
 
 async function doRemoveSubstation(name){
-  // delete all feeder datasets under this substation
-  const feeders = getFeederNames(name);
+  // delete all feeder datasets under this substation, across every voltage/scheme/feeder/number/main
   showLoading('Deleting substation data…');
-  for(const feed of feeders){
-    for(const type of FEEDER_SUBSETS){
-      const k = '__feeder__'+name+'__'+feed+'__MAIN_01__MAIN_01__'+type;
-      try{ await sbFetch('DELETE', TABLE+'?dataset_key=eq.'+encodeURIComponent(k)); }catch(e){}
+  const subCfg = FEEDER_STRUCTURE[name];
+  if(subCfg){
+    for(const [v, vCfg] of Object.entries(subCfg.voltages || {})){
+      for(const [sc, scCfg] of Object.entries(vCfg.schemes || {})){
+        for(const [feed, feedCfg] of Object.entries(scCfg.feeders || {})){
+          const numbers = feedCfg.hasNumbers ? Object.keys(feedCfg.numbers) : [null];
+          for(const num of numbers){
+            const mains = feedCfg.hasMain === false ? [null] :
+              (feedCfg.hasNumbers ? (feedCfg.numbers[num]?.mains || ['MAIN_01']) : (feedCfg.mains || ['MAIN_01']));
+            for(const main of mains){
+              const subset = main ?? 'MAIN_01';
+              for(const type of FEEDER_SUBSETS){
+                const k = feederKeyFor(name, feed, num, subset, main, type, v, sc);
+                try{ await sbFetch('DELETE', TABLE+'?dataset_key=eq.'+encodeURIComponent(k)); }catch(e){}
+              }
+            }
+          }
+        }
+      }
     }
   }
   delete FEEDER_STRUCTURE[name];
-  if(currentSubstation === name){
-    currentSubstation = Object.keys(FEEDER_STRUCTURE)[0] || '';
-    currentFeeder = currentSubstation ? getFeederNames(currentSubstation)[0] || null : null;
-  }
   await saveFeederConfig();
   hideLoading();
   closeModal('confirmModal');
-  renderSubstationTabs(); renderFeederTabs(); renderMainTabs(); renderFeederTypeTabs();
-  if(currentFeeder) await loadFeederDataset();
+  if(currentSubstation === name){
+    changeSubstation();
+  }
 }
 
 function confirmRemoveFeeder(name){
@@ -3615,10 +3531,10 @@ function confirmRemoveFeeder(name){
 async function doRemoveFeeder(name){
   showLoading('Deleting feeder data…');
   for(const type of FEEDER_SUBSETS){
-    const k = '__feeder__'+currentSubstation+'__'+name+'__MAIN_01__MAIN_01__'+type;
+    const k = feederKeyFor(currentSubstation, name, null, 'MAIN_01', 'MAIN_01', type);
     try{ await sbFetch('DELETE', TABLE+'?dataset_key=eq.'+encodeURIComponent(k)); }catch(e){}
   }
-  delete FEEDER_STRUCTURE[currentSubstation].feeders[name];
+  delete schemeNode(currentSubstation).feeders[name];
   if(currentFeeder === name){
     currentFeeder = getFeederNames(currentSubstation)[0] || null;
     currentMain = currentFeeder ? getMainNames(currentSubstation, currentFeeder)[0] || 'MAIN_01' : null;
@@ -4120,26 +4036,195 @@ function runFeederDupCheck(col){
 }
 
 // ── Add Substation / Feeder ───────────────────────────────────────────────────
-function openAddSubstation(){document.getElementById('newSubstationName').value='';document.getElementById('addSubstationModal').classList.add('open');}
-async function saveNewSubstation(){
-  const name = document.getElementById('newSubstationName').value.trim();
-  if(!name){ alert('Enter a substation name.'); return; }
-  if(FEEDER_STRUCTURE[name]){ alert('Substation "'+name+'" already exists.'); return; }
-  const volt = prompt('Enter voltage level (e.g. 115kV, 22kV, 33kV):', currentVoltage || '115kV')
-               || (currentVoltage || '115kV');     // ← defaults to whatever voltage tab is active
-  FEEDER_STRUCTURE[name] = { voltage: volt, feeders:{}, _userAdded:true };
-  currentSubstation=name; currentFeeder=null; currentMain=null;
-  closeModal('addSubstationModal'); await saveFeederConfig();
-  renderVoltageTabs(); renderSubstationTabs(); renderFeederTabs(); renderMainTabs(); renderFeederTypeTabs();
-  document.getElementById('tableArea').innerHTML='<div class="empty">No feeders yet — click + to add one.</div>';
+function createNewSubstation(name){
+  name = name.trim();
+  if(!name) return;
+  if(FEEDER_STRUCTURE[name]){ selectSubstation(name); return; }
+  FEEDER_STRUCTURE[name] = { voltages: {}, _userAdded: true };
+  selectSubstation(name);
+  saveFeederConfig();
 }
 
-function openAddFeeder(){document.getElementById('addFeederSubstationName').textContent=currentSubstation;document.getElementById('newFeederName').value='';document.getElementById('addFeederModal').classList.add('open');}
+// ── Substation search/select (Substation → Voltage → Scheme flow) ───────────
+function onSubstationSearchInput(q){
+  const box = document.getElementById('substationSearchResults');
+  const all = Object.keys(FEEDER_STRUCTURE);
+  const ql = (q||'').trim().toLowerCase();
+  const matches = ql ? all.filter(s => s.toLowerCase().includes(ql)) : all;
+
+  let html = matches.map(s =>
+    `<div onclick="selectSubstation('${s.replace(/'/g,"\\'")}')"
+      style="padding:7px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
+      onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background=''">
+      ${s}
+    </div>`
+  ).join('');
+
+  if(ql && !all.some(s => s.toLowerCase() === ql)){
+    html += `<div onclick="createNewSubstation('${q.replace(/'/g,"\\'")}')"
+      style="padding:7px 12px;cursor:pointer;font-size:13px;color:var(--accent);font-weight:500"
+      onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background=''">
+      + Add new substation "${q}"
+    </div>`;
+  }
+
+  if(!html){ html = `<div style="padding:8px 12px;font-size:12px;color:var(--text3)">Type a name to search or create</div>`; }
+  box.innerHTML = html;
+  box.style.display = 'block';
+}
+
+async function selectSubstation(name){
+  if(!confirmIfDirty('Switch substation? Unsaved changes may be lost.')) return;
+  currentSubstation = name;
+  document.getElementById('substationSearchResults').style.display = 'none';
+  document.getElementById('substationSearchInput').value = '';
+
+  const chip = document.getElementById('substationChip');
+  chip.style.display = 'flex';
+  chip.innerHTML = `<span style="font-size:12px;font-weight:600;padding:5px 12px;border-radius:20px;background:var(--accent);color:#fff;display:inline-flex;align-items:center;gap:6px">
+    ${name}
+    <span onclick="event.stopPropagation();changeSubstation()" style="cursor:pointer;opacity:.8" title="change substation">✕</span>
+  </span>`;
+  document.getElementById('substationSearchWrap').style.display = 'none';
+
+  const voltages = getVoltagesForSub(name);
+  currentVoltage = voltages[0] || null;
+  const schemes = currentVoltage ? getSchemesFor(name, currentVoltage) : [];
+  currentScheme = schemes[0] || null;
+  currentFeeder = currentScheme ? (getFeederNames(name)[0] || null) : null;
+  currentNumber = null;
+  if(currentFeeder){
+    const feedCfg = schemeNode(name)?.feeders?.[currentFeeder];
+    if(feedCfg?.hasNumbers) currentNumber = Object.keys(feedCfg.numbers)[0];
+  }
+  currentMain = currentFeeder ? (getMainNames(name, currentFeeder)[0] ?? null) : null;
+  currentSubset = currentMain;
+  currentFeederType = FEEDER_SUBSETS[0];
+  selected = new Set(); hideDupAlert();
+
+  renderVoltageTabs(); renderSchemeTabs(); renderFeederTabs(); renderNumberTabs();
+  renderSubsetTabs(); renderMainTabs(); syncFeederTypeTabCounts();
+  if(currentFeeder) await loadFeederDataset();
+  else showEmptySubstationState();
+  updateBreadcrumb();
+}
+
+function changeSubstation(){
+  currentSubstation = null; currentVoltage = null; currentScheme = null;
+  currentFeeder = null; currentMain = null; currentSubset = null; currentNumber = null;
+  document.getElementById('substationChip').style.display = 'none';
+  document.getElementById('substationChip').innerHTML = '';
+  document.getElementById('substationSearchWrap').style.display = 'block';
+  document.getElementById('substationSearchInput').value = '';
+  renderVoltageTabs(); renderSchemeTabs(); renderFeederTabs(); renderNumberTabs(); renderSubsetTabs(); renderMainTabs(); syncFeederTypeTabCounts();
+  showEmptySubstationState();
+  updateBreadcrumb();
+}
+
+function showEmptySubstationState(){
+  document.getElementById('tableArea').innerHTML = `<div class="empty">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+    <p>No substation selected</p>
+    <span>Type a substation name above to search or create one.</span>
+  </div>`;
+  document.getElementById('sTotal').textContent  = '0';
+  document.getElementById('sOrigin').textContent = '0';
+  document.getElementById('sAdded').textContent  = '0';
+  document.getElementById('sCols').textContent   = '—';
+  document.getElementById('sDupG').textContent   = '—';
+  document.getElementById('sDupR').textContent   = '—';
+}
+
+document.addEventListener('click', e=>{
+  const wrap = document.getElementById('substationSearchWrap');
+  if(wrap && !wrap.contains(e.target)){
+    const box = document.getElementById('substationSearchResults');
+    if(box) box.style.display = 'none';
+  }
+});
+
+// ── Scheme tabs (clone from SCHEME_TEMPLATES under current substation+voltage) ──
+function renderSchemeTabs(){
+  const wrap = document.getElementById('schemeRowWrap');
+  if(!currentSubstation || !currentVoltage){ wrap.style.display = 'none'; return; }
+  wrap.style.display = 'flex';
+  const schemes = getSchemesFor(currentSubstation, currentVoltage);
+  document.getElementById('schemeTabs').innerHTML = schemes.length
+    ? schemes.map(sc =>
+        `<button class="feeder-tab${sc===currentScheme?' active':''}" onclick="switchScheme('${sc.replace(/'/g,"\\'")}')">${sc}</button>`
+      ).join('')
+    : `<span style="font-size:11px;font-family:var(--mono);color:var(--text3);padding:4px 8px;opacity:.6">no scheme yet — click + to add one</span>`;
+}
+
+async function switchScheme(sc){
+  if(!confirmIfDirty('Switch scheme? Unsaved changes may be lost.')) return;
+  currentScheme = sc;
+  currentFeeder = getFeederNames(currentSubstation)[0] || null;
+  currentNumber = null;
+  if(currentFeeder){
+    const feedCfg = schemeNode(currentSubstation)?.feeders?.[currentFeeder];
+    if(feedCfg?.hasNumbers) currentNumber = Object.keys(feedCfg.numbers)[0];
+  }
+  currentMain = currentFeeder ? (getMainNames(currentSubstation, currentFeeder)[0] ?? null) : null;
+  currentSubset = currentMain;
+  currentFeederType = FEEDER_SUBSETS[0];
+  selected = new Set(); hideDupAlert();
+  renderSchemeTabs(); renderFeederTabs(); renderNumberTabs(); renderSubsetTabs(); renderMainTabs(); syncFeederTypeTabCounts();
+  if(currentFeeder) await loadFeederDataset();
+  else {
+    document.getElementById('tableArea').innerHTML='<div class="empty"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg><p>No feeders in this scheme</p></div>';
+    renderFeederStats();
+  }
+  updateBreadcrumb();
+}
+
+function openAddScheme(){
+  if(!currentSubstation || !currentVoltage){ alert('Select a substation and voltage level first.'); return; }
+  const existing = new Set(getSchemesFor(currentSubstation, currentVoltage));
+  const options = Object.keys(SCHEME_TEMPLATES).map(t =>
+    `<button class="btn" style="justify-content:flex-start;padding:10px 14px;height:auto;flex-direction:column;align-items:flex-start;gap:2px;width:100%;${existing.has(t)?'opacity:.4;cursor:not-allowed':''}"
+      ${existing.has(t)?'disabled':`onclick="saveNewScheme('${t.replace(/'/g,"\\'")}')"`}>
+      <span style="font-weight:600;font-size:13px">${t}</span>
+      <span style="font-size:11px;opacity:.7">${existing.has(t)?'already added to this voltage':'clone this scheme template'}</span>
+    </button>`
+  ).join('');
+
+  document.querySelector('#confirmModal h3').textContent = 'Add scheme — ' + currentSubstation + ' / ' + currentVoltage;
+  document.getElementById('confirmMsg').innerHTML = `<div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">${options}</div>`;
+  document.getElementById('confirmOkBtn').style.display = 'none';
+  document.getElementById('confirmModal').classList.add('open');
+}
+
+async function saveNewScheme(schemeType){
+  const template = SCHEME_TEMPLATES[schemeType];
+  if(!template){ alert('Unknown scheme template.'); return; }
+  if(!FEEDER_STRUCTURE[currentSubstation].voltages[currentVoltage].schemes) {
+    FEEDER_STRUCTURE[currentSubstation].voltages[currentVoltage].schemes = {};
+  }
+  FEEDER_STRUCTURE[currentSubstation].voltages[currentVoltage].schemes[schemeType] = {
+    schemeType,
+    feeders: JSON.parse(JSON.stringify(template.feeders))
+  };
+  closeModal('confirmModal');
+  document.querySelector('#confirmModal h3').textContent = 'Remove rows?';
+  document.getElementById('confirmOkBtn').style.display = '';
+  await saveFeederConfig();
+  await switchScheme(schemeType);
+  renderSchemeTabs();
+}
+
+function openAddFeeder(){
+  if(!currentScheme){ alert('Select (or add) a scheme first.'); return; }
+  document.getElementById('addFeederSubstationName').textContent=currentSubstation+' / '+currentVoltage+' / '+currentScheme;
+  document.getElementById('newFeederName').value='';document.getElementById('addFeederModal').classList.add('open');
+}
 async function saveNewFeeder(){
   const name = document.getElementById('newFeederName').value.trim();
   if(!name){ alert('Enter a feeder name.'); return; }
-  if(Object.keys(FEEDER_STRUCTURE[currentSubstation].feeders).includes(name)){ alert('Feeder "'+name+'" already exists.'); return; }
-  FEEDER_STRUCTURE[currentSubstation].feeders[name] = {
+  const node = schemeNode(currentSubstation);
+  if(!node){ alert('No scheme selected.'); return; }
+  if(Object.keys(node.feeders).includes(name)){ alert('Feeder "'+name+'" already exists.'); return; }
+  node.feeders[name] = {
     subsets:["MAIN_01"], mains:["MAIN_01"], _userAdded: true  // ← add flag
   };
   currentFeeder=name; currentSubset="MAIN_01"; currentMain="MAIN_01"; currentFeederType=FEEDER_SUBSETS[0];
@@ -4153,7 +4238,8 @@ async function saveFeederConfig(){
     await sbFetch('POST',TABLE,[{
       dataset_key:'__feeder_config__',
       row_index:0,
-      data:{ structure: FEEDER_STRUCTURE, extraVoltages: [...EXTRA_VOLTAGES] }   // ← ADDED
+      data:{ structure: FEEDER_STRUCTURE, extraVoltages: [...EXTRA_VOLTAGES],
+             lastSubstation: currentSubstation, lastVoltage: currentVoltage, lastScheme: currentScheme }
     }]);
     try{localStorage.setItem('fdm_feeder_structure',JSON.stringify(FEEDER_STRUCTURE));}catch(e){}
   }catch(e){console.error('Feeder config save error:',e);}
@@ -4164,44 +4250,16 @@ async function loadFeederConfig(){
     const data = await sbFetch('GET', TABLE+'?dataset_key=eq.__feeder_config__&limit=1');
     if(data && data.length){
       const cfgData = data[0].data;
-      const s = cfgData.structure;
+      const s = cfgData.structure || {};
       Object.entries(s).forEach(([sub, val]) => {
-        if(!FEEDER_STRUCTURE[sub]){
-          // fully user-added substation — restore entirely
-          FEEDER_STRUCTURE[sub] = val;
-        } else {
-          // hardcoded substation — restore user-added feeders
-          Object.entries(val.feeders || {}).forEach(([feed, fcfg]) => {
-            if(fcfg._userAdded && !FEEDER_STRUCTURE[sub].feeders[feed]){
-              FEEDER_STRUCTURE[sub].feeders[feed] = fcfg;
-            } else if(FEEDER_STRUCTURE[sub].feeders[feed]){
-              const localFeed = FEEDER_STRUCTURE[sub].feeders[feed];
-              // restore user-added mains for flat feeders
-              if(fcfg._userMains){
-                if(!localFeed._userMains) localFeed._userMains = [];
-                fcfg._userMains.forEach(m => {
-                  if(!localFeed.mains) localFeed.mains = ['MAIN_01'];
-                  if(!localFeed.mains.includes(m)){
-                    localFeed.mains.push(m);
-                    localFeed._userMains.push(m);
-                  }
-                });
-              }
-              // restore user-added numbers for numbered feeders
-              if(localFeed.hasNumbers && fcfg.numbers){
-                Object.entries(fcfg.numbers).forEach(([num, ncfg]) => {
-                  if(ncfg._userAdded && !localFeed.numbers[num]){
-                    localFeed.numbers[num] = ncfg;
-                  }
-                });
-              }
-            }
-          });
-        }
+        FEEDER_STRUCTURE[sub] = val;
       });
-      if(Array.isArray(cfgData.extraVoltages)){          // ← ADDED
+      if(Array.isArray(cfgData.extraVoltages)){
         cfgData.extraVoltages.forEach(v => EXTRA_VOLTAGES.add(v));
       }
+      if(cfgData.lastSubstation) currentSubstation = cfgData.lastSubstation;
+      if(cfgData.lastVoltage)    currentVoltage    = cfgData.lastVoltage;
+      if(cfgData.lastScheme)     currentScheme     = cfgData.lastScheme;
     }
   } catch(e){ console.error('Feeder config load error:', e); }
 }
@@ -4261,7 +4319,7 @@ async function exportAllSubstation(){
   const wb = XLSX.utils.book_new();
 
   for(const feed of feeders){
-    const feedCfg = FEEDER_STRUCTURE[sub]?.feeders[feed];
+    const feedCfg = schemeNode(sub)?.feeders?.[feed];
     if(!feedCfg) continue;
 
     const combos = [];
