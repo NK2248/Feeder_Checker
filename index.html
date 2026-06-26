@@ -298,7 +298,7 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
     </div>
   </div>
 
-  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+  <div id="voltageRowWrap" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
     <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;width:80px">Voltage</span>
     <div id="voltageTabs" style="display:flex;gap:3px;flex-wrap:wrap"></div>
     <button class="btn-icon" onclick="openAddVoltage()" style="width:22px;height:22px">
@@ -309,13 +309,10 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   <div id="schemeRowWrap" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
     <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;width:80px">Scheme</span>
     <div id="schemeTabs" style="display:flex;gap:3px;flex-wrap:wrap"></div>
-    <button class="btn-icon" onclick="openAddScheme()" style="width:22px;height:22px" title="Add a scheme (cloned from a template)">
-      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    </button>
   </div>
 
 
-  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+  <div id="feederRowWrap" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
     <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;width:80px">Feeder</span>
     <div id="feederTabs" style="display:flex;gap:3px;flex-wrap:wrap"></div>
     <button class="btn-icon" onclick="openAddFeeder()" style="width:22px;height:22px">
@@ -1288,11 +1285,13 @@ function mrUpdateVoltages() {
 function mrUpdateSchemes() {
   const sub = document.getElementById('mrSubstation').value;
   const v   = document.getElementById('mrVoltage').value;
-  const schemes = getSchemesFor(sub, v);
+  const added = new Set(getSchemesFor(sub, v));
   const scSel = document.getElementById('mrScheme');
-  scSel.innerHTML = schemes.length
-    ? schemes.map(sc => `<option value="${sc}">${sc}</option>`).join('')
-    : `<option value="">— no scheme yet —</option>`;
+  scSel.innerHTML = v
+    ? Object.keys(SCHEME_TEMPLATES).map(sc =>
+        `<option value="${sc}">${sc}${added.has(sc)?'':' (not added yet — will clone)'}</option>`
+      ).join('')
+    : `<option value="">— add a voltage level first —</option>`;
   mrUpdateFeeders();
 }
 
@@ -1300,7 +1299,8 @@ function mrUpdateFeeders() {
   const sub = document.getElementById('mrSubstation').value;
   const v   = document.getElementById('mrVoltage').value;
   const sc  = document.getElementById('mrScheme').value;
-  const feeders = getFeederNames(sub, v, sc);
+  let feeders = getFeederNames(sub, v, sc);
+  if(!feeders.length && SCHEME_TEMPLATES[sc]) feeders = Object.keys(SCHEME_TEMPLATES[sc].feeders);
   const feederSel = document.getElementById('mrFeeder');
   feederSel.innerHTML = feeders.length
     ? feeders.map(f => `<option value="${f}">${f}</option>`).join('')
@@ -1313,7 +1313,7 @@ function mrUpdateNumbers() {
   const v    = document.getElementById('mrVoltage').value;
   const sc   = document.getElementById('mrScheme').value;
   const feed = document.getElementById('mrFeeder').value;
-  const feedCfg = schemeNode(sub, v, sc)?.feeders?.[feed];
+  const feedCfg = schemeNode(sub, v, sc)?.feeders?.[feed] || SCHEME_TEMPLATES[sc]?.feeders?.[feed];
   const numRow = document.getElementById('mrNumberRow');
   const numSel = document.getElementById('mrNumber');
 
@@ -1334,7 +1334,7 @@ function mrUpdateMains() {
   const v    = document.getElementById('mrVoltage').value;
   const sc   = document.getElementById('mrScheme').value;
   const feed = document.getElementById('mrFeeder').value;
-  const feedCfg = schemeNode(sub, v, sc)?.feeders?.[feed];
+  const feedCfg = schemeNode(sub, v, sc)?.feeders?.[feed] || SCHEME_TEMPLATES[sc]?.feeders?.[feed];
   const mainSel = document.getElementById('mrMain');
   const numSel  = document.getElementById('mrNumber');
 
@@ -1382,6 +1382,25 @@ async function doManualRouteImport(importMode) {
     const sc   = document.getElementById('mrScheme').value;
     const feed = document.getElementById('mrFeeder').value;
     const type = document.getElementById('mrTypeFeeder').value;
+
+    // GUARD: substation/voltage/scheme/feeder must all be selected
+    if (!sub) { alert('Please select a substation before importing.'); return; }
+    if (!v)   { alert('Please add a voltage level under this substation first.'); return; }
+    if (!sc)  { alert('Please select a scheme before importing.'); return; }
+    if (!feed || feed === '') {
+      alert('Please select a feeder before importing.');
+      return;
+    }
+
+    // clone the scheme template into this substation+voltage if not added yet
+    if (!schemeNode(sub, v, sc)) {
+      const template = SCHEME_TEMPLATES[sc];
+      if (!template) { alert('Unknown scheme template.'); return; }
+      if (!FEEDER_STRUCTURE[sub].voltages[v].schemes) FEEDER_STRUCTURE[sub].voltages[v].schemes = {};
+      FEEDER_STRUCTURE[sub].voltages[v].schemes[sc] = { schemeType: sc, feeders: JSON.parse(JSON.stringify(template.feeders)) };
+      await saveFeederConfig();
+    }
+
     const feedCfg = schemeNode(sub, v, sc)?.feeders?.[feed];
     const num = feedCfg?.hasNumbers
       ? (document.getElementById('mrNumber')?.value || null)
@@ -1390,15 +1409,7 @@ async function doManualRouteImport(importMode) {
       ? null
       : (document.getElementById('mrMain').value || 'MAIN_01');
 
-    // GUARD: substation/voltage/scheme/feeder must all be selected and exist
-    if (!sub) { alert('Please select a substation before importing.'); return; }
-    if (!v)   { alert('Please add a voltage level under this substation first.'); return; }
-    if (!sc)  { alert('Please add a scheme under this voltage level first.'); return; }
-    if (!feed || feed === '') {
-      alert('Please select a feeder before importing.');
-      return;
-    }
-    if (!schemeNode(sub, v, sc)?.feeders?.[feed]) {
+    if (!feedCfg) {
       alert(`Feeder "${feed}" not found in "${sub} / ${v} / ${sc}". Please add it first using the + button.`);
       return;
     }
@@ -3116,8 +3127,10 @@ function switchMode(mode){
 }
 
 function renderVoltageTabs(){
+  const wrap = document.getElementById('voltageRowWrap');
   const el = document.getElementById('voltageTabs');
-  if(!currentSubstation){ el.innerHTML = ''; return; }
+  if(!currentSubstation){ wrap.style.display = 'none'; el.innerHTML = ''; return; }
+  wrap.style.display = 'flex';
   const voltages = getVoltagesForSub(currentSubstation);
   el.innerHTML = voltages.map(v => {
     const isActive = v === currentVoltage;
@@ -3171,6 +3184,9 @@ async function switchVoltage(v){
 }
 
 function renderFeederTabs(){
+  const wrap = document.getElementById('feederRowWrap');
+  if(!currentSubstation || !currentVoltage || !currentScheme){ wrap.style.display = 'none'; document.getElementById('feederTabs').innerHTML=''; return; }
+  wrap.style.display = 'flex';
   document.getElementById('feederTabs').innerHTML =
     Object.entries(schemeNode(currentSubstation)?.feeders || {}).map(([f, cfg]) => {
       const isUser = cfg._userAdded;
@@ -4204,21 +4220,40 @@ document.addEventListener('click', e=>{
   }
 });
 
-// ── Scheme tabs (clone from SCHEME_TEMPLATES under current substation+voltage) ──
+// ── Scheme tabs — ALL scheme templates are always shown for every substation;
+// picking one clones it into this substation+voltage on first use. ──────────
 function renderSchemeTabs(){
   const wrap = document.getElementById('schemeRowWrap');
   if(!currentSubstation || !currentVoltage){ wrap.style.display = 'none'; return; }
   wrap.style.display = 'flex';
-  const schemes = getSchemesFor(currentSubstation, currentVoltage);
-  document.getElementById('schemeTabs').innerHTML = schemes.length
-    ? schemes.map(sc =>
-        `<button class="feeder-tab${sc===currentScheme?' active':''}" onclick="switchScheme('${sc.replace(/'/g,"\\'")}')">${sc}</button>`
-      ).join('')
-    : `<span style="font-size:11px;font-family:var(--mono);color:var(--text3);padding:4px 8px;opacity:.6">no scheme yet — click + to add one</span>`;
+  const added = new Set(getSchemesFor(currentSubstation, currentVoltage));
+  document.getElementById('schemeTabs').innerHTML = Object.keys(SCHEME_TEMPLATES).map(sc => {
+    const isActive = sc === currentScheme;
+    const isAdded  = added.has(sc);
+    return `<button class="feeder-tab${isActive?' active':''}"
+      style="${isAdded?'':'border-style:dashed;opacity:.65'}"
+      title="${isAdded?'':'Not added yet — click to clone this scheme template'}"
+      onclick="switchScheme('${sc.replace(/'/g,"\\'")}')">${sc}</button>`;
+  }).join('');
 }
 
 async function switchScheme(sc){
   if(!confirmIfDirty('Switch scheme? Unsaved changes may be lost.')) return;
+
+  // clone the template into this substation+voltage the first time it's picked
+  if(!schemeNode(currentSubstation, currentVoltage, sc)){
+    const template = SCHEME_TEMPLATES[sc];
+    if(!template){ alert('Unknown scheme template.'); return; }
+    if(!FEEDER_STRUCTURE[currentSubstation].voltages[currentVoltage].schemes){
+      FEEDER_STRUCTURE[currentSubstation].voltages[currentVoltage].schemes = {};
+    }
+    FEEDER_STRUCTURE[currentSubstation].voltages[currentVoltage].schemes[sc] = {
+      schemeType: sc,
+      feeders: JSON.parse(JSON.stringify(template.feeders))
+    };
+    await saveFeederConfig();
+  }
+
   currentScheme = sc;
   currentFeeder = getFeederNames(currentSubstation)[0] || null;
   currentNumber = null;
@@ -4237,41 +4272,6 @@ async function switchScheme(sc){
     renderFeederStats();
   }
   updateBreadcrumb();
-}
-
-function openAddScheme(){
-  if(!currentSubstation || !currentVoltage){ alert('Select a substation and voltage level first.'); return; }
-  const existing = new Set(getSchemesFor(currentSubstation, currentVoltage));
-  const options = Object.keys(SCHEME_TEMPLATES).map(t =>
-    `<button class="btn" style="justify-content:flex-start;padding:10px 14px;height:auto;flex-direction:column;align-items:flex-start;gap:2px;width:100%;${existing.has(t)?'opacity:.4;cursor:not-allowed':''}"
-      ${existing.has(t)?'disabled':`onclick="saveNewScheme('${t.replace(/'/g,"\\'")}')"`}>
-      <span style="font-weight:600;font-size:13px">${t}</span>
-      <span style="font-size:11px;opacity:.7">${existing.has(t)?'already added to this voltage':'clone this scheme template'}</span>
-    </button>`
-  ).join('');
-
-  document.querySelector('#confirmModal h3').textContent = 'Add scheme — ' + currentSubstation + ' / ' + currentVoltage;
-  document.getElementById('confirmMsg').innerHTML = `<div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">${options}</div>`;
-  document.getElementById('confirmOkBtn').style.display = 'none';
-  document.getElementById('confirmModal').classList.add('open');
-}
-
-async function saveNewScheme(schemeType){
-  const template = SCHEME_TEMPLATES[schemeType];
-  if(!template){ alert('Unknown scheme template.'); return; }
-  if(!FEEDER_STRUCTURE[currentSubstation].voltages[currentVoltage].schemes) {
-    FEEDER_STRUCTURE[currentSubstation].voltages[currentVoltage].schemes = {};
-  }
-  FEEDER_STRUCTURE[currentSubstation].voltages[currentVoltage].schemes[schemeType] = {
-    schemeType,
-    feeders: JSON.parse(JSON.stringify(template.feeders))
-  };
-  closeModal('confirmModal');
-  document.querySelector('#confirmModal h3').textContent = 'Remove rows?';
-  document.getElementById('confirmOkBtn').style.display = '';
-  await saveFeederConfig();
-  await switchScheme(schemeType);
-  renderSchemeTabs();
 }
 
 function openAddFeeder(){
