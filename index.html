@@ -2753,26 +2753,37 @@ async function loadConfig(){
 
 function openAddVoltage(){
   if(!currentSubstation){ alert('Select (or create) a substation first.'); return; }
-  const existing = new Set(getVoltagesForSub(currentSubstation));
+  const current = FEEDER_STRUCTURE[currentSubstation].voltage;
   const options = VOLTAGE_CHOICES.map(v =>
-    `<button class="btn" style="justify-content:flex-start;padding:10px 14px;height:auto;flex-direction:column;align-items:flex-start;gap:2px;width:100%;${existing.has(v)?'opacity:.4;cursor:not-allowed':''}"
-      ${existing.has(v)?'disabled':`onclick="saveNewVoltage('${v}')"`}>
-      <span style="font-weight:600;font-size:13px">${v}</span>
-      <span style="font-size:11px;opacity:.7">${existing.has(v)?'already added':'shows '+schemesAvailableForVoltage(v).join(', ')+' schemes'}</span>
+    `<button class="btn" style="justify-content:flex-start;padding:10px 14px;height:auto;flex-direction:column;align-items:flex-start;gap:2px;width:100%;${v===current?'border-color:var(--accent);background:var(--accent-light)':''}"
+      onclick="selectVoltageForSubstation('${v}')">
+      <span style="font-weight:600;font-size:13px">${v}${v===current?' (current)':''}</span>
+      <span style="font-size:11px;opacity:.7">clones in: ${schemesAvailableForVoltage(v).join(', ')}</span>
     </button>`
   ).join('');
 
-  document.querySelector('#confirmModal h3').textContent = 'Add voltage level — ' + currentSubstation;
+  document.querySelector('#confirmModal h3').textContent = 'Select voltage level — ' + currentSubstation;
   document.getElementById('confirmMsg').innerHTML = `<div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">${options}</div>`;
   document.getElementById('confirmOkBtn').style.display = 'none';
   document.getElementById('confirmModal').classList.add('open');
 }
 
-function saveNewVoltage(v){
-  if(!FEEDER_STRUCTURE[currentSubstation].voltages) FEEDER_STRUCTURE[currentSubstation].voltages = {};
-  if(FEEDER_STRUCTURE[currentSubstation].voltages[v]){ alert('Voltage level "'+v+'" already exists under '+currentSubstation+'.'); return; }
+function selectVoltageForSubstation(v){
+  const sub = currentSubstation;
+  const cfg = FEEDER_STRUCTURE[sub];
+  const existingSchemeCount = Object.keys(cfg.schemes || {}).length;
+  if(cfg.voltage && cfg.voltage !== v && existingSchemeCount > 0){
+    if(!confirm(`${sub} is currently marked as ${cfg.voltage} with ${existingSchemeCount} scheme(s) of data. Changing to ${v} will hide that data from this view (it stays in the database, just under a different scheme set). Continue?`)) return;
+  }
 
-  FEEDER_STRUCTURE[currentSubstation].voltages[v] = { schemes: {} };
+  cfg.voltage = v;
+  if(!cfg.schemes) cfg.schemes = {};
+  // auto-clone every scheme template that matches this voltage, if not already present
+  schemesAvailableForVoltage(v).forEach(sc => {
+    if(!cfg.schemes[sc]){
+      cfg.schemes[sc] = { schemeType: sc, feeders: JSON.parse(JSON.stringify(SCHEME_TEMPLATES[sc].feeders)) };
+    }
+  });
   saveFeederConfig();
 
   closeModal('confirmModal');
@@ -2780,11 +2791,16 @@ function saveNewVoltage(v){
   document.getElementById('confirmOkBtn').style.display = '';
 
   currentVoltage = v;
-  currentScheme = null;
-  currentFeeder = null;
+  currentScheme = getSchemesFor(sub)[0] || null;
+  currentFeeder = currentScheme ? (getFeederNames(sub)[0] || null) : null;
   currentNumber = null;
-  currentMain = null;
-  currentSubset = null;
+  if(currentFeeder){
+    const feedCfg = schemeNode(sub)?.feeders?.[currentFeeder];
+    if(feedCfg?.hasNumbers) currentNumber = Object.keys(feedCfg.numbers)[0];
+  }
+  currentMain = currentFeeder ? (getMainNames(sub, currentFeeder)[0] ?? null) : null;
+  currentSubset = currentMain;
+  currentFeederType = FEEDER_SUBSETS[0];
   selected = new Set(); hideDupAlert();
 
   renderVoltageTabs();
@@ -2794,11 +2810,15 @@ function saveNewVoltage(v){
   renderSubsetTabs();
   renderMainTabs();
   renderFeederTypeTabs();
-  document.getElementById('tableArea').innerHTML = `<div class="empty">
-    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
-    <p>No scheme yet under ${v}</p>
-    <span>Click a scheme tab above to clone it in.</span>
-  </div>`;
+  if(currentFeeder){
+    loadFeederDataset();
+  } else {
+    document.getElementById('tableArea').innerHTML = `<div class="empty">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+      <p>No scheme yet under ${v}</p>
+    </div>`;
+    renderFeederStats();
+  }
   updateBreadcrumb();
 }
 
@@ -3007,16 +3027,17 @@ function schemesAvailableForVoltage(v){
 }
 
 function getVoltagesForSub(sub){
-  return Object.keys(FEEDER_STRUCTURE[sub]?.voltages || {});
+  const v = FEEDER_STRUCTURE[sub]?.voltage;
+  return v ? [v] : [];
 }
 function getSchemesFor(sub, voltage){
-  const v = voltage !== undefined ? voltage : currentVoltage;
-  return Object.keys(FEEDER_STRUCTURE[sub]?.voltages?.[v]?.schemes || {});
+  // voltage param kept for call-site compatibility but a substation now has
+  // exactly one voltage, so we just ignore mismatches and read its schemes.
+  return Object.keys(FEEDER_STRUCTURE[sub]?.schemes || {});
 }
 function schemeNode(sub, voltage, scheme){
-  const v  = voltage !== undefined ? voltage : currentVoltage;
-  const sc = scheme  !== undefined ? scheme  : currentScheme;
-  return FEEDER_STRUCTURE[sub]?.voltages?.[v]?.schemes?.[sc] || null;
+  const sc = scheme !== undefined ? scheme : currentScheme;
+  return FEEDER_STRUCTURE[sub]?.schemes?.[sc] || null;
 }
 function getFeederNames(sub, voltage, scheme){
   return Object.keys(schemeNode(sub, voltage, scheme)?.feeders || {});
