@@ -1288,7 +1288,7 @@ function mrUpdateSchemes() {
   const added = new Set(getSchemesFor(sub, v));
   const scSel = document.getElementById('mrScheme');
   scSel.innerHTML = v
-    ? Object.keys(SCHEME_TEMPLATES).map(sc =>
+    ? schemesAvailableForVoltage(v).map(sc =>
         `<option value="${sc}">${sc}${added.has(sc)?'':' (not added yet — will clone)'}</option>`
       ).join('')
     : `<option value="">— add a voltage level first —</option>`;
@@ -2753,14 +2753,31 @@ async function loadConfig(){
 
 function openAddVoltage(){
   if(!currentSubstation){ alert('Select (or create) a substation first.'); return; }
-  const name = prompt('Enter new voltage level for ' + currentSubstation + ' (e.g. 115kV, 22kV):','');
-  if(!name || !name.trim()) return;
-  const v = name.trim();
+  const existing = new Set(getVoltagesForSub(currentSubstation));
+  const options = VOLTAGE_CHOICES.map(v =>
+    `<button class="btn" style="justify-content:flex-start;padding:10px 14px;height:auto;flex-direction:column;align-items:flex-start;gap:2px;width:100%;${existing.has(v)?'opacity:.4;cursor:not-allowed':''}"
+      ${existing.has(v)?'disabled':`onclick="saveNewVoltage('${v}')"`}>
+      <span style="font-weight:600;font-size:13px">${v}</span>
+      <span style="font-size:11px;opacity:.7">${existing.has(v)?'already added':'shows '+schemesAvailableForVoltage(v).join(', ')+' schemes'}</span>
+    </button>`
+  ).join('');
+
+  document.querySelector('#confirmModal h3').textContent = 'Add voltage level — ' + currentSubstation;
+  document.getElementById('confirmMsg').innerHTML = `<div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">${options}</div>`;
+  document.getElementById('confirmOkBtn').style.display = 'none';
+  document.getElementById('confirmModal').classList.add('open');
+}
+
+function saveNewVoltage(v){
   if(!FEEDER_STRUCTURE[currentSubstation].voltages) FEEDER_STRUCTURE[currentSubstation].voltages = {};
   if(FEEDER_STRUCTURE[currentSubstation].voltages[v]){ alert('Voltage level "'+v+'" already exists under '+currentSubstation+'.'); return; }
 
   FEEDER_STRUCTURE[currentSubstation].voltages[v] = { schemes: {} };
   saveFeederConfig();
+
+  closeModal('confirmModal');
+  document.querySelector('#confirmModal h3').textContent = 'Remove rows?';
+  document.getElementById('confirmOkBtn').style.display = '';
 
   currentVoltage = v;
   currentScheme = null;
@@ -2780,7 +2797,7 @@ function openAddVoltage(){
   document.getElementById('tableArea').innerHTML = `<div class="empty">
     <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
     <p>No scheme yet under ${v}</p>
-    <span>Click the + button next to Scheme to clone one from a template.</span>
+    <span>Click a scheme tab above to clone it in.</span>
   </div>`;
   updateBreadcrumb();
 }
@@ -2847,6 +2864,7 @@ async function saveNewDevice(){
 // gets one of these cloned into FEEDER_STRUCTURE[sub].voltages[v].schemes[schemeType].
 const SCHEME_TEMPLATES = {
   "BR & A Half": {
+    voltageLevel: "115kV",
     feeders: {
       "SSMN":  {"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
       "TP":    {"hasNumbers": true, "hasMain": true,
@@ -2875,6 +2893,7 @@ const SCHEME_TEMPLATES = {
     }
   },
   "DBSB": {
+    voltageLevel: "115kV",
     feeders: {
       "SSMN" :{"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
       "TP" :{"hasNumbers": true, "hasMain": true, "numbers": {
@@ -2894,6 +2913,7 @@ const SCHEME_TEMPLATES = {
     }
   },
   "H Scheme": {
+    voltageLevel: "115kV",
     feeders: {
       "SSMN":{"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
       "TP":{"hasNumbers": true, "hasMain": true, "numbers": {
@@ -2907,6 +2927,7 @@ const SCHEME_TEMPLATES = {
     }
   },
   "Main & Transfer": {
+    voltageLevel: "115kV",
     feeders: {
       "SSMN":{"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
       "TP":{"hasNumbers": true, "hasMain": true, "numbers": {
@@ -2921,6 +2942,7 @@ const SCHEME_TEMPLATES = {
     }
   },
   "AIS substation": {
+    voltageLevel: "22kV",
     feeders: {
       "SSMN":{"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
       "INC":{"hasNumbers": true, "hasMain": false, "numbers": {
@@ -2942,6 +2964,7 @@ const SCHEME_TEMPLATES = {
     }
   },
   "GIS substation": {
+    voltageLevel: "33kV",
     feeders: {
       "SSMN":{"hasNumbers": false, "hasMain": false, "subsets":["MAIN_01"], "mains":["MAIN_01"]},
       "INC":{"hasNumbers": true, "hasMain": false, "numbers": {
@@ -2967,6 +2990,21 @@ const FEEDER_SUBSETS = ["Status Point","Control Output","Analog Point"];
 // ── Real installed sites. Empty by default — user types a substation name,
 // adds a voltage level under it, then clones a scheme template under that. ──
 const FEEDER_STRUCTURE = {};
+
+// Fixed set of selectable voltage levels — no free-text entry.
+const VOLTAGE_CHOICES = ['115kV','22kV','33kV','115-22kV','115-33kV'];
+// Combined levels (e.g. "115-22kV") expand to the base levels whose schemes should show.
+const VOLTAGE_BASE_LEVELS = {
+  '115kV':    ['115kV'],
+  '22kV':     ['22kV'],
+  '33kV':     ['33kV'],
+  '115-22kV': ['115kV','22kV'],
+  '115-33kV': ['115kV','33kV'],
+};
+function schemesAvailableForVoltage(v){
+  const levels = VOLTAGE_BASE_LEVELS[v] || [v];
+  return Object.keys(SCHEME_TEMPLATES).filter(sc => levels.includes(SCHEME_TEMPLATES[sc].voltageLevel));
+}
 
 function getVoltagesForSub(sub){
   return Object.keys(FEEDER_STRUCTURE[sub]?.voltages || {});
@@ -3137,7 +3175,7 @@ function renderVoltageTabs(){
     return `<div style="display:inline-flex;align-items:center;gap:2px">
       <button class="feeder-tab${isActive?' active':''}"
         onclick="switchVoltage('${v.replace(/'/g,"\\'")}')"
-        ondblclick="promptRenameVoltage('${v.replace(/'/g,"\\'")}')" title="Double-click to rename">
+        >
         ${v}
       </button>
       <button onclick="confirmRemoveVoltage('${v.replace(/'/g,"\\'")}')"
@@ -4227,7 +4265,8 @@ function renderSchemeTabs(){
   if(!currentSubstation || !currentVoltage){ wrap.style.display = 'none'; return; }
   wrap.style.display = 'flex';
   const added = new Set(getSchemesFor(currentSubstation, currentVoltage));
-  document.getElementById('schemeTabs').innerHTML = Object.keys(SCHEME_TEMPLATES).map(sc => {
+  const available = schemesAvailableForVoltage(currentVoltage);
+  document.getElementById('schemeTabs').innerHTML = available.map(sc => {
     const isActive = sc === currentScheme;
     const isAdded  = added.has(sc);
     return `<button class="feeder-tab${isActive?' active':''}"
