@@ -1392,12 +1392,13 @@ async function doManualRouteImport(importMode) {
       return;
     }
 
-    // clone the scheme template into this substation+voltage if not added yet
+    // clone the scheme template into this substation if not added yet (safety net —
+    // selecting a voltage normally auto-clones all matching schemes already)
     if (!schemeNode(sub, v, sc)) {
       const template = SCHEME_TEMPLATES[sc];
       if (!template) { alert('Unknown scheme template.'); return; }
-      if (!FEEDER_STRUCTURE[sub].voltages[v].schemes) FEEDER_STRUCTURE[sub].voltages[v].schemes = {};
-      FEEDER_STRUCTURE[sub].voltages[v].schemes[sc] = { schemeType: sc, feeders: JSON.parse(JSON.stringify(template.feeders)) };
+      if (!FEEDER_STRUCTURE[sub].schemes) FEEDER_STRUCTURE[sub].schemes = {};
+      FEEDER_STRUCTURE[sub].schemes[sc] = { schemeType: sc, feeders: JSON.parse(JSON.stringify(template.feeders)) };
       await saveFeederConfig();
     }
 
@@ -2881,7 +2882,7 @@ async function saveNewDevice(){
 
 // ── Substation / Feeder Mode ─────────────────────────────────────────────────
 // SCHEME_TEMPLATES: cloneable scheme blueprints. A real substation+voltage
-// gets one of these cloned into FEEDER_STRUCTURE[sub].voltages[v].schemes[schemeType].
+// gets cloned into FEEDER_STRUCTURE[sub].schemes[schemeType] when that substation's voltage is set/changed.
 const SCHEME_TEMPLATES = {
   "BR & A Half": {
     voltageLevel: "115kV",
@@ -3190,57 +3191,14 @@ function renderVoltageTabs(){
   const el = document.getElementById('voltageTabs');
   if(!currentSubstation){ wrap.style.display = 'none'; el.innerHTML = ''; return; }
   wrap.style.display = 'flex';
-  const voltages = getVoltagesForSub(currentSubstation);
-  el.innerHTML = voltages.map(v => {
-    const isActive = v === currentVoltage;
-    return `<div style="display:inline-flex;align-items:center;gap:2px">
-      <button class="feeder-tab${isActive?' active':''}"
-        onclick="switchVoltage('${v.replace(/'/g,"\\'")}')"
-        >
-        ${v}
-      </button>
-      <button onclick="confirmRemoveVoltage('${v.replace(/'/g,"\\'")}')"
-        style="width:16px;height:16px;border-radius:50%;border:none;background:var(--red-bg);color:var(--red);cursor:pointer;font-size:10px;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0" title="Remove voltage level">×</button>
-    </div>`;
-  }).join('');
+  const v = FEEDER_STRUCTURE[currentSubstation]?.voltage || null;
+  el.innerHTML = v
+    ? `<span class="feeder-tab active" style="cursor:default">${v}</span>
+       <button class="btn-icon" onclick="openAddVoltage()" style="width:auto;height:auto;padding:4px 10px;border-style:solid;font-size:11px;font-family:var(--mono)" title="Change voltage level">change</button>`
+    : `<span style="font-size:11px;font-family:var(--mono);color:var(--text3);padding:4px 8px;opacity:.8">not set — click + to select</span>`;
 }
 
-async function switchVoltage(v){
-  if(!confirmIfDirty('Switch voltage level? Unsaved changes may be lost.')) return;
-  currentVoltage = v;
 
-  const schemes = getSchemesFor(currentSubstation, v);
-  currentScheme = schemes[0] || null;
-  currentFeeder = currentScheme ? (getFeederNames(currentSubstation)[0] || null) : null;
-  currentNumber = null;
-  if(currentFeeder){
-    const feedCfg = schemeNode(currentSubstation)?.feeders?.[currentFeeder];
-    if(feedCfg?.hasNumbers) currentNumber = Object.keys(feedCfg.numbers)[0];
-  }
-  currentMain = currentFeeder ? (getMainNames(currentSubstation, currentFeeder)[0] ?? null) : null;
-  currentSubset = currentMain;
-  currentFeederType = FEEDER_SUBSETS[0];
-
-  renderVoltageTabs();
-  renderSchemeTabs();
-  renderFeederTabs();
-  renderNumberTabs();
-  renderSubsetTabs();
-  renderMainTabs();
-  syncFeederTypeTabCounts();
-
-  if(currentFeeder) await loadFeederDataset();
-  else {
-    document.getElementById('tableArea').innerHTML = `<div class="empty">
-      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
-      <p>No scheme yet under ${v}</p>
-      <span>Click the + button next to Scheme to clone one from a template.</span>
-    </div>`;
-    renderFeederStats();
-  }
-
-  updateBreadcrumb();
-}
 
 function renderFeederTabs(){
   const wrap = document.getElementById('feederRowWrap');
@@ -3516,45 +3474,6 @@ async function saveNewMain(){
   renderFeederTypeTabs();
 }
 
-function confirmRemoveVoltage(v){
-  if(!currentSubstation) return;
-  if(!confirm('Remove voltage level "'+v+'" and ALL its scheme/feeder data from '+currentSubstation+'? This cannot be undone.')) return;
-
-  delete FEEDER_STRUCTURE[currentSubstation].voltages[v];
-  saveFeederConfig();
-  if(currentVoltage === v){
-    const remaining = getVoltagesForSub(currentSubstation);
-    if(remaining.length) switchVoltage(remaining[0]);
-    else {
-      currentVoltage = null; currentScheme = null; currentFeeder = null; currentMain = null; currentSubset = null;
-      renderVoltageTabs(); renderSchemeTabs(); renderFeederTabs(); renderMainTabs();
-      showEmptySubstationState();
-    }
-  } else {
-    renderVoltageTabs();
-  }
-}
-
-function renameVoltage(oldV, newV){
-  if(!currentSubstation) return;
-  const voltages = FEEDER_STRUCTURE[currentSubstation].voltages;
-  if(!voltages[oldV]) return;
-  voltages[newV] = voltages[oldV];
-  delete voltages[oldV];
-  if(currentVoltage === oldV) currentVoltage = newV;
-  saveFeederConfig();
-  renderVoltageTabs();
-}
-
-function promptRenameVoltage(oldV){
-  if(!currentSubstation) return;
-  const newV = prompt('Rename voltage level:', oldV);
-  if(!newV || !newV.trim() || newV.trim() === oldV) return;
-  const trimmed = newV.trim();
-  if(getVoltagesForSub(currentSubstation).includes(trimmed)){ alert('"'+trimmed+'" already exists under '+currentSubstation+'.'); return; }
-  renameVoltage(oldV, trimmed);
-}
-
 function confirmRemoveMain(name){
   document.getElementById('confirmMsg').textContent =
     `Remove main "${name}" and all its data from "${currentFeeder}"? This cannot be undone.`;
@@ -3625,23 +3544,22 @@ function confirmRemoveSubstation(name){
 }
 
 async function doRemoveSubstation(name){
-  // delete all feeder datasets under this substation, across every voltage/scheme/feeder/number/main
+  // delete all feeder datasets under this substation, across every scheme/feeder/number/main
   showLoading('Deleting substation data…');
   const subCfg = FEEDER_STRUCTURE[name];
   if(subCfg){
-    for(const [v, vCfg] of Object.entries(subCfg.voltages || {})){
-      for(const [sc, scCfg] of Object.entries(vCfg.schemes || {})){
-        for(const [feed, feedCfg] of Object.entries(scCfg.feeders || {})){
-          const numbers = feedCfg.hasNumbers ? Object.keys(feedCfg.numbers) : [null];
-          for(const num of numbers){
-            const mains = feedCfg.hasMain === false ? [null] :
-              (feedCfg.hasNumbers ? (feedCfg.numbers[num]?.mains || ['MAIN_01']) : (feedCfg.mains || ['MAIN_01']));
-            for(const main of mains){
-              const subset = main ?? 'MAIN_01';
-              for(const type of FEEDER_SUBSETS){
-                const k = feederKeyFor(name, feed, num, subset, main, type, v, sc);
-                try{ await sbFetch('DELETE', TABLE+'?dataset_key=eq.'+encodeURIComponent(k)); }catch(e){}
-              }
+    const v = subCfg.voltage;
+    for(const [sc, scCfg] of Object.entries(subCfg.schemes || {})){
+      for(const [feed, feedCfg] of Object.entries(scCfg.feeders || {})){
+        const numbers = feedCfg.hasNumbers ? Object.keys(feedCfg.numbers) : [null];
+        for(const num of numbers){
+          const mains = feedCfg.hasMain === false ? [null] :
+            (feedCfg.hasNumbers ? (feedCfg.numbers[num]?.mains || ['MAIN_01']) : (feedCfg.mains || ['MAIN_01']));
+          for(const main of mains){
+            const subset = main ?? 'MAIN_01';
+            for(const type of FEEDER_SUBSETS){
+              const k = feederKeyFor(name, feed, num, subset, main, type, v, sc);
+              try{ await sbFetch('DELETE', TABLE+'?dataset_key=eq.'+encodeURIComponent(k)); }catch(e){}
             }
           }
         }
@@ -4176,7 +4094,7 @@ function createNewSubstation(name){
   name = name.trim();
   if(!name) return;
   if(FEEDER_STRUCTURE[name]){ selectSubstation(name); return; }
-  FEEDER_STRUCTURE[name] = { voltages: {}, _userAdded: true };
+  FEEDER_STRUCTURE[name] = { voltage: null, schemes: {}, _userAdded: true };
   selectSubstation(name);
   saveFeederConfig();
 }
@@ -4285,34 +4203,16 @@ function renderSchemeTabs(){
   const wrap = document.getElementById('schemeRowWrap');
   if(!currentSubstation || !currentVoltage){ wrap.style.display = 'none'; return; }
   wrap.style.display = 'flex';
-  const added = new Set(getSchemesFor(currentSubstation, currentVoltage));
   const available = schemesAvailableForVoltage(currentVoltage);
   document.getElementById('schemeTabs').innerHTML = available.map(sc => {
     const isActive = sc === currentScheme;
-    const isAdded  = added.has(sc);
     return `<button class="feeder-tab${isActive?' active':''}"
-      style="${isAdded?'':'border-style:dashed;opacity:.65'}"
-      title="${isAdded?'':'Not added yet — click to clone this scheme template'}"
       onclick="switchScheme('${sc.replace(/'/g,"\\'")}')">${sc}</button>`;
   }).join('');
 }
 
 async function switchScheme(sc){
   if(!confirmIfDirty('Switch scheme? Unsaved changes may be lost.')) return;
-
-  // clone the template into this substation+voltage the first time it's picked
-  if(!schemeNode(currentSubstation, currentVoltage, sc)){
-    const template = SCHEME_TEMPLATES[sc];
-    if(!template){ alert('Unknown scheme template.'); return; }
-    if(!FEEDER_STRUCTURE[currentSubstation].voltages[currentVoltage].schemes){
-      FEEDER_STRUCTURE[currentSubstation].voltages[currentVoltage].schemes = {};
-    }
-    FEEDER_STRUCTURE[currentSubstation].voltages[currentVoltage].schemes[sc] = {
-      schemeType: sc,
-      feeders: JSON.parse(JSON.stringify(template.feeders))
-    };
-    await saveFeederConfig();
-  }
 
   currentScheme = sc;
   currentFeeder = getFeederNames(currentSubstation)[0] || null;
