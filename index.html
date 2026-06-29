@@ -267,6 +267,11 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   </button>
 </div>
 
+  <button onclick="editDefaultTemplate()" title="Edit the hidden default dataset template"
+    style="font-size:10px;font-family:var(--mono);color:var(--text3);background:transparent;border:1px dashed var(--border2);border-radius:var(--r);padding:4px 9px;cursor:pointer;white-space:nowrap;margin-left:4px">
+    ⚙ edit default template
+  </button>
+
   <div style="flex:1"></div>
 
   <!-- Sync + user -->
@@ -301,7 +306,7 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   <div id="voltageRowWrap" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
     <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;width:80px">Voltage</span>
     <div id="voltageTabs" style="display:flex;gap:3px;flex-wrap:wrap"></div>
-    <button class="btn-icon" onclick="openAddVoltage()" style="width:22px;height:22px">
+    <button id="addVoltageBtn" class="btn-icon" onclick="openAddVoltage()" style="width:22px;height:22px">
       <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </button>
   </div>
@@ -347,6 +352,17 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
 
 <!-- Device mode -->
 <div id="deviceSection" style="display:none">
+  <div style="background:var(--surface);border:1px solid var(--border2);border-radius:var(--rlg);padding:8px 14px;margin-bottom:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+    <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;width:80px">Substation</span>
+    <div id="deviceSubstationChip" style="display:none;align-items:center;gap:6px"></div>
+    <div id="deviceSubstationSearchWrap" style="position:relative;flex:1;min-width:180px;max-width:320px">
+      <input type="text" id="deviceSubstationSearchInput" placeholder="Optional — scope these device datasets to a substation…"
+        oninput="onDeviceSubstationSearchInput(this.value)"
+        onfocus="onDeviceSubstationSearchInput(this.value)"
+        style="padding:6px 10px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%;outline:none">
+      <div id="deviceSubstationSearchResults" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:20;max-height:220px;overflow-y:auto"></div>
+    </div>
+  </div>
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
     <div class="dev-tabs" id="devTabs" style="margin-bottom:0;flex:1"></div>
     <button class="btn-icon" onclick="openAddDevice()" title="Add new device">
@@ -924,13 +940,26 @@ Object.values(GROUPS).forEach(types=>Object.values(types).forEach(key=>{
 
 let currentDevice=Object.keys(GROUPS)[0];
 let currentType=Object.keys(Object.values(GROUPS)[0])[0];
+let currentDeviceSubstation = null; // optional substation scope for device-mode datasets
 let selected=new Set();
 let syncTimer=null;
 let isDirty = false;
 
-function currentKey(){return GROUPS[currentDevice][currentType];}
-function ds(){return DATASETS[currentKey()];}
-function cols(){return DEFAULT_COLUMNS[currentKey()];}
+function currentSchemaKey(){return GROUPS[currentDevice][currentType];} // unprefixed — for DEFAULT_COLUMNS/GROUPS lookups
+function currentKey(){ // storage key — prefixed with substation when one is selected
+  const k = currentSchemaKey();
+  return currentDeviceSubstation ? currentDeviceSubstation+'__'+k : k;
+}
+function ds(){
+  const k = currentKey();
+  if(!DATASETS[k]){
+    const c = DEFAULT_COLUMNS[currentSchemaKey()] || [];
+    DATASETS[k] = {rows:[],dbIds:[],manuallyAdded:new Set(),originCount:0,dupInfo:{},
+      keyColumns:new Set(['SPECIFICATION_POINT_NAME','DNP3.0_ADDRESS'].filter(x=>c.includes(x))),checked:false};
+  }
+  return DATASETS[k];
+}
+function cols(){return DEFAULT_COLUMNS[currentSchemaKey()];}
 
 // ── Sync status UI ────────────────────────────────────────────────────────────
 function setSyncStatus(state,text){
@@ -1620,7 +1649,8 @@ function renderDevTabs(){
 }
 function renderTypeTabs(){
   document.getElementById('typeTabs').innerHTML = Object.keys(GROUPS[currentDevice]).map(t => {
-    const key = GROUPS[currentDevice][t];
+    const schemaKey = GROUPS[currentDevice][t];
+    const key = currentDeviceSubstation ? currentDeviceSubstation+'__'+schemaKey : schemaKey;
     const d = DATASETS[key];
     const count = d
       ? (d._countOnly ? d._preloadCount ?? d.rows.length : d.rows.length)
@@ -1679,9 +1709,10 @@ async function preloadAllCounts(){
     }
   }
 
-  // device counts — all devices and types
+  // device counts — all devices and types, scoped to currentDeviceSubstation if set
   for(const dev of Object.keys(GROUPS)){
-    for(const [type, key] of Object.entries(GROUPS[dev])){
+    for(const [type, schemaKey] of Object.entries(GROUPS[dev])){
+      const key = currentDeviceSubstation ? currentDeviceSubstation+'__'+schemaKey : schemaKey;
       if(!DATASETS[key] || !DATASETS[key].rows.length){
         try{
           const data = await sbFetch('GET',
@@ -1693,7 +1724,7 @@ async function preloadAllCounts(){
               rows:[],dbIds:[],manuallyAdded:new Set(),
               originCount:0,dupInfo:{},
               keyColumns:new Set(['SPECIFICATION_POINT_NAME','DNP3.0_ADDRESS']
-                .filter(k=>(DEFAULT_COLUMNS[key]||[]).includes(k))),
+                .filter(k=>(DEFAULT_COLUMNS[schemaKey]||[]).includes(k))),
               checked:false
             };
           }
@@ -1735,6 +1766,96 @@ async function switchType(t){
   await loadCurrentDataset();
   updateBreadcrumb();
 }
+
+// ── Device-mode substation scope (optional) ──────────────────────────────────
+// Reuses the same substation registry as Feeder mode (FEEDER_STRUCTURE keys),
+// but only the substation selection itself — no voltage/scheme/feeder here.
+function renderDeviceSubstationChip(){
+  const chip = document.getElementById('deviceSubstationChip');
+  const wrap = document.getElementById('deviceSubstationSearchWrap');
+  if(currentDeviceSubstation){
+    chip.style.display = 'flex';
+    chip.innerHTML = `<span style="font-size:12px;font-weight:600;padding:5px 12px;border-radius:20px;background:var(--accent);color:#fff;display:inline-flex;align-items:center;gap:6px">
+      ${currentDeviceSubstation}
+      <span onclick="event.stopPropagation();changeDeviceSubstation()" style="cursor:pointer;opacity:.8" title="clear substation scope">✕</span>
+    </span>`;
+    wrap.style.display = 'none';
+  } else {
+    chip.style.display = 'none';
+    chip.innerHTML = '';
+    wrap.style.display = 'block';
+  }
+}
+
+function onDeviceSubstationSearchInput(q){
+  const box = document.getElementById('deviceSubstationSearchResults');
+  const all = Object.keys(FEEDER_STRUCTURE).filter(s => s !== DEFAULT_SUBSTATION_NAME);
+  const ql = (q||'').trim().toLowerCase();
+  const matches = ql ? all.filter(s => s.toLowerCase().includes(ql)) : all;
+
+  let html = matches.map(s =>
+    `<div onclick="selectDeviceSubstation('${s.replace(/'/g,"\\'")}')"
+      style="padding:7px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
+      onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background=''">
+      ${s}
+    </div>`
+  ).join('');
+
+  if(ql && !all.some(s => s.toLowerCase() === ql)){
+    html += `<div onclick="createDeviceSubstation('${q.replace(/'/g,"\\'")}')"
+      style="padding:7px 12px;cursor:pointer;font-size:13px;color:var(--accent);font-weight:500"
+      onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background=''">
+      + Add new substation "${q}"
+    </div>`;
+  }
+
+  if(!html){ html = `<div style="padding:8px 12px;font-size:12px;color:var(--text3)">Type a name to search or create</div>`; }
+  box.innerHTML = html;
+  box.style.display = 'block';
+}
+
+function createDeviceSubstation(name){
+  name = name.trim();
+  if(!name) return;
+  if(name.toLowerCase() === DEFAULT_SUBSTATION_NAME.toLowerCase()){ alert('"'+DEFAULT_SUBSTATION_NAME+'" is a reserved name.'); return; }
+  if(!FEEDER_STRUCTURE[name]){
+    FEEDER_STRUCTURE[name] = { voltage: null, schemes: {}, _userAdded: true };
+    saveFeederConfig();
+  }
+  selectDeviceSubstation(name);
+}
+
+async function selectDeviceSubstation(name){
+  if(!confirmIfDirty('Switch substation scope? Unsaved changes may be lost.')) return;
+  currentDeviceSubstation = name;
+  document.getElementById('deviceSubstationSearchResults').style.display = 'none';
+  document.getElementById('deviceSubstationSearchInput').value = '';
+  renderDeviceSubstationChip();
+  showLoading('Loading row counts…');
+  await preloadAllCounts();
+  hideLoading();
+  renderDevTabs(); renderTypeTabs();
+  await loadCurrentDataset();
+}
+
+async function changeDeviceSubstation(){
+  if(!confirmIfDirty('Clear substation scope? Unsaved changes may be lost.')) return;
+  currentDeviceSubstation = null;
+  renderDeviceSubstationChip();
+  showLoading('Loading row counts…');
+  await preloadAllCounts();
+  hideLoading();
+  renderDevTabs(); renderTypeTabs();
+  await loadCurrentDataset();
+}
+
+document.addEventListener('click', e=>{
+  const wrap = document.getElementById('deviceSubstationSearchWrap');
+  if(wrap && !wrap.contains(e.target)){
+    const box = document.getElementById('deviceSubstationSearchResults');
+    if(box) box.style.display = 'none';
+  }
+});
 
 function confirmIfDirty(message){
   if(!isDirty) return true;
@@ -2338,10 +2459,11 @@ async function exportAllExcel(){
   const wb = XLSX.utils.book_new();
   const sheetName = currentDevice.replace(/[\\/*?:[\]]/g,'_').substring(0,31);
   const allSheetData = [];
-  allSheetData.push([currentDevice]);
+  allSheetData.push([currentDeviceSubstation ? currentDevice+' / '+currentDeviceSubstation : currentDevice]);
   let firstTable = true;
 
-  for(const [type, key] of Object.entries(GROUPS[currentDevice])){
+  for(const [type, schemaKey] of Object.entries(GROUPS[currentDevice])){
+    const key = currentDeviceSubstation ? currentDeviceSubstation+'__'+schemaKey : schemaKey;
     // Always fetch fresh from Supabase
     try{
       const data = await sbFetchAll(TABLE+'?dataset_key=eq.'+encodeURIComponent(key)+'&order=row_index.asc');
@@ -2352,7 +2474,7 @@ async function exportAllExcel(){
     }catch(e){ console.error('Load error for '+key, e); }
 
     const d = DATASETS[key];
-    const c = DEFAULT_COLUMNS[key];
+    const c = DEFAULT_COLUMNS[schemaKey];
 
     if(!firstTable){
       allSheetData.push([]);
@@ -2376,7 +2498,7 @@ async function exportAllExcel(){
 
   const ws = XLSX.utils.aoa_to_sheet(allSheetData);
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  XLSX.writeFile(wb, currentDevice + '_' + exportStamp() + '_export.xlsx');
+  XLSX.writeFile(wb, (currentDeviceSubstation ? currentDevice+'_'+currentDeviceSubstation : currentDevice) + '_' + exportStamp() + '_export.xlsx');
 }
 
 function exportDeviceTCD(){
@@ -2769,7 +2891,42 @@ function openAddVoltage(){
   document.getElementById('confirmModal').classList.add('open');
 }
 
-function selectVoltageForSubstation(v){
+const DEFAULT_SUBSTATION_NAME = 'DEFAULT'; // hidden master template — edited like any substation, never shown in search
+
+async function copyDefaultDataIntoScheme(sub, sc, newVoltage){
+  if(sub === DEFAULT_SUBSTATION_NAME) return; // never copy onto itself
+  const defaultCfg = FEEDER_STRUCTURE[DEFAULT_SUBSTATION_NAME];
+  if(!defaultCfg || !defaultCfg.voltage) return; // no default template configured yet
+  const defaultScheme = defaultCfg.schemes?.[sc];
+  if(!defaultScheme) return; // DEFAULT doesn't have this scheme set up
+
+  const newScheme = FEEDER_STRUCTURE[sub].schemes[sc];
+  const dv = defaultCfg.voltage;
+
+  for(const [feed, feedCfg] of Object.entries(newScheme.feeders || {})){
+    const numbers = feedCfg.hasNumbers ? Object.keys(feedCfg.numbers) : [null];
+    for(const num of numbers){
+      const mains = feedCfg.hasMain === false ? [null] :
+        (feedCfg.hasNumbers ? (feedCfg.numbers[num]?.mains || ['MAIN_01']) : (feedCfg.mains || ['MAIN_01']));
+      for(const main of mains){
+        const subset = main ?? 'MAIN_01';
+        for(const type of FEEDER_SUBSETS){
+          const srcKey = feederKeyFor(DEFAULT_SUBSTATION_NAME, feed, num, subset, main, type, dv, sc);
+          const dstKey = feederKeyFor(sub, feed, num, subset, main, type, newVoltage, sc);
+          try{
+            const data = await sbFetchAll(TABLE+'?dataset_key=eq.'+encodeURIComponent(srcKey)+'&order=row_index.asc');
+            if(data.length){
+              const ins = data.map((r,i)=>({dataset_key:dstKey,row_index:i,data:r.data,origin_count:r.origin_count||0}));
+              await sbFetch('POST', TABLE, ins);
+            }
+          }catch(e){ console.error('Default copy error', srcKey, '->', dstKey, e); }
+        }
+      }
+    }
+  }
+}
+
+async function selectVoltageForSubstation(v){
   const sub = currentSubstation;
   const cfg = FEEDER_STRUCTURE[sub];
   const existingSchemeCount = Object.keys(cfg.schemes || {}).length;
@@ -2779,13 +2936,24 @@ function selectVoltageForSubstation(v){
 
   cfg.voltage = v;
   if(!cfg.schemes) cfg.schemes = {};
-  // auto-clone every scheme template that matches this voltage, if not already present
+  // auto-clone every scheme template that matches this voltage, if not already present —
+  // and seed it with DEFAULT's data (if any) since it's a brand-new scheme for this substation
+  const newlyClonedSchemes = [];
   schemesAvailableForVoltage(v).forEach(sc => {
     if(!cfg.schemes[sc]){
       cfg.schemes[sc] = { schemeType: sc, feeders: JSON.parse(JSON.stringify(SCHEME_TEMPLATES[sc].feeders)) };
+      newlyClonedSchemes.push(sc);
     }
   });
   saveFeederConfig();
+
+  if(newlyClonedSchemes.length){
+    showLoading('Copying default dataset…');
+    for(const sc of newlyClonedSchemes){
+      await copyDefaultDataIntoScheme(sub, sc, v);
+    }
+    hideLoading();
+  }
 
   closeModal('confirmModal');
   document.querySelector('#confirmModal h3').textContent = 'Remove rows?';
@@ -3181,6 +3349,7 @@ function switchMode(mode){
     renderVoltageTabs();renderSchemeTabs();renderFeederTabs();renderNumberTabs();renderSubsetTabs();renderMainTabs();syncFeederTypeTabCounts();
     if(currentFeeder) loadFeederDataset(); else showEmptySubstationState();
   } else {
+    renderDeviceSubstationChip();
     renderAll();
   }
   updateBreadcrumb();
@@ -3189,9 +3358,11 @@ function switchMode(mode){
 function renderVoltageTabs(){
   const wrap = document.getElementById('voltageRowWrap');
   const el = document.getElementById('voltageTabs');
+  const addBtn = document.getElementById('addVoltageBtn');
   if(!currentSubstation){ wrap.style.display = 'none'; el.innerHTML = ''; return; }
   wrap.style.display = 'flex';
   const v = FEEDER_STRUCTURE[currentSubstation]?.voltage || null;
+  addBtn.style.display = v ? 'none' : '';
   el.innerHTML = v
     ? `<span class="feeder-tab active" style="cursor:default">${v}</span>
        <button class="btn-icon" onclick="openAddVoltage()" style="width:auto;height:auto;padding:4px 10px;border-style:solid;font-size:11px;font-family:var(--mono)" title="Change voltage level">change</button>`
@@ -4095,9 +4266,19 @@ function runFeederDupCheck(col){
 }
 
 // ── Add Substation / Feeder ───────────────────────────────────────────────────
+function editDefaultTemplate(){
+  if(!FEEDER_STRUCTURE[DEFAULT_SUBSTATION_NAME]){
+    FEEDER_STRUCTURE[DEFAULT_SUBSTATION_NAME] = { voltage: null, schemes: {}, _userAdded: true };
+    saveFeederConfig();
+  }
+  if(currentMode !== 'feeder') switchMode('feeder');
+  selectSubstation(DEFAULT_SUBSTATION_NAME);
+}
+
 function createNewSubstation(name){
   name = name.trim();
   if(!name) return;
+  if(name.toLowerCase() === DEFAULT_SUBSTATION_NAME.toLowerCase()){ alert('"'+DEFAULT_SUBSTATION_NAME+'" is a reserved name.'); return; }
   if(FEEDER_STRUCTURE[name]){ selectSubstation(name); return; }
   FEEDER_STRUCTURE[name] = { voltage: null, schemes: {}, _userAdded: true };
   selectSubstation(name);
@@ -4107,7 +4288,7 @@ function createNewSubstation(name){
 // ── Substation search/select (Substation → Voltage → Scheme flow) ───────────
 function onSubstationSearchInput(q){
   const box = document.getElementById('substationSearchResults');
-  const all = Object.keys(FEEDER_STRUCTURE);
+  const all = Object.keys(FEEDER_STRUCTURE).filter(s => s !== DEFAULT_SUBSTATION_NAME);
   const ql = (q||'').trim().toLowerCase();
   const matches = ql ? all.filter(s => s.toLowerCase().includes(ql)) : all;
 
