@@ -1213,9 +1213,11 @@ function processFile(f){
 function showManualRouteModal(filename, partialRoute) {
   const modeVal = partialRoute?.mode || (currentMode === 'feeder' ? 'feeder' : 'device');
 
-  const subOptions = Object.keys(FEEDER_STRUCTURE).filter(s => s !== DEFAULT_SUBSTATION_NAME).map(s =>
-    `<option value="${s}" ${partialRoute?.substation === s ? 'selected' : ''}>${s}</option>`
-  ).join('');
+  const subOptions = Object.keys(FEEDER_STRUCTURE)
+    .filter(s => s !== DEFAULT_SUBSTATION_NAME || isEditingDefault())
+    .map(s =>
+      `<option value="${s}" ${(partialRoute?.substation === s || (!partialRoute?.substation && isEditingDefault() && s === DEFAULT_SUBSTATION_NAME)) ? 'selected' : ''}>${s}</option>`
+    ).join('');
 
   const devOptions = Object.keys(GROUPS).map(d =>
     `<option value="${d}" ${partialRoute?.device === d ? 'selected' : ''}>${d}</option>`
@@ -1340,8 +1342,13 @@ function mrSelectImportMode(mode){
 
 function mrUpdateVoltages() {
   const sub = document.getElementById('mrSubstation').value;
-  const voltages = getVoltagesForSub(sub);
   const vSel = document.getElementById('mrVoltage');
+  if(sub === DEFAULT_SUBSTATION_NAME){
+    vSel.innerHTML = `<option value="">— applies to ALL voltage levels —</option>`;
+    mrUpdateSchemes();
+    return;
+  }
+  const voltages = getVoltagesForSub(sub);
   vSel.innerHTML = voltages.length
     ? voltages.map(v => `<option value="${v}">${v}</option>`).join('')
     : `<option value="">— no voltage levels yet —</option>`;
@@ -1353,6 +1360,13 @@ function mrUpdateSchemes() {
   const v   = document.getElementById('mrVoltage').value;
   const added = new Set(getSchemesFor(sub, v));
   const scSel = document.getElementById('mrScheme');
+  if(sub === DEFAULT_SUBSTATION_NAME){
+    scSel.innerHTML = Object.keys(SCHEME_TEMPLATES).map(sc =>
+      `<option value="${sc}">${sc}${added.has(sc)?'':' (not added yet — will clone)'}</option>`
+    ).join('');
+    mrUpdateFeeders();
+    return;
+  }
   scSel.innerHTML = v
     ? schemesAvailableForVoltage(v).map(sc =>
         `<option value="${sc}">${sc}${added.has(sc)?'':' (not added yet — will clone)'}</option>`
@@ -1451,7 +1465,7 @@ async function doManualRouteImport(importMode) {
 
     // GUARD: substation/voltage/scheme/feeder must all be selected
     if (!sub) { alert('Please select a substation before importing.'); return; }
-    if (!v)   { alert('Please add a voltage level under this substation first.'); return; }
+    if (!v && sub !== DEFAULT_SUBSTATION_NAME) { alert('Please add a voltage level under this substation first.'); return; }
     if (!sc)  { alert('Please select a scheme before importing.'); return; }
     if (!feed || feed === '') {
       alert('Please select a feeder before importing.');
@@ -1532,7 +1546,7 @@ async function doManualRouteImport(importMode) {
   if (route.mode === 'feeder') {
     // SET GLOBALS FIRST
     currentSubstation = route.substation;
-    currentVoltage    = route.voltage;
+    currentVoltage    = route.voltage || null;
     currentScheme     = route.scheme;
     currentFeeder     = route.feeder;
     currentNumber     = route.number ?? null;
@@ -1831,10 +1845,12 @@ function onDeviceSubstationSearchInput(q){
   const matches = ql ? all.filter(s => s.toLowerCase().includes(ql)) : all;
 
   let html = matches.map(s =>
-    `<div onclick="selectDeviceSubstation('${s.replace(/'/g,"\\'")}')"
-      style="padding:7px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
+    `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
       onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background=''">
-      ${s}
+      <span onclick="selectDeviceSubstation('${s.replace(/'/g,"\\'")}')" style="flex:1">${s}</span>
+      <span onclick="event.stopPropagation();confirmRemoveDeviceSubstation('${s.replace(/'/g,"\\'")}')"
+        style="width:18px;height:18px;border-radius:50%;background:var(--red-bg);color:var(--red);display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0"
+        title="Delete substation">✕</span>
     </div>`
   ).join('');
 
@@ -1880,12 +1896,10 @@ async function createDeviceSubstation(name){
   name = name.trim();
   if(!name) return;
   if(name.toLowerCase() === DEFAULT_SUBSTATION_NAME.toLowerCase()){ alert('"'+DEFAULT_SUBSTATION_NAME+'" is a reserved name.'); return; }
-  const isBrandNew = !FEEDER_STRUCTURE[name];
-  if(isBrandNew){
+  if(!FEEDER_STRUCTURE[name]){
     FEEDER_STRUCTURE[name] = { voltage: null, schemes: {}, _userAdded: true };
     saveFeederConfig();
   }
-  if(isBrandNew) await copyDefaultDeviceData(name);
   selectDeviceSubstation(name);
 }
 
@@ -1896,6 +1910,7 @@ async function selectDeviceSubstation(name){
   document.getElementById('deviceSubstationSearchInput').value = '';
   renderDeviceSubstationChip();
   updateDeviceVisibility();
+  if(name !== DEFAULT_SUBSTATION_NAME) await copyDefaultDeviceData(name); // idempotent — copies once per substation
   showLoading('Loading row counts…');
   await preloadAllCounts();
   hideLoading();
@@ -2533,6 +2548,7 @@ function closeModal(id){
 
 // ── Export ────────────────────────────────────────────────────────────────────
 async function exportAllExcel(){
+  showLoading('Preparing export…');
   const wb = XLSX.utils.book_new();
   const sheetName = currentDevice.replace(/[\\/*?:[\]]/g,'_').substring(0,31);
   const allSheetData = [];
@@ -2571,11 +2587,13 @@ async function exportAllExcel(){
     }
   }
 
-  if(allSheetData.length <= 1){ alert('No data to export.'); return; }
+  if(allSheetData.length <= 1){ hideLoading(); alert('No data to export.'); return; }
 
   const ws = XLSX.utils.aoa_to_sheet(allSheetData);
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
   XLSX.writeFile(wb, (currentDeviceSubstation ? currentDevice+'_'+currentDeviceSubstation : currentDevice) + '_' + exportStamp() + '_export.xlsx');
+  hideLoading();
+  showImportToast('<strong>✓ Excel file downloaded</strong>');
 }
 
 function exportDeviceTCD(){
@@ -2589,6 +2607,7 @@ function exportDeviceTCD(){
   a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/plain' }));
   a.download = currentKey() + '_' + exportStamp() + '.tcd';
   a.click();
+  showImportToast('<strong>✓ TCD file downloaded</strong>');
 }
 
 function exportFeederTCD(){
@@ -2602,6 +2621,7 @@ function exportFeederTCD(){
   a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/plain' }));
   a.download = currentSubstation + '_' + currentFeeder + '_' + currentFeederType + '_' + exportStamp() + '.tcd';
   a.click();
+  showImportToast('<strong>✓ TCD file downloaded</strong>');
 }
 
 // ── Render all ────────────────────────────────────────────────────────────────
@@ -3802,10 +3822,11 @@ async function doRemoveNumber(num){
 
 function confirmRemoveSubstation(name){
   document.getElementById('confirmMsg').textContent =
-    `Remove substation "${name}" and ALL its feeder data? This cannot be undone.`;
+    `Remove substation "${name}" and ALL its data — both feeder and device datasets? This cannot be undone.`;
   document.getElementById('confirmOkBtn').onclick = () => doRemoveSubstation(name);
   document.getElementById('confirmModal').classList.add('open');
 }
+function confirmRemoveDeviceSubstation(name){ confirmRemoveSubstation(name); }
 
 async function doRemoveSubstation(name){
   // delete all feeder datasets under this substation, across every scheme/feeder/number/main
@@ -3830,6 +3851,13 @@ async function doRemoveSubstation(name){
       }
     }
   }
+  // also delete device-mode datasets for this substation (every device × point-type combo)
+  for(const dev of Object.keys(GROUPS)){
+    for(const schemaKey of Object.values(GROUPS[dev])){
+      const dk = name+'__'+schemaKey;
+      try{ await sbFetch('DELETE', TABLE+'?dataset_key=eq.'+encodeURIComponent(dk)); }catch(e){}
+    }
+  }
   delete FEEDER_STRUCTURE[name];
   await saveFeederConfig();
   hideLoading();
@@ -3840,6 +3868,14 @@ async function doRemoveSubstation(name){
     const input = document.getElementById('substationSearchInput');
     if(input && document.getElementById('substationSearchResults').style.display === 'block'){
       onSubstationSearchInput(input.value);
+    }
+  }
+  if(currentDeviceSubstation === name){
+    changeDeviceSubstation();
+  } else {
+    const devInput = document.getElementById('deviceSubstationSearchInput');
+    if(devInput && document.getElementById('deviceSubstationSearchResults').style.display === 'block'){
+      onDeviceSubstationSearchInput(devInput.value);
     }
   }
 }
@@ -4628,7 +4664,7 @@ async function exportAllSubstation(){
     byKey.get(rec.dataset_key).push(rec);
   });
 
-  hideLoading();
+  showLoading('Building workbook…');
 
   const wb = XLSX.utils.book_new();
 
@@ -4699,6 +4735,8 @@ async function exportAllSubstation(){
   XLSX.writeFile(wb,
     (sub+'_'+currentVoltage+'_'+currentScheme).replace(/[\\/*?:[\]\s&()]/g,'_') + '_' + exportStamp() + '_export.xlsx'
   );
+  hideLoading();
+  showImportToast('<strong>✓ Excel file downloaded</strong>');
 }
 
 // ── Compare ───────────────────────────────────────────────────────────────────
