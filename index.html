@@ -2623,7 +2623,7 @@ function renderAll(){
     if(currentSubstation && FEEDER_STRUCTURE[currentSubstation]){
       const voltages = getVoltagesForSub(currentSubstation);
       if(!currentVoltage || !voltages.includes(currentVoltage)) currentVoltage = voltages[0] || null;
-      const schemes = currentVoltage ? getSchemesFor(currentSubstation, currentVoltage) : [];
+      const schemes = getSchemesFor(currentSubstation, currentVoltage);
       if(!currentScheme || !schemes.includes(currentScheme)) currentScheme = schemes[0] || null;
       currentFeeder = currentScheme ? (getFeederNames(currentSubstation)[0] || null) : null;
       if(currentFeeder){
@@ -2969,16 +2969,17 @@ function openAddVoltage(){
 }
 
 const DEFAULT_SUBSTATION_NAME = 'DEFAULT'; // hidden master template — edited like any substation, never shown in search
+function isEditingDefault(){ return currentSubstation === DEFAULT_SUBSTATION_NAME; }
 
 async function copyDefaultDataIntoScheme(sub, sc, newVoltage){
   if(sub === DEFAULT_SUBSTATION_NAME) return; // never copy onto itself
   const defaultCfg = FEEDER_STRUCTURE[DEFAULT_SUBSTATION_NAME];
-  if(!defaultCfg || !defaultCfg.voltage) return; // no default template configured yet
+  if(!defaultCfg) return; // no default template configured yet
   const defaultScheme = defaultCfg.schemes?.[sc];
   if(!defaultScheme) return; // DEFAULT doesn't have this scheme set up
 
   const newScheme = FEEDER_STRUCTURE[sub].schemes[sc];
-  const dv = defaultCfg.voltage;
+  const dv = defaultCfg.voltage; // always null — DEFAULT's keys use the 'NOVOLT' placeholder consistently
 
   for(const [feed, feedCfg] of Object.entries(newScheme.feeders || {})){
     const numbers = feedCfg.hasNumbers ? Object.keys(feedCfg.numbers) : [null];
@@ -3448,6 +3449,11 @@ function renderVoltageTabs(){
   const addBtn = document.getElementById('addVoltageBtn');
   if(!currentSubstation){ wrap.style.display = 'none'; el.innerHTML = ''; return; }
   wrap.style.display = 'flex';
+  if(isEditingDefault()){
+    addBtn.style.display = 'none';
+    el.innerHTML = `<span class="feeder-tab active" style="cursor:default;background:#5a3d8a">applies to ALL voltage levels</span>`;
+    return;
+  }
   const v = FEEDER_STRUCTURE[currentSubstation]?.voltage || null;
   addBtn.style.display = v ? 'none' : '';
   el.innerHTML = v
@@ -3460,7 +3466,7 @@ function renderVoltageTabs(){
 
 function renderFeederTabs(){
   const wrap = document.getElementById('feederRowWrap');
-  if(!currentSubstation || !currentVoltage || !currentScheme){ wrap.style.display = 'none'; document.getElementById('feederTabs').innerHTML=''; return; }
+  if(!currentSubstation || !currentScheme){ wrap.style.display = 'none'; document.getElementById('feederTabs').innerHTML=''; return; }
   wrap.style.display = 'flex';
   document.getElementById('feederTabs').innerHTML =
     Object.entries(schemeNode(currentSubstation)?.feeders || {}).map(([f, cfg]) => {
@@ -4421,7 +4427,7 @@ async function selectSubstation(name){
 
   const voltages = getVoltagesForSub(name);
   currentVoltage = voltages[0] || null;
-  const schemes = currentVoltage ? getSchemesFor(name, currentVoltage) : [];
+  const schemes = getSchemesFor(name, currentVoltage);
   currentScheme = schemes[0] || null;
   currentFeeder = currentScheme ? (getFeederNames(name)[0] || null) : null;
   currentNumber = null;
@@ -4479,9 +4485,10 @@ document.addEventListener('click', e=>{
 // picking one clones it into this substation+voltage on first use. ──────────
 function renderSchemeTabs(){
   const wrap = document.getElementById('schemeRowWrap');
-  if(!currentSubstation || !currentVoltage){ wrap.style.display = 'none'; return; }
+  if(!currentSubstation){ wrap.style.display = 'none'; return; }
+  if(!isEditingDefault() && !currentVoltage){ wrap.style.display = 'none'; return; }
   wrap.style.display = 'flex';
-  const available = schemesAvailableForVoltage(currentVoltage);
+  const available = isEditingDefault() ? Object.keys(SCHEME_TEMPLATES) : schemesAvailableForVoltage(currentVoltage);
   document.getElementById('schemeTabs').innerHTML = available.map(sc => {
     const isActive = sc === currentScheme;
     return `<button class="feeder-tab${isActive?' active':''}"
@@ -4491,6 +4498,14 @@ function renderSchemeTabs(){
 
 async function switchScheme(sc){
   if(!confirmIfDirty('Switch scheme? Unsaved changes may be lost.')) return;
+
+  // DEFAULT holds every scheme type regardless of voltage — clone structure in on first visit
+  if(isEditingDefault() && !schemeNode(currentSubstation, undefined, sc)){
+    const cfg = FEEDER_STRUCTURE[currentSubstation];
+    if(!cfg.schemes) cfg.schemes = {};
+    cfg.schemes[sc] = { schemeType: sc, feeders: JSON.parse(JSON.stringify(SCHEME_TEMPLATES[sc].feeders)) };
+    await saveFeederConfig();
+  }
 
   currentScheme = sc;
   currentFeeder = getFeederNames(currentSubstation)[0] || null;
@@ -4514,7 +4529,7 @@ async function switchScheme(sc){
 
 function openAddFeeder(){
   if(!currentScheme){ alert('Select (or add) a scheme first.'); return; }
-  document.getElementById('addFeederSubstationName').textContent=currentSubstation+' / '+currentVoltage+' / '+currentScheme;
+  document.getElementById('addFeederSubstationName').textContent=currentSubstation+(isEditingDefault()?'':' / '+currentVoltage)+' / '+currentScheme;
   document.getElementById('newFeederName').value='';document.getElementById('addFeederModal').classList.add('open');
 }
 async function saveNewFeeder(){
