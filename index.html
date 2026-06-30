@@ -275,6 +275,10 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   <div style="flex:1"></div>
 
   <!-- Sync + user -->
+  <div id="saveStatusBadge" class="sync-status synced" style="font-size:11px;font-family:var(--mono);padding:4px 10px;border-radius:20px;display:flex;align-items:center;gap:5px;border:1px solid var(--border)" title="Reflects whether your latest edits have been saved to the cloud">
+    <div class="sync-dot" style="width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0"></div>
+    <span id="saveStatusText">saved</span>
+  </div>
   <div class="sync-status synced" id="syncStatus" style="font-size:11px;font-family:var(--mono);padding:4px 10px;border-radius:20px;display:flex;align-items:center;gap:5px;border:1px solid var(--border)">
     <div class="sync-dot" style="width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0"></div>
     <span id="syncText">connected</span>
@@ -356,13 +360,14 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
     <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;width:80px">Substation</span>
     <div id="deviceSubstationChip" style="display:none;align-items:center;gap:6px"></div>
     <div id="deviceSubstationSearchWrap" style="position:relative;flex:1;min-width:180px;max-width:320px">
-      <input type="text" id="deviceSubstationSearchInput" placeholder="Optional — scope these device datasets to a substation…"
+      <input type="text" id="deviceSubstationSearchInput" placeholder="Type a substation name to begin…"
         oninput="onDeviceSubstationSearchInput(this.value)"
         onfocus="onDeviceSubstationSearchInput(this.value)"
         style="padding:6px 10px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%;outline:none">
       <div id="deviceSubstationSearchResults" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:20;max-height:220px;overflow-y:auto"></div>
     </div>
   </div>
+  <div id="deviceTabsArea" style="display:none">
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
     <div class="dev-tabs" id="devTabs" style="margin-bottom:0;flex:1"></div>
     <button class="btn-icon" onclick="openAddDevice()" title="Add new device">
@@ -372,8 +377,10 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
     <div class="type-tabs" id="typeTabs" style="margin-bottom:0"></div>
   </div>
+  </div>
 </div>
 
+<div id="dataWorkArea">
 <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileIn').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
   <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
   <div><p>Drop a file or click to import into this dataset</p><span>Supports .csv, .xlsx, .xls — appends to current table</span></div>
@@ -524,6 +531,15 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   </div>
 </div>
 </div><!-- close margin-top wrapper -->
+</div><!-- close dataWorkArea -->
+
+<div id="deviceEmptyState" style="display:none">
+  <div class="empty">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+    <p>No substation selected</p>
+    <span>Type a substation name above to view or import device datasets.</span>
+  </div>
+</div>
 
 <!-- Footer legend -->
 <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:10px;padding:6px 2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
@@ -820,19 +836,24 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
     </div>
     <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
       <div style="font-size:11px;color:var(--text2);font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Import mode</div>
-      <div style="display:flex;gap:8px">
-        <button class="btn primary" style="flex:1;justify-content:center" onclick="doManualRouteImport('origin')">
+      <div style="display:flex;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:4px">
+        <button id="mrImportModeOrigin" class="type-tab active" style="flex:1;justify-content:center" onclick="mrSelectImportMode('origin')">
           <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
           Origin (locked)
         </button>
-        <button class="btn" style="flex:1;justify-content:center;border-color:var(--blue-bdr);background:var(--blue-bg);color:var(--blue)" onclick="doManualRouteImport('addon')">
+        <button id="mrImportModeAddon" class="type-tab" style="flex:1;justify-content:center" onclick="mrSelectImportMode('addon')">
           <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           Add-on (editable)
         </button>
       </div>
+      <div id="mrImportModeHint" style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:6px">Rows are locked — only DNP3.0_ADDRESS can be edited. Cannot be deleted.</div>
     </div>
     <div class="mfooter">
       <button class="btn" onclick="closeModal('manualRouteModal');pendingImportData=null;pendingImportRoute=null;">Cancel</button>
+      <button class="btn primary" onclick="doManualRouteImport(mrImportMode)">
+        <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><polyline points="20 6 9 17 4 12"/></svg>
+        Confirm import
+      </button>
     </div>
   </div>
 </div>
@@ -971,12 +992,17 @@ function setSyncStatus(state,text){
 function setDirty(val){
   isDirty = val;
   const stamp = document.getElementById('tableSaveStamp');
-  if(!stamp) return;
+  const badge = document.getElementById('saveStatusBadge');
+  const badgeText = document.getElementById('saveStatusText');
   if(val){
-    stamp.style.color = 'var(--amber)';
-    stamp.style.borderColor = 'var(--amber-bdr)';
-    stamp.style.background = 'var(--amber-bg)';
-    stamp.textContent = '⚠ unsaved changes…';
+    if(stamp){
+      stamp.style.color = 'var(--amber)';
+      stamp.style.borderColor = 'var(--amber-bdr)';
+      stamp.style.background = 'var(--amber-bg)';
+      stamp.textContent = '⚠ unsaved changes…';
+    }
+    if(badge){ badge.className = 'sync-status syncing'; }
+    if(badgeText){ badgeText.textContent = 'unsaved changes'; }
   }
 }
 
@@ -1187,7 +1213,7 @@ function processFile(f){
 function showManualRouteModal(filename, partialRoute) {
   const modeVal = partialRoute?.mode || (currentMode === 'feeder' ? 'feeder' : 'device');
 
-  const subOptions = Object.keys(FEEDER_STRUCTURE).map(s =>
+  const subOptions = Object.keys(FEEDER_STRUCTURE).filter(s => s !== DEFAULT_SUBSTATION_NAME).map(s =>
     `<option value="${s}" ${partialRoute?.substation === s ? 'selected' : ''}>${s}</option>`
   ).join('');
 
@@ -1291,6 +1317,7 @@ function showManualRouteModal(filename, partialRoute) {
     }
   }
 
+  mrSelectImportMode('origin');
   document.getElementById('manualRouteModal').classList.add('open');
 }
 
@@ -1299,6 +1326,16 @@ function mrSwitchMode(mode) {
   document.getElementById('mrModeDevice').classList.toggle('active', mode === 'device');
   document.getElementById('mrFeederPanel').style.display = mode === 'feeder' ? 'block' : 'none';
   document.getElementById('mrDevicePanel').style.display = mode === 'device' ? 'block' : 'none';
+}
+
+let mrImportMode = 'origin';
+function mrSelectImportMode(mode){
+  mrImportMode = mode;
+  document.getElementById('mrImportModeOrigin').classList.toggle('active', mode === 'origin');
+  document.getElementById('mrImportModeAddon').classList.toggle('active', mode === 'addon');
+  document.getElementById('mrImportModeHint').textContent = mode === 'origin'
+    ? 'Rows are locked — only DNP3.0_ADDRESS can be edited. Cannot be deleted.'
+    : 'Rows are fully editable and deletable. Added after existing data.';
 }
 
 function mrUpdateVoltages() {
@@ -1814,14 +1851,41 @@ function onDeviceSubstationSearchInput(q){
   box.style.display = 'block';
 }
 
-function createDeviceSubstation(name){
+async function copyDefaultDeviceData(sub){
+  if(sub === DEFAULT_SUBSTATION_NAME) return; // never copy onto itself
+  if(!FEEDER_STRUCTURE[DEFAULT_SUBSTATION_NAME]) return; // no default template configured yet
+  if(FEEDER_STRUCTURE[sub]?._deviceDefaultsCopied) return; // already done once for this substation
+
+  showLoading('Copying default device dataset…');
+  for(const dev of Object.keys(GROUPS)){
+    for(const [type, schemaKey] of Object.entries(GROUPS[dev])){
+      const srcKey = DEFAULT_SUBSTATION_NAME+'__'+schemaKey;
+      const dstKey = sub+'__'+schemaKey;
+      try{
+        const data = await sbFetchAll(TABLE+'?dataset_key=eq.'+encodeURIComponent(srcKey)+'&order=row_index.asc');
+        if(data.length){
+          const ins = data.map((r,i)=>({dataset_key:dstKey,row_index:i,data:r.data,origin_count:r.origin_count||0}));
+          await sbFetch('POST', TABLE, ins);
+        }
+      }catch(e){ console.error('Default device copy error', srcKey, '->', dstKey, e); }
+    }
+  }
+  if(!FEEDER_STRUCTURE[sub]) FEEDER_STRUCTURE[sub] = { voltage: null, schemes: {}, _userAdded: true };
+  FEEDER_STRUCTURE[sub]._deviceDefaultsCopied = true;
+  await saveFeederConfig();
+  hideLoading();
+}
+
+async function createDeviceSubstation(name){
   name = name.trim();
   if(!name) return;
   if(name.toLowerCase() === DEFAULT_SUBSTATION_NAME.toLowerCase()){ alert('"'+DEFAULT_SUBSTATION_NAME+'" is a reserved name.'); return; }
-  if(!FEEDER_STRUCTURE[name]){
+  const isBrandNew = !FEEDER_STRUCTURE[name];
+  if(isBrandNew){
     FEEDER_STRUCTURE[name] = { voltage: null, schemes: {}, _userAdded: true };
     saveFeederConfig();
   }
+  if(isBrandNew) await copyDefaultDeviceData(name);
   selectDeviceSubstation(name);
 }
 
@@ -1831,6 +1895,7 @@ async function selectDeviceSubstation(name){
   document.getElementById('deviceSubstationSearchResults').style.display = 'none';
   document.getElementById('deviceSubstationSearchInput').value = '';
   renderDeviceSubstationChip();
+  updateDeviceVisibility();
   showLoading('Loading row counts…');
   await preloadAllCounts();
   hideLoading();
@@ -1842,6 +1907,7 @@ async function changeDeviceSubstation(){
   if(!confirmIfDirty('Clear substation scope? Unsaved changes may be lost.')) return;
   currentDeviceSubstation = null;
   renderDeviceSubstationChip();
+  updateDeviceVisibility();
   showLoading('Loading row counts…');
   await preloadAllCounts();
   hideLoading();
@@ -2452,7 +2518,18 @@ async function doClearAll(scope='all'){
   syncFeederTypeTabCounts();
   setDirty(false);
 }
-function closeModal(id){document.getElementById(id).classList.remove('open');}
+function closeModal(id){
+  document.getElementById(id).classList.remove('open');
+  if(id === 'confirmModal'){
+    // Several flows (openAddVoltage, openMoveSubstationPicker, etc.) repurpose this
+    // shared modal and hide/relabel its default button. Always restore defaults on
+    // close so later uses (e.g. confirmRemoveNumber) aren't left in a broken state.
+    const h3 = document.querySelector('#confirmModal h3');
+    const okBtn = document.getElementById('confirmOkBtn');
+    if(h3) h3.textContent = 'Remove rows?';
+    if(okBtn){ okBtn.style.display = ''; okBtn.textContent = 'Remove'; }
+  }
+}
 
 // ── Export ────────────────────────────────────────────────────────────────────
 async function exportAllExcel(){
@@ -3346,13 +3423,23 @@ function switchMode(mode){
   }
 
   if(mode==='feeder'){
+    document.getElementById('dataWorkArea').style.display = '';
+    document.getElementById('deviceEmptyState').style.display = 'none';
     renderVoltageTabs();renderSchemeTabs();renderFeederTabs();renderNumberTabs();renderSubsetTabs();renderMainTabs();syncFeederTypeTabCounts();
     if(currentFeeder) loadFeederDataset(); else showEmptySubstationState();
   } else {
     renderDeviceSubstationChip();
+    updateDeviceVisibility();
     renderAll();
   }
   updateBreadcrumb();
+}
+
+function updateDeviceVisibility(){
+  const hasSubstation = !!currentDeviceSubstation;
+  document.getElementById('deviceTabsArea').style.display = hasSubstation ? '' : 'none';
+  document.getElementById('dataWorkArea').style.display = hasSubstation ? '' : 'none';
+  document.getElementById('deviceEmptyState').style.display = hasSubstation ? 'none' : 'block';
 }
 
 function renderVoltageTabs(){
@@ -4271,8 +4358,11 @@ function editDefaultTemplate(){
     FEEDER_STRUCTURE[DEFAULT_SUBSTATION_NAME] = { voltage: null, schemes: {}, _userAdded: true };
     saveFeederConfig();
   }
-  if(currentMode !== 'feeder') switchMode('feeder');
-  selectSubstation(DEFAULT_SUBSTATION_NAME);
+  if(currentMode === 'device'){
+    selectDeviceSubstation(DEFAULT_SUBSTATION_NAME);
+  } else {
+    selectSubstation(DEFAULT_SUBSTATION_NAME);
+  }
 }
 
 function createNewSubstation(name){
@@ -7657,6 +7747,10 @@ function renderCrossFeederTable(){
 function updateSaveStamp(){
   isDirty = false;
   const el = document.getElementById('tableSaveStamp');
+  const badge = document.getElementById('saveStatusBadge');
+  const badgeText = document.getElementById('saveStatusText');
+  if(badge){ badge.className = 'sync-status synced'; }
+  if(badgeText){ badgeText.textContent = 'saved'; }
   if(!el) return;
   el.style.color = 'var(--text3)';
   el.style.borderColor = 'var(--border2)';
