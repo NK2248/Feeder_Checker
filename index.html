@@ -3307,7 +3307,16 @@ function schemeNode(sub, voltage, scheme){
   return FEEDER_STRUCTURE[sub]?.schemes?.[sc] || null;
 }
 function getFeederNames(sub, voltage, scheme){
-  return Object.keys(schemeNode(sub, voltage, scheme)?.feeders || {});
+  const sc = scheme !== undefined ? scheme : currentScheme;
+  const keys = Object.keys(schemeNode(sub, voltage, scheme)?.feeders || {});
+  const declOrder = Object.keys(SCHEME_TEMPLATES[sc]?.feeders || {});
+  // sort by the template's declared order; anything not in the template
+  // (user-added feeders) keeps its relative position, appended after
+  return keys.slice().sort((a, b) => {
+    let ia = declOrder.indexOf(a); if(ia === -1) ia = declOrder.length + keys.indexOf(a);
+    let ib = declOrder.indexOf(b); if(ib === -1) ib = declOrder.length + keys.indexOf(b);
+    return ia - ib;
+  });
 }
 function getSubsetNames(sub, feed, voltage, scheme){
   return schemeNode(sub, voltage, scheme)?.feeders?.[feed]?.subsets || ["MAIN_01"];
@@ -3488,8 +3497,10 @@ function renderFeederTabs(){
   const wrap = document.getElementById('feederRowWrap');
   if(!currentSubstation || !currentScheme){ wrap.style.display = 'none'; document.getElementById('feederTabs').innerHTML=''; return; }
   wrap.style.display = 'flex';
+  const feedersObj = schemeNode(currentSubstation)?.feeders || {};
   document.getElementById('feederTabs').innerHTML =
-    Object.entries(schemeNode(currentSubstation)?.feeders || {}).map(([f, cfg]) => {
+    getFeederNames(currentSubstation).map(f => {
+      const cfg = feedersObj[f];
       const isUser = cfg._userAdded;
       const isActive = f === currentFeeder;
       return `<div style="display:inline-flex;align-items:center;gap:2px">
