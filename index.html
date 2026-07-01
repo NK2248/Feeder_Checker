@@ -2444,10 +2444,28 @@ function openAddRow(){
 async function saveNewRow(){
   if(currentMode==='feeder'){ await saveFeederNewRow(); return; }
   const d=ds();const c=cols();
-  const row={};c.forEach(col=>{row[col]=(document.getElementById('nf_'+col.replace(/\W/g,'_'))||{value:''}).value||'';});
-  row.__added_by=currentUser(); row.__added_at=nowISO();
-  row.__edited_by=''; row.__edited_at='';
-  d.rows.push(row);d.manuallyAdded.add(d.rows.length-1);
+  const baseRow={};c.forEach(col=>{baseRow[col]=(document.getElementById('nf_'+col.replace(/\W/g,'_'))||{value:''}).value||'';});
+  baseRow.__added_by=currentUser(); baseRow.__added_at=nowISO();
+  baseRow.__edited_by=''; baseRow.__edited_at='';
+
+  const isStatusPoint = c.includes('STATE_0') && !c.includes('STATE_CLOSE');
+  const state0=baseRow['STATE_0']||'', state1=baseRow['STATE_1']||'',
+        state2=baseRow['STATE_2']||'', state3=baseRow['STATE_3']||'';
+  const allStates=[state0,state1,state2,state3];
+  const baseAddr=parseInt(baseRow['DNP3.0_ADDRESS'])||0;
+
+  if(isStatusPoint && allStates.some(s=>s.trim())){
+    allStates.forEach((stateVal,idx)=>{
+      if(!stateVal.trim()) return;
+      const row={...baseRow};
+      row['SPECIFICATION_DESCRIPTOR']=stateVal;
+      row['DNP3.0_ADDRESS']=String(baseAddr+idx);
+      d.rows.push(row); d.manuallyAdded.add(d.rows.length-1);
+    });
+  } else {
+    d.rows.push(baseRow); d.manuallyAdded.add(d.rows.length-1);
+  }
+
   d.dupInfo={};d.checked=false;hideDupAlert();
   closeModal('addModal');renderAll();
   showLoading('Saving…');await saveDataset(currentKey());await saveHistoryPoint('auto');hideLoading();setDirty(false);
@@ -4354,9 +4372,31 @@ function openFeederAddRow(){
 
 async function saveFeederNewRow(){
   const d=fds();const c=feederCols();
-  const row={};c.forEach(col=>{row[col]=(document.getElementById('nf_'+col.replace(/\W/g,'_'))||{value:''}).value||'';});
-  row.__added_by=currentUser();row.__added_at=nowISO();row.__edited_by='';row.__edited_at='';
-  d.rows.push(row);d.manuallyAdded.add(d.rows.length-1);
+  const baseRow={};c.forEach(col=>{baseRow[col]=(document.getElementById('nf_'+col.replace(/\W/g,'_'))||{value:''}).value||'';});
+  baseRow.__added_by=currentUser();baseRow.__added_at=nowISO();baseRow.__edited_by='';baseRow.__edited_at='';
+
+  const isStatusPoint = c.includes('STATE_0') && !c.includes('STATE_CLOSE');
+  const state0 = baseRow['STATE_0']||'';
+  const state1 = baseRow['STATE_1']||'';
+  const state2 = baseRow['STATE_2']||'';
+  const state3 = baseRow['STATE_3']||'';
+  const allStates = [state0,state1,state2,state3];
+  const baseAddr = parseInt(baseRow['DNP3.0_ADDRESS'])||0;
+
+  if(isStatusPoint && allStates.some(s=>s.trim())){
+    // auto-duplicate: one row per state that has a non-empty value, address +1 each
+    allStates.forEach((stateVal, idx) => {
+      if(!stateVal.trim()) return;
+      const row = {...baseRow};
+      row['SPECIFICATION_DESCRIPTOR'] = stateVal;
+      row['DNP3.0_ADDRESS'] = String(baseAddr + idx);
+      row['STATE_0']=state0;row['STATE_1']=state1;row['STATE_2']=state2;row['STATE_3']=state3;
+      d.rows.push(row); d.manuallyAdded.add(d.rows.length-1);
+    });
+  } else {
+    d.rows.push(baseRow); d.manuallyAdded.add(d.rows.length-1);
+  }
+
   d.dupInfo={};d.checked=false;hideDupAlert();
   closeModal('addModal');renderFeederTable();renderFeederStats();
   showLoading('Saving…');await saveFeederDataset();await saveFeederHistoryPoint('auto');hideLoading();renderFeederTypeTabs();setDirty(false);
