@@ -275,10 +275,6 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   <div style="flex:1"></div>
 
   <!-- Sync + user -->
-  <div id="saveStatusBadge" class="sync-status synced" style="font-size:11px;font-family:var(--mono);padding:4px 10px;border-radius:20px;display:flex;align-items:center;gap:5px;border:1px solid var(--border)" title="Reflects whether your latest edits have been saved to the cloud">
-    <div class="sync-dot" style="width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0"></div>
-    <span id="saveStatusText">saved</span>
-  </div>
   <div class="sync-status synced" id="syncStatus" style="font-size:11px;font-family:var(--mono);padding:4px 10px;border-radius:20px;display:flex;align-items:center;gap:5px;border:1px solid var(--border)">
     <div class="sync-dot" style="width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0"></div>
     <span id="syncText">connected</span>
@@ -488,6 +484,11 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
         duplicate check
       </button>
       <div class="ab-divider"></div>
+      <button class="abtn" onclick="runBlankCellCheck()" style="color:#7b5ea7">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg>
+        blank check
+      </button>
+      <div class="ab-divider"></div>
       <button class="abtn" onclick="openRenumberModal()" style="color:var(--green)">
         <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="5 12 12 19 19 12"/><line x1="5" y1="5" x2="19" y2="5"/></svg>
         renumber
@@ -521,10 +522,16 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
         </button>
       </div>
 
-      <!-- Last saved stamp -->
-      <div id="tableSaveStamp" 
-        style="display:flex;align-items:center;padding:0 14px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--rlg);font-size:11px;font-family:var(--mono);color:var(--text3);white-space:nowrap">
-        Last saved: —
+      <!-- Last saved stamp + status badge stacked -->
+      <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+        <div id="tableSaveStamp"
+          style="display:flex;align-items:center;padding:4px 14px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--rlg);font-size:11px;font-family:var(--mono);color:var(--text3);white-space:nowrap">
+          Last saved: —
+        </div>
+        <div id="saveStatusBadge" class="sync-status synced" style="font-size:11px;font-family:var(--mono);padding:3px 10px;border-radius:20px;display:flex;align-items:center;gap:5px;border:1px solid var(--border)" title="Reflects whether your latest edits have been saved to the cloud">
+          <div class="sync-dot" style="width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0"></div>
+          <span id="saveStatusText">saved</span>
+        </div>
       </div>
     </div>
 
@@ -1009,7 +1016,7 @@ function setDirty(val){
 // ── Load from Supabase ────────────────────────────────────────────────────────
 async function loadDataset(key){
   try{
-    setSyncStatus('syncing','loading…');
+    setSyncStatus('syncing','connecting…');
     const data = await sbFetchAll(TABLE+'?dataset_key=eq.'+encodeURIComponent(key)+'&order=row_index.asc');
     const d=DATASETS[key];
     d.rows=data.map(r=>r.data);
@@ -1018,7 +1025,7 @@ async function loadDataset(key){
     const savedOriginD = data.length ? (data[0].origin_count || data[0].data?.__originCount || 0) : 0;
     d.originCount = savedOriginD;
     d.rows = d.rows.map(r=>{ const {__originCount,...rest}=r; return rest; });
-    setSyncStatus('synced','synced');
+    setSyncStatus('synced','connected to database');
     updateSaveStamp();
   }catch(e){
     setSyncStatus('error','sync error');
@@ -1051,7 +1058,7 @@ async function saveDataset(key){
     } else {
       d.dbIds=[];
     }
-    setSyncStatus('synced','synced ✓');
+    setSyncStatus('synced','connected to database');
     if(key === currentKey()) updateSaveStamp();
   }catch(e){
     setSyncStatus('error','save failed');
@@ -1393,7 +1400,8 @@ function mrUpdateNumbers() {
   const v    = document.getElementById('mrVoltage').value;
   const sc   = document.getElementById('mrScheme').value;
   const feed = document.getElementById('mrFeeder').value;
-  const feedCfg = schemeNode(sub, v, sc)?.feeders?.[feed] || SCHEME_TEMPLATES[sc]?.feeders?.[feed];
+  const feedCfg = schemeNode(sub, v, sc)?.feeders?.[feed]
+                || SCHEME_TEMPLATES[sc]?.feeders?.[feed];
   const numRow = document.getElementById('mrNumberRow');
   const numSel = document.getElementById('mrNumber');
 
@@ -1414,7 +1422,8 @@ function mrUpdateMains() {
   const v    = document.getElementById('mrVoltage').value;
   const sc   = document.getElementById('mrScheme').value;
   const feed = document.getElementById('mrFeeder').value;
-  const feedCfg = schemeNode(sub, v, sc)?.feeders?.[feed] || SCHEME_TEMPLATES[sc]?.feeders?.[feed];
+  const feedCfg = schemeNode(sub, v, sc)?.feeders?.[feed]
+                || SCHEME_TEMPLATES[sc]?.feeders?.[feed];
   const mainSel = document.getElementById('mrMain');
   const numSel  = document.getElementById('mrNumber');
 
@@ -1603,7 +1612,7 @@ async function doManualRouteImport(importMode) {
         const res = await sbFetch('POST', TABLE, ins);
         savedData.dbIds = res.map(r=>r.id);
       } else { savedData.dbIds = []; }
-      setSyncStatus('synced','synced ✓');
+      setSyncStatus('synced','connected to database');
       if(savedKey === currentFeederKey()) updateSaveStamp();
     }catch(e){
       setSyncStatus('error','save failed');
@@ -2059,6 +2068,49 @@ function dupCheckRun(){
   else runDupCheck(col);
 }
 
+function runBlankCellCheck(){
+  const isFeeder = currentMode === 'feeder';
+  const d = isFeeder ? fds() : ds();
+  const allCols = isFeeder ? feederCols() : cols();
+  const hiddenSet = isFeeder ? HIDDEN_COLUMNS : HIDDEN_COLUMNS_DEVICE;
+
+  // columns to skip: NOTE, REMARK, hidden cols, and origin-only-editable ones that are often intentionally blank
+  const SKIP_COLS = new Set(['NOTE','REMARK','__added_by','__added_at','__edited_by','__edited_at']);
+  const checkCols = visibleCols(allCols).filter(c => !SKIP_COLS.has(c));
+
+  if(!d.rows.length){ alert('No rows to check.'); return; }
+
+  const blankMap = {}; // rowIdx → [col, col, ...]
+  d.rows.forEach((r, i) => {
+    const blanks = checkCols.filter(col => String(r[col] ?? '').trim() === '');
+    if(blanks.length) blankMap[i] = blanks;
+  });
+
+  const blankRowCount = Object.keys(blankMap).length;
+  const totalBlanks = Object.values(blankMap).reduce((s, a) => s + a.length, 0);
+  const el = document.getElementById('dupAlert');
+  el.style.display = 'block';
+
+  if(!blankRowCount){
+    el.innerHTML = `<div class="alert ok"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <span>No blank cells found in visible, editable columns.</span></div>`;
+  } else {
+    el.innerHTML = `<div class="alert warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div><strong>${totalBlanks} blank cell${totalBlanks>1?'s':''}</strong> across <strong>${blankRowCount} row${blankRowCount>1?'s':''}</strong> — skipped NOTE, REMARK and hidden columns.<br>
+      <div style="margin-top:6px;font-size:11px;display:flex;flex-wrap:wrap;gap:4px">
+        ${Object.entries(blankMap).slice(0,12).map(([i, cols]) =>
+          `<span style="background:var(--amber-bg);border:1px solid var(--amber-bdr);border-radius:3px;padding:1px 6px;font-family:var(--mono)">
+            row ${parseInt(i)+1}: ${cols.join(', ')}
+          </span>`
+        ).join('')}
+        ${Object.keys(blankMap).length > 12 ? `<span style="color:var(--text3);font-family:var(--mono)">+${Object.keys(blankMap).length-12} more rows…</span>` : ''}
+      </div></div></div>`;
+  }
+
+  // highlight blank cells in the table by re-rendering
+  if(isFeeder) renderFeederTable(); else renderTable();
+}
+
 function runDupCheck(col){
   col = col || 'DNP3.0_ADDRESS';
   const d=ds();if(!d.rows.length){alert('No rows to check.');return;}
@@ -2365,7 +2417,13 @@ function openAddRow(){
     }
     // SPECIFICATION_DESCRIPTOR gets a helper note for DI type
     if(col==='SPECIFICATION_DESCRIPTOR'){
-      return `<div class="frow"><label>${col} <span id="descHelper" style="font-size:10px;color:var(--accent);font-family:var(--mono);font-weight:400;text-transform:none;letter-spacing:0"></span></label>
+      // Descriptor is auto-built from state fields for Status/Control — hide it there,
+      // but keep a hidden input so the auto-fill logic still works
+      const isAnalog = !c.includes('STATE_0') && !c.includes('STATE_CLOSE');
+      if(!isAnalog){
+        return `<input type="hidden" id="nf_SPECIFICATION_DESCRIPTOR" value="${def}">`;
+      }
+      return `<div class="frow"><label>${col}</label>
         <input type="text" id="nf_SPECIFICATION_DESCRIPTOR" placeholder="${col}" value="${def}" style="width:100%"></div>`;
     }
     return `<div class="frow"><label>${col}</label><input type="text" id="nf_${col.replace(/\W/g,'_')}" placeholder="${col}" value="${def}"></div>`;
@@ -2591,7 +2649,7 @@ async function exportAllExcel(){
 
   const ws = XLSX.utils.aoa_to_sheet(allSheetData);
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  XLSX.writeFile(wb, (currentDeviceSubstation ? currentDevice+'_'+currentDeviceSubstation : currentDevice) + '_' + exportStamp() + '_export.xlsx');
+  XLSX.writeFile(wb, (currentDeviceSubstation ? currentDeviceSubstation+'_'+currentDevice : currentDevice) + '_' + exportStamp() + '_export.xlsx');
   hideLoading();
   showImportToast('<strong>✓ Excel file downloaded</strong>');
 }
@@ -2638,34 +2696,10 @@ function renderAll(){
     await loadConfig();
     await loadFeederConfig();
 
-    // No substation auto-selected — user types one into the search box.
-    // If config restored a previously-picked substation/voltage/scheme, honor it.
-    if(currentSubstation && FEEDER_STRUCTURE[currentSubstation]){
-      const voltages = getVoltagesForSub(currentSubstation);
-      if(!currentVoltage || !voltages.includes(currentVoltage)) currentVoltage = voltages[0] || null;
-      const schemes = getSchemesFor(currentSubstation, currentVoltage);
-      if(!currentScheme || !schemes.includes(currentScheme)) currentScheme = schemes[0] || null;
-      currentFeeder = currentScheme ? (getFeederNames(currentSubstation)[0] || null) : null;
-      if(currentFeeder){
-        const feedCfg = schemeNode(currentSubstation)?.feeders?.[currentFeeder];
-        currentNumber = feedCfg?.hasNumbers ? (Object.keys(feedCfg.numbers)[0] || null) : null;
-      } else {
-        currentNumber = null;
-      }
-      currentSubset = currentFeeder ? (getSubsetNames(currentSubstation, currentFeeder)[0] || 'MAIN_01') : 'MAIN_01';
-      currentMain   = currentFeeder ? (getMainNames(currentSubstation, currentFeeder)[0] ?? null) : null;
-
-      const chip = document.getElementById('substationChip');
-      chip.style.display = 'flex';
-      chip.innerHTML = `<span style="font-size:12px;font-weight:600;padding:5px 12px;border-radius:20px;background:var(--accent);color:#fff;display:inline-flex;align-items:center;gap:6px">
-        ${currentSubstation}
-        <span onclick="event.stopPropagation();changeSubstation()" style="cursor:pointer;opacity:.8" title="change substation">✕</span>
-      </span>`;
-      document.getElementById('substationSearchWrap').style.display = 'none';
-    } else {
-      currentSubstation = null; currentVoltage = null; currentScheme = null;
-      currentFeeder = null; currentNumber = null; currentSubset = null; currentMain = null;
-    }
+    // Always start with nothing selected on a fresh load or refresh — never
+    // auto-restore the previous session's substation/voltage/scheme.
+    currentSubstation = null; currentVoltage = null; currentScheme = null;
+    currentFeeder = null; currentNumber = null; currentSubset = null; currentMain = null;
 
     renderVoltageTabs();
     renderSchemeTabs();
@@ -3971,7 +4005,7 @@ async function loadFeederDataset(){
     d.rows = [];
   }
   try{
-    setSyncStatus('syncing','loading…');
+    setSyncStatus('syncing','connecting…');
     const data=await sbFetchAll(TABLE+'?dataset_key=eq.'+encodeURIComponent(k)+'&order=row_index.asc');
     const d=fds();
     d.rows=data.map(r=>r.data);d.dbIds=data.map(r=>r.id);
@@ -3979,7 +4013,7 @@ async function loadFeederDataset(){
     const savedOrigin=data.length?(data[0].origin_count||data[0].data?.__originCount||0):0;
     d.originCount=savedOrigin;
     d.rows=d.rows.map(r=>{const{__originCount,...rest}=r;return rest;});
-    setSyncStatus('synced','synced');
+    setSyncStatus('synced','connected to database');
     updateSaveStamp();
   }catch(e){
     setSyncStatus('error','sync error');console.error('Feeder load error:',e);
@@ -3997,7 +4031,7 @@ async function saveFeederDataset(){
       const res=await sbFetch('POST',TABLE,ins);
       d.dbIds=res.map(r=>r.id);
     } else {d.dbIds=[];}
-    setSyncStatus('synced','synced ✓');
+    setSyncStatus('synced','connected to database');
     updateSaveStamp();
   }catch(e){setSyncStatus('error','save failed');console.error('Feeder save error:',e);}
 }
@@ -4285,7 +4319,11 @@ function openFeederAddRow(){
         </select></div>`;
     }
     if(col==='SPECIFICATION_DESCRIPTOR'){
-      return `<div class="frow"><label>${col} <span id="descHelper" style="font-size:10px;color:var(--accent);font-family:var(--mono);font-weight:400;text-transform:none;letter-spacing:0"></span></label>
+      const isAnalog = !c.includes('STATE_0') && !c.includes('STATE_CLOSE');
+      if(!isAnalog){
+        return `<input type="hidden" id="nf_SPECIFICATION_DESCRIPTOR" value="${def}">`;
+      }
+      return `<div class="frow"><label>${col}</label>
         <input type="text" id="nf_SPECIFICATION_DESCRIPTOR" placeholder="${col}" value="${def}" style="width:100%"></div>`;
     }
     // special handling for BAY_NAME — dropdown if multiple bays, text if none configured
@@ -4599,8 +4637,7 @@ async function saveFeederConfig(){
     await sbFetch('POST',TABLE,[{
       dataset_key:'__feeder_config__',
       row_index:0,
-      data:{ structure: FEEDER_STRUCTURE, extraVoltages: [...EXTRA_VOLTAGES],
-             lastSubstation: currentSubstation, lastVoltage: currentVoltage, lastScheme: currentScheme }
+      data:{ structure: FEEDER_STRUCTURE, extraVoltages: [...EXTRA_VOLTAGES] }
     }]);
     try{localStorage.setItem('fdm_feeder_structure',JSON.stringify(FEEDER_STRUCTURE));}catch(e){}
   }catch(e){console.error('Feeder config save error:',e);}
@@ -4618,9 +4655,6 @@ async function loadFeederConfig(){
       if(Array.isArray(cfgData.extraVoltages)){
         cfgData.extraVoltages.forEach(v => EXTRA_VOLTAGES.add(v));
       }
-      if(cfgData.lastSubstation) currentSubstation = cfgData.lastSubstation;
-      if(cfgData.lastVoltage)    currentVoltage    = cfgData.lastVoltage;
-      if(cfgData.lastScheme)     currentScheme     = cfgData.lastScheme;
     }
   } catch(e){ console.error('Feeder config load error:', e); }
 }
