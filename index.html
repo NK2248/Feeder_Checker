@@ -4414,11 +4414,11 @@ async function saveFeederNewRow(){
   if(all4Filled){
     // 2-bit DI: two rows, addr N (state 0+1) and addr N+1 (state 2+3)
     const row0 = {...baseRow};
-    row0['SPECIFICATION_DESCRIPTOR'] = state0 + ' / ' + state1;
+    //row0['SPECIFICATION_DESCRIPTOR'] = state0 + ' / ' + state1;
     row0['DNP3.0_ADDRESS'] = String(baseAddr);
     d.rows.push(row0); d.manuallyAdded.add(d.rows.length-1);
     const row1 = {...baseRow};
-    row1['SPECIFICATION_DESCRIPTOR'] = state2 + ' / ' + state3;
+    //row1['SPECIFICATION_DESCRIPTOR'] = state0 + ' / ' + state1;
     row1['DNP3.0_ADDRESS'] = String(baseAddr + 1);
     d.rows.push(row1); d.manuallyAdded.add(d.rows.length-1);
   } else {
