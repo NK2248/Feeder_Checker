@@ -2072,17 +2072,23 @@ function runBlankCellCheck(){
   const isFeeder = currentMode === 'feeder';
   const d = isFeeder ? fds() : ds();
   const allCols = isFeeder ? feederCols() : cols();
-  const hiddenSet = isFeeder ? HIDDEN_COLUMNS : HIDDEN_COLUMNS_DEVICE;
 
-  // columns to skip: NOTE, REMARK, hidden cols, and origin-only-editable ones that are often intentionally blank
-  const SKIP_COLS = new Set(['NOTE','REMARK','__added_by','__added_at','__edited_by','__edited_at']);
-  const checkCols = visibleCols(allCols).filter(c => !SKIP_COLS.has(c));
+  // columns always skipped regardless of row type
+  const ALWAYS_SKIP = new Set(['NOTE','REMARK','__added_by','__added_at','__edited_by','__edited_at']);
+  // columns editable even in origin rows — only these are checked for origin rows
+  const ORIGIN_EDITABLE = new Set(['DNP3.0_ADDRESS','NOTE','REMARK','SCALE_ACTUAL_DATA','SCALE_RAW_DATA','BAY_NAME']);
+  const checkCols = visibleCols(allCols).filter(c => !ALWAYS_SKIP.has(c));
 
   if(!d.rows.length){ alert('No rows to check.'); return; }
 
   const blankMap = {}; // rowIdx → [col, col, ...]
   d.rows.forEach((r, i) => {
-    const blanks = checkCols.filter(col => String(r[col] ?? '').trim() === '');
+    const isOrigin = i < (d.originCount || 0);
+    // for origin rows: only check the cols they're actually allowed to edit
+    const effectiveCols = isOrigin
+      ? checkCols.filter(c => ORIGIN_EDITABLE.has(c))
+      : checkCols;
+    const blanks = effectiveCols.filter(col => String(r[col] ?? '').trim() === '');
     if(blanks.length) blankMap[i] = blanks;
   });
 
@@ -2093,10 +2099,10 @@ function runBlankCellCheck(){
 
   if(!blankRowCount){
     el.innerHTML = `<div class="alert ok"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-      <span>No blank cells found in visible, editable columns.</span></div>`;
+      <span>No blank cells found in editable columns.</span></div>`;
   } else {
     el.innerHTML = `<div class="alert warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-      <div><strong>${totalBlanks} blank cell${totalBlanks>1?'s':''}</strong> across <strong>${blankRowCount} row${blankRowCount>1?'s':''}</strong> — skipped NOTE, REMARK and hidden columns.<br>
+      <div><strong>${totalBlanks} blank cell${totalBlanks>1?'s':''}</strong> across <strong>${blankRowCount} row${blankRowCount>1?'s':''}</strong> — editable columns only, skipping locked and hidden.<br>
       <div style="margin-top:6px;font-size:11px;display:flex;flex-wrap:wrap;gap:4px">
         ${Object.entries(blankMap).slice(0,12).map(([i, cols]) =>
           `<span style="background:var(--amber-bg);border:1px solid var(--amber-bdr);border-radius:3px;padding:1px 6px;font-family:var(--mono)">
@@ -2107,7 +2113,6 @@ function runBlankCellCheck(){
       </div></div></div>`;
   }
 
-  // highlight blank cells in the table by re-rendering
   if(isFeeder) renderFeederTable(); else renderTable();
 }
 
@@ -2454,14 +2459,16 @@ async function saveNewRow(){
   const allStates=[state0,state1,state2,state3];
   const baseAddr=parseInt(baseRow['DNP3.0_ADDRESS'])||0;
 
-  if(isStatusPoint && allStates.some(s=>s.trim())){
-    allStates.forEach((stateVal,idx)=>{
-      if(!stateVal.trim()) return;
-      const row={...baseRow};
-      row['SPECIFICATION_DESCRIPTOR']=stateVal;
-      row['DNP3.0_ADDRESS']=String(baseAddr+idx);
-      d.rows.push(row); d.manuallyAdded.add(d.rows.length-1);
-    });
+  const all4Filled = isStatusPoint && state0.trim() && state1.trim() && state2.trim() && state3.trim();
+  if(all4Filled){
+    const row0={...baseRow};
+    row0['SPECIFICATION_DESCRIPTOR']=state0+' / '+state1;
+    row0['DNP3.0_ADDRESS']=String(baseAddr);
+    d.rows.push(row0); d.manuallyAdded.add(d.rows.length-1);
+    const row1={...baseRow};
+    row1['SPECIFICATION_DESCRIPTOR']=state2+' / '+state3;
+    row1['DNP3.0_ADDRESS']=String(baseAddr+1);
+    d.rows.push(row1); d.manuallyAdded.add(d.rows.length-1);
   } else {
     d.rows.push(baseRow); d.manuallyAdded.add(d.rows.length-1);
   }
@@ -2628,7 +2635,7 @@ async function exportAllExcel(){
   const wb = XLSX.utils.book_new();
   const sheetName = currentDevice.replace(/[\\/*?:[\]]/g,'_').substring(0,31);
   const allSheetData = [];
-  allSheetData.push([currentDeviceSubstation ? currentDevice+' / '+currentDeviceSubstation : currentDevice]);
+  allSheetData.push([currentDeviceSubstation ? currentDeviceSubstation + ' / ' + currentDevice : currentDevice]);
   let firstTable = true;
 
   for(const [type, schemaKey] of Object.entries(GROUPS[currentDevice])){
@@ -4383,16 +4390,17 @@ async function saveFeederNewRow(){
   const allStates = [state0,state1,state2,state3];
   const baseAddr = parseInt(baseRow['DNP3.0_ADDRESS'])||0;
 
-  if(isStatusPoint && allStates.some(s=>s.trim())){
-    // auto-duplicate: one row per state that has a non-empty value, address +1 each
-    allStates.forEach((stateVal, idx) => {
-      if(!stateVal.trim()) return;
-      const row = {...baseRow};
-      row['SPECIFICATION_DESCRIPTOR'] = stateVal;
-      row['DNP3.0_ADDRESS'] = String(baseAddr + idx);
-      row['STATE_0']=state0;row['STATE_1']=state1;row['STATE_2']=state2;row['STATE_3']=state3;
-      d.rows.push(row); d.manuallyAdded.add(d.rows.length-1);
-    });
+  const all4Filled = isStatusPoint && state0.trim() && state1.trim() && state2.trim() && state3.trim();
+  if(all4Filled){
+    // 2-bit DI: two rows, addr N (state 0+1) and addr N+1 (state 2+3)
+    const row0 = {...baseRow};
+    row0['SPECIFICATION_DESCRIPTOR'] = state0 + ' / ' + state1;
+    row0['DNP3.0_ADDRESS'] = String(baseAddr);
+    d.rows.push(row0); d.manuallyAdded.add(d.rows.length-1);
+    const row1 = {...baseRow};
+    row1['SPECIFICATION_DESCRIPTOR'] = state2 + ' / ' + state3;
+    row1['DNP3.0_ADDRESS'] = String(baseAddr + 1);
+    d.rows.push(row1); d.manuallyAdded.add(d.rows.length-1);
   } else {
     d.rows.push(baseRow); d.manuallyAdded.add(d.rows.length-1);
   }
@@ -4790,7 +4798,9 @@ async function exportAllSubstation(){
       const sheetLabel = [feed, num, main].filter(Boolean).join('_');
       const sheetName  = sheetLabel.replace(/[\\/*?:[\]\s&()]/g,'_').substring(0,31);
       const allSheetData = [];
-      allSheetData.push([sub + ' / ' + currentVoltage + ' / ' + currentScheme + ' / ' + feed + (num?' / '+num:'') + (main?' / '+main:'')]);
+      allSheetData.push([
+        [sub, currentVoltage, currentScheme, feed, num, main].filter(Boolean).join(' / ')
+      ]);
       allSheetData.push([]);
       let firstTable = true;
 
