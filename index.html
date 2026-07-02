@@ -1293,18 +1293,38 @@ function showManualRouteModal(filename, partialRoute) {
     const vSel = document.getElementById('mrVoltage');
     if ([...vSel.options].some(o => o.value === partialRoute.voltage)) vSel.value = partialRoute.voltage;
   }
-  mrUpdateSchemes();
 
-  if (partialRoute?.scheme) {
-    const scSel = document.getElementById('mrScheme');
-    if ([...scSel.options].some(o => o.value === partialRoute.scheme)) scSel.value = partialRoute.scheme;
+  // repopulate scheme list for the (possibly restored) voltage
+  // — but DON'T cascade yet, restore scheme value first
+  const sub0 = document.getElementById('mrSubstation').value;
+  const v0   = document.getElementById('mrVoltage').value;
+  const added0 = new Set(getSchemesFor(sub0, v0));
+  const scSel0 = document.getElementById('mrScheme');
+  if(sub0 === DEFAULT_SUBSTATION_NAME){
+    scSel0.innerHTML = Object.keys(SCHEME_TEMPLATES).map(sc =>
+      `<option value="${sc}">${sc}${added0.has(sc)?'':' (not added yet — will clone)'}</option>`
+    ).join('');
+  } else if(v0){
+    scSel0.innerHTML = schemesAvailableForVoltage(v0).map(sc =>
+      `<option value="${sc}">${sc}${added0.has(sc)?'':' (not added yet — will clone)'}</option>`
+    ).join('');
   }
+
+  // restore scheme — for DEFAULT pre-select currentScheme if no route provided
+  const schemeToRestore = partialRoute?.scheme || (sub0 === DEFAULT_SUBSTATION_NAME ? currentScheme : null);
+  if(schemeToRestore){
+    const scSel = document.getElementById('mrScheme');
+    if ([...scSel.options].some(o => o.value === schemeToRestore)) scSel.value = schemeToRestore;
+  }
+
+  // NOW cascade down with correct scheme selected
   mrUpdateFeeders();
 
-  if (partialRoute?.feeder) {
+  const feederToRestore = partialRoute?.feeder || (sub0 === DEFAULT_SUBSTATION_NAME ? currentFeeder : null);
+  if (feederToRestore) {
     const feederSel = document.getElementById('mrFeeder');
-    if ([...feederSel.options].some(o => o.value === partialRoute.feeder)) {
-      feederSel.value = partialRoute.feeder;
+    if ([...feederSel.options].some(o => o.value === feederToRestore)) {
+      feederSel.value = feederToRestore;
     }
   }
 
