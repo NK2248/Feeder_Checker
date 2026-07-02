@@ -1221,7 +1221,6 @@ function showManualRouteModal(filename, partialRoute) {
   const modeVal = partialRoute?.mode || (currentMode === 'feeder' ? 'feeder' : 'device');
 
   const subOptions = Object.keys(FEEDER_STRUCTURE)
-    .filter(s => s !== DEFAULT_SUBSTATION_NAME || isEditingDefault())
     .map(s =>
       `<option value="${s}" ${(partialRoute?.substation === s || (!partialRoute?.substation && isEditingDefault() && s === DEFAULT_SUBSTATION_NAME)) ? 'selected' : ''}>${s}</option>`
     ).join('');
