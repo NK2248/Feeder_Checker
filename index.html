@@ -1111,9 +1111,9 @@ function parseFilenameForRouting(filename, sheetName) {
   const normB = norm(combined);
 
   const TYPE_KEYWORDS = [
-    { keys: ['status_point', 'status point', 'statuspoint', '_sp_', '_sp'],         type: 'Status Point'   },
-    { keys: ['control_output','control output','controloutput','_co_','_co'],        type: 'Control Output' },
-    { keys: ['analog_point',  'analog point',  'analogpoint',  '_ap_', '_ap'],       type: 'Analog Point'   },
+    { keys: ['status_point', 'status point', 'statuspoint', '_sp_', '_sp','status points','status_points'],         type: 'Status Point'   },
+    { keys: ['control_output','control output','controloutput','_co_','_co','control outputs','control_outputs'],        type: 'Control Output' },
+    { keys: ['analog_point',  'analog point',  'analogpoint',  '_ap_', '_ap','analoge point','analoge_point','analoge points','analoge_points','analog points','analog_points'],       type: 'Analog Point'   },
   ];
   let detectedType = null;
   for (const { keys, type } of TYPE_KEYWORDS) {
@@ -5024,7 +5024,7 @@ function parseMultiTableSheet(ws){
     while(row.length&&row[row.length-1]==='')row.pop();
     rawRows.push(row);
   }
-  const SECTION_LABELS={'STATUS POINTS':'Status Point','STATUS_POINTS':'Status Point','CONTROL OUTPUTS':'Control Output','CONTROL_OUTPUTS':'Control Output','ANALOG POINTS':'Analog Point','ANALOG_POINTS':'Analog Point'};
+  const SECTION_LABELS={'STATUS POINTS':'Status Point','STATUS_POINTS':'Status Point','CONTROL OUTPUTS':'Control Output','CONTROL_OUTPUTS':'Control Output','ANALOG POINTS':'Analog Point','ANALOG_POINTS':'Analog Point','ANALOGE POINTS':'Analog Point','ANALOGE_POINTS':'Analog Point'};
   const HEADER_KEYWORDS=['ITEM','FEEDER NAME','FEEDER_NAME','BAY NAME','BAY_NAME','SPECIFICATION POINT NAME','SPECIFICATION_POINT_NAME','POINT NAME','DNP3.0 SERVER','DNP3.0_ADDRESS','ADDRESS','DESCRIPTOR','OBJ','VAR','QII','CLASS','TYPE','REMARK'];
   function norm(s){return s.toUpperCase().replace(/[^A-Z0-9]/g,'_');}
   function isHeaderRow(cells){const hits=cells.filter(c=>HEADER_KEYWORDS.some(kw=>norm(c)===norm(kw)||norm(c).includes(norm(kw))));return hits.length>=2;}
@@ -5378,7 +5378,7 @@ function isRowRepeatedHeader(row){
 const SECTION_LABEL_MAP = {
   'STATUS POINT':'Status Point','STATUS POINTS':'Status Point','STATUS_POINT':'Status Point','STATUS_POINTS':'Status Point',
   'CONTROL OUTPUT':'Control Output','CONTROL OUTPUTS':'Control Output','CONTROL_OUTPUT':'Control Output','CONTROL_OUTPUTS':'Control Output',
-  'ANALOG POINT':'Analog Point','ANALOG POINTS':'Analog Point','ANALOG_POINT':'Analog Point','ANALOG_POINTS':'Analog Point'
+  'ANALOG POINT':'Analog Point','ANALOG POINTS':'Analog Point','ANALOG_POINT':'Analog Point','ANALOG_POINTS':'Analog Point','ANALOGE POINT':'Analog Point','ANALOGE POINTS':'Analog Point','ANALOGE_POINT':'Analog Point','ANALOGE_POINTS':'Analog Point'
 };
 
 function getSectionLabelFromRow(row){
