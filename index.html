@@ -2482,11 +2482,11 @@ async function saveNewRow(){
   const all4Filled = isStatusPoint && state0.trim() && state1.trim() && state2.trim() && state3.trim();
   if(all4Filled){
     const row0={...baseRow};
-    row0['SPECIFICATION_DESCRIPTOR']=state0+' / '+state1;
+    //row0['SPECIFICATION_DESCRIPTOR']=state0+' / '+state1;
     row0['DNP3.0_ADDRESS']=String(baseAddr);
     d.rows.push(row0); d.manuallyAdded.add(d.rows.length-1);
     const row1={...baseRow};
-    row1['SPECIFICATION_DESCRIPTOR']=state2+' / '+state3;
+    //row1['SPECIFICATION_DESCRIPTOR']=state2+' / '+state3;
     row1['DNP3.0_ADDRESS']=String(baseAddr+1);
     d.rows.push(row1); d.manuallyAdded.add(d.rows.length-1);
   } else {
