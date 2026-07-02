@@ -4248,10 +4248,25 @@ function editFeederCell(idx,col,el){
   document.getElementById('sTotal').textContent  = d.rows.length;
   document.getElementById('sOrigin').textContent = d.originCount || 0;
   document.getElementById('sAdded').textContent  = Math.max(0, d.rows.length - (d.originCount || 0));
- clearTimeout(feederSyncTimer);
+  const savedKey = currentFeederKey();
+  clearTimeout(feederSyncTimer);
   feederSyncTimer = setTimeout(()=>{
-    saveFeederDataset().then(()=>updateSaveStamp());
+    saveFeederDatasetForKey(savedKey, d).then(()=>updateSaveStamp());
   }, 800);
+}
+
+async function saveFeederDatasetForKey(k, d){
+  try{
+    setSyncStatus('syncing','saving…');
+    await sbFetch('DELETE',TABLE+'?dataset_key=eq.'+encodeURIComponent(k));
+    if(d.rows.length){
+      const ins=d.rows.map((row,i)=>({dataset_key:k,row_index:i,data:row,origin_count:d.originCount||0}));
+      const res=await sbFetch('POST',TABLE,ins);
+      d.dbIds=res.map(r=>r.id);
+    } else {d.dbIds=[];}
+    setSyncStatus('synced','connected to database');
+    if(k === currentFeederKey()) updateSaveStamp();
+  }catch(e){setSyncStatus('error','save failed');console.error('Feeder save error:',e);}
 }
 
 function toggleFeederSelect(i,chk){if(chk)selected.add(i);else selected.delete(i);updateSelBar();renderFeederTable();}
