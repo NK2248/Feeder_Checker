@@ -3461,9 +3461,10 @@ let currentNumber = null; // e.g. "01", "02", or null for flat feeders
 function feederKey(sub, feed, subset, main, type, num, voltage, scheme){
   const v   = voltage !== undefined ? voltage : currentVoltage;
   const sc  = scheme  !== undefined ? scheme  : currentScheme;
+  const effectiveV = v || SCHEME_TEMPLATES[sc]?.voltageLevel || 'NOVOLT';
   const numPart  = (num !== undefined ? num : currentNumber) ? '__'+(num !== undefined ? num : currentNumber) : '';
   const mainPart = main ? '__'+subset+'__'+main : '__FLAT';
-  return '__feeder__'+sub+'__'+(v||'NOVOLT')+'__'+(sc||'NOSCHEME')+'__'+feed+numPart+mainPart+'__'+type;
+  return '__feeder__'+sub+'__'+effectiveV+'__'+(sc||'NOSCHEME')+'__'+feed+numPart+mainPart+'__'+type;
 }
 function currentFeederKey(){
   return feederKey(currentSubstation, currentFeeder, currentSubset, currentMain, currentFeederType, currentNumber, currentVoltage, currentScheme);
@@ -3728,9 +3729,10 @@ async function saveNewNumber(num){
 function feederKeyFor(sub,feed,num,subset,main,type,voltage,scheme){
   const v = voltage !== undefined ? voltage : currentVoltage;
   const sc = scheme !== undefined ? scheme : currentScheme;
+  const effectiveV = v || SCHEME_TEMPLATES[sc]?.voltageLevel || 'NOVOLT';
   const numPart = num ? '__'+num : '';
   const mainPart = main ? '__'+subset+'__'+main : '__FLAT';
-  return '__feeder__'+sub+'__'+(v||'NOVOLT')+'__'+(sc||'NOSCHEME')+'__'+feed+numPart+mainPart+'__'+type;
+  return '__feeder__'+sub+'__'+effectiveV+'__'+(sc||'NOSCHEME')+'__'+feed+numPart+mainPart+'__'+type;
 }
 
 
