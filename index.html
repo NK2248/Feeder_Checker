@@ -1797,7 +1797,7 @@ async function preloadAllCounts(){
       const key = currentDeviceSubstation ? currentDeviceSubstation+'__'+schemaKey : schemaKey;
       if(!DATASETS[key] || !DATASETS[key].rows.length){
         try{
-          const data = await sbFetchall(
+          const data = await sbFetchAll(
             TABLE+'?dataset_key=eq.'+encodeURIComponent(key)+
             '&select=id&order=row_index.asc'
           );
