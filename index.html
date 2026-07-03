@@ -3371,7 +3371,15 @@ function getVoltagesForSub(sub){
 function getSchemesFor(sub, voltage){
   // voltage param kept for call-site compatibility but a substation now has
   // exactly one voltage, so we just ignore mismatches and read its schemes.
-  return Object.keys(FEEDER_STRUCTURE[sub]?.schemes || {});
+  const keys = Object.keys(FEEDER_STRUCTURE[sub]?.schemes || {});
+  const declOrder = Object.keys(SCHEME_TEMPLATES);
+  // sort by SCHEME_TEMPLATES' declared order; anything not in the template
+  // keeps its relative position, appended after
+  return keys.slice().sort((a, b) => {
+    let ia = declOrder.indexOf(a); if(ia === -1) ia = declOrder.length + keys.indexOf(a);
+    let ib = declOrder.indexOf(b); if(ib === -1) ib = declOrder.length + keys.indexOf(b);
+    return ia - ib;
+  });
 }
 function schemeNode(sub, voltage, scheme){
   const sc = scheme !== undefined ? scheme : currentScheme;
