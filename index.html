@@ -1620,11 +1620,11 @@ async function doManualRouteImport(importMode) {
       console.warn('Key drifted after render calls — restoring to imported key for save.', importedKey, currentFeederKey());
       FEEDER_DATASETS[importedKey] = d;
     }
+    const savedKey = importedKey;
     console.log('[defaultImport] currently DISPLAYED key after render:', currentFeederKey());
     console.log('[defaultImport] key that will actually be SAVED:', savedKey);
 
     showLoading('Saving to cloud…');
-    const savedKey = importedKey;
     const savedData = FEEDER_DATASETS[savedKey];
     try{
       setSyncStatus('syncing','saving…');
