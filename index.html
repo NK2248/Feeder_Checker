@@ -1608,6 +1608,8 @@ async function doManualRouteImport(importMode) {
 
     // Lock in the key NOW, before any render call can change currentNumber/currentMain etc.
     const importedKey = currentFeederKey();
+    console.log('[defaultImport] IMPORT TARGET KEY:', importedKey);
+    console.log('[defaultImport] route used:', route);
 
     renderVoltageTabs(); renderSchemeTabs(); renderFeederTabs();
     renderNumberTabs();
@@ -1618,6 +1620,8 @@ async function doManualRouteImport(importMode) {
       console.warn('Key drifted after render calls — restoring to imported key for save.', importedKey, currentFeederKey());
       FEEDER_DATASETS[importedKey] = d;
     }
+    console.log('[defaultImport] currently DISPLAYED key after render:', currentFeederKey());
+    console.log('[defaultImport] key that will actually be SAVED:', savedKey);
 
     showLoading('Saving to cloud…');
     const savedKey = importedKey;
@@ -4601,6 +4605,11 @@ async function selectSubstation(name){
   currentMain = currentFeeder ? (getMainNames(name, currentFeeder)[0] ?? null) : null;
   currentSubset = currentMain;
   currentFeederType = FEEDER_SUBSETS[0];
+  console.log('[defaultImport] selectSubstation defaulted to:', {
+    scheme: currentScheme, feeder: currentFeeder, number: currentNumber,
+    main: currentMain, type: currentFeederType,
+    resultingKey: currentFeederKey()
+  });
   selected = new Set(); hideDupAlert();
 
   renderVoltageTabs(); renderSchemeTabs(); renderFeederTabs(); renderNumberTabs();
