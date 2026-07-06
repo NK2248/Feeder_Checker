@@ -1127,7 +1127,39 @@ function parseFilenameForRouting(filename, sheetName) {
                     normB.match(/no[_\s]*(\d+)/i) || [])[1];
   const detectedNumber = numMatch ? numMatch.padStart(2, '0') : null;
 
+  // FIX: DEFAULT's voltage is always null, so getVoltagesForSub(DEFAULT) returns []
+  // and the main loop below never even looks at DEFAULT's feeders. Check DEFAULT
+  // separately, scanning every scheme it has (or every template scheme if DEFAULT
+  // has none locally yet) directly, since DEFAULT has no voltage gate.
+  if(FEEDER_STRUCTURE[DEFAULT_SUBSTATION_NAME]){
+    const defaultSchemes = getSchemesFor(DEFAULT_SUBSTATION_NAME).length
+      ? getSchemesFor(DEFAULT_SUBSTATION_NAME)
+      : Object.keys(SCHEME_TEMPLATES); // fall back to templates if DEFAULT hasn't visited any scheme tab yet
+    for(const sc of defaultSchemes){
+      const feederNames = schemeNode(DEFAULT_SUBSTATION_NAME, undefined, sc)?.feeders
+        ? getFeederNames(DEFAULT_SUBSTATION_NAME, undefined, sc)
+        : Object.keys(SCHEME_TEMPLATES[sc]?.feeders || {});
+      for(const feed of feederNames){
+        if(normB.includes(norm(feed))){
+          console.log('[routing] matched DEFAULT feeder', {feed, scheme: sc});
+          return {
+            confidence: detectedType ? 'full' : 'partial',
+            mode: 'feeder',
+            substation: DEFAULT_SUBSTATION_NAME,
+            voltage: null,
+            scheme: sc,
+            feeder: feed,
+            main: mainMatch,
+            subset: mainMatch,
+            type: detectedType
+          };
+        }
+      }
+    }
+  }
+
   for (const sub of Object.keys(FEEDER_STRUCTURE)) {
+    if(sub === DEFAULT_SUBSTATION_NAME) continue; // already handled above
     for (const v of getVoltagesForSub(sub)) {
       for (const sc of getSchemesFor(sub, v)) {
         for (const feed of getFeederNames(sub, v, sc)) {
