@@ -3414,9 +3414,11 @@ function schemesAvailableForVoltage(v){
 }
 
 function getVoltagesForSub(sub){
+  if(sub === DEFAULT_SUBSTATION_NAME) return []; // DEFAULT never has a real voltage
   const v = FEEDER_STRUCTURE[sub]?.voltage;
   return v ? [v] : [];
 }
+
 function getSchemesFor(sub, voltage){
   // voltage param kept for call-site compatibility but a substation now has
   // exactly one voltage, so we just ignore mismatches and read its schemes.
@@ -4606,6 +4608,10 @@ function editDefaultTemplate(){
   if(!FEEDER_STRUCTURE[DEFAULT_SUBSTATION_NAME]){
     FEEDER_STRUCTURE[DEFAULT_SUBSTATION_NAME] = { voltage: null, schemes: {}, _userAdded: true };
     saveFeederConfig();
+  } else if(FEEDER_STRUCTURE[DEFAULT_SUBSTATION_NAME].voltage){
+    console.warn('[fix] DEFAULT had stale voltage — clearing it');
+    FEEDER_STRUCTURE[DEFAULT_SUBSTATION_NAME].voltage = null;
+    saveFeederConfig();
   }
   if(currentMode === 'device'){
     selectDeviceSubstation(DEFAULT_SUBSTATION_NAME);
@@ -4668,8 +4674,19 @@ async function selectSubstation(name){
   </span>`;
   document.getElementById('substationSearchWrap').style.display = 'none';
 
-  const voltages = getVoltagesForSub(name);
-  currentVoltage = voltages[0] || null;
+  // DEFAULT always applies to all voltages — never trust a stored voltage value for it,
+  // since it may be stale from before this rule existed.
+  if(name === DEFAULT_SUBSTATION_NAME){
+    if(FEEDER_STRUCTURE[name].voltage){
+      console.warn('[fix] DEFAULT had stale voltage "'+FEEDER_STRUCTURE[name].voltage+'" — clearing it');
+      FEEDER_STRUCTURE[name].voltage = null;
+      saveFeederConfig();
+    }
+    currentVoltage = null;
+  } else {
+    const voltages = getVoltagesForSub(name);
+    currentVoltage = voltages[0] || null;
+  }
   const schemes = getSchemesFor(name, currentVoltage);
   currentScheme = schemes[0] || null;
   currentFeeder = currentScheme ? (getFeederNames(name)[0] || null) : null;
