@@ -3064,14 +3064,26 @@ function isEditingDefault(){ return currentSubstation === DEFAULT_SUBSTATION_NAM
 
 async function copyDefaultDataIntoScheme(sub, sc, newVoltage){
   if(sub === DEFAULT_SUBSTATION_NAME) return; // never copy onto itself
+  if(!FEEDER_STRUCTURE[DEFAULT_SUBSTATION_NAME]){
+    FEEDER_STRUCTURE[DEFAULT_SUBSTATION_NAME] = { voltage: null, schemes: {}, _userAdded: true };
+  }
   const defaultCfg = FEEDER_STRUCTURE[DEFAULT_SUBSTATION_NAME];
-  if(!defaultCfg) return; // no default template configured yet
-  const defaultScheme = defaultCfg.schemes?.[sc];
-  if(!defaultScheme) return; // DEFAULT doesn't have this scheme set up
+  if(!defaultCfg.schemes) defaultCfg.schemes = {};
+
+  // FIX: don't bail just because DEFAULT's local scheme node hasn't been
+  // created yet (e.g. nobody ever opened that scheme tab while editing DEFAULT).
+  // Clone the template structure now so we still check Supabase for real data.
+  if(!defaultCfg.schemes[sc]){
+    if(!SCHEME_TEMPLATES[sc]){ console.warn('[copyDefault] no template for scheme', sc); return; }
+    defaultCfg.schemes[sc] = { schemeType: sc, feeders: JSON.parse(JSON.stringify(SCHEME_TEMPLATES[sc].feeders)) };
+    await saveFeederConfig();
+    console.log('[copyDefault] DEFAULT had no local node for scheme "'+sc+'" — cloned template to check for data');
+  }
 
   const newScheme = FEEDER_STRUCTURE[sub].schemes[sc];
-  const dv = defaultCfg.voltage; // always null — DEFAULT's keys use the 'NOVOLT' placeholder consistently
+  const dv = defaultCfg.voltage; // always null — DEFAULT's keys use the scheme's own voltageLevel
 
+  let copiedAny = false;
   for(const [feed, feedCfg] of Object.entries(newScheme.feeders || {})){
     const numbers = feedCfg.hasNumbers ? Object.keys(feedCfg.numbers) : [null];
     for(const num of numbers){
@@ -3082,17 +3094,21 @@ async function copyDefaultDataIntoScheme(sub, sc, newVoltage){
         for(const type of FEEDER_SUBSETS){
           const srcKey = feederKeyFor(DEFAULT_SUBSTATION_NAME, feed, num, subset, main, type, dv, sc);
           const dstKey = feederKeyFor(sub, feed, num, subset, main, type, newVoltage, sc);
+          console.log('[copyDefault] check', {scheme:sc, feed, num, main, type, srcKey, dstKey});
           try{
             const data = await sbFetchAll(TABLE+'?dataset_key=eq.'+encodeURIComponent(srcKey)+'&order=row_index.asc');
             if(data.length){
+              copiedAny = true;
               const ins = data.map((r,i)=>({dataset_key:dstKey,row_index:i,data:r.data,origin_count:r.origin_count||0}));
               await sbFetch('POST', TABLE, ins);
+              console.log('[copyDefault] ✓ copied', data.length, 'rows', srcKey, '->', dstKey);
             }
-          }catch(e){ console.error('Default copy error', srcKey, '->', dstKey, e); }
+          }catch(e){ console.error('[copyDefault] error', srcKey, '->', dstKey, e); }
         }
       }
     }
   }
+  if(!copiedAny) console.warn('[copyDefault] scheme "'+sc+'" — no source data found under DEFAULT (see [copyDefault] check logs above for exact keys tried)');
 }
 
 async function selectVoltageForSubstation(v){
@@ -3148,6 +3164,7 @@ async function selectVoltageForSubstation(v){
   renderSubsetTabs();
   renderMainTabs();
   renderFeederTypeTabs();
+  logKey('selectVoltageForSubstation');
   if(currentFeeder){
     loadFeederDataset();
   } else {
@@ -3477,6 +3494,17 @@ function feederKey(sub, feed, subset, main, type, num, voltage, scheme){
 function currentFeederKey(){
   return feederKey(currentSubstation, currentFeeder, currentSubset, currentMain, currentFeederType, currentNumber, currentVoltage, currentScheme);
 }
+function logKey(action){
+  console.log('[key] '+action, {
+    mode: currentMode,
+    substation: currentMode==='feeder' ? currentSubstation : currentDeviceSubstation,
+    voltage: currentVoltage, scheme: currentScheme, feeder: currentFeeder,
+    number: currentNumber, main: currentMain, subset: currentSubset,
+    type: currentMode==='feeder' ? currentFeederType : currentType,
+    device: currentDevice,
+    key: currentMode==='feeder' ? currentFeederKey() : currentKey()
+  });
+}
 function feederCols(){
   return FEEDER_SCHEMA_TEMPLATES[FEEDER_SCHEMA_MAP[currentFeederType]];
 }
@@ -3614,6 +3642,7 @@ async function switchFeeder(f){
   currentFeederType = FEEDER_SUBSETS[0];
   selected = new Set(); hideDupAlert();
   renderFeederTabs(); renderNumberTabs(); renderSubsetTabs(); renderMainTabs(); syncFeederTypeTabCounts();
+  logKey('switchFeeder');
   await loadFeederDataset();
   updateBreadcrumb();
 }
@@ -3634,6 +3663,7 @@ async function switchSubset(s){
   currentFeederType=FEEDER_SUBSETS[0];
   selected=new Set();hideDupAlert();
   renderSubsetTabs();renderMainTabs();syncFeederTypeTabCounts();
+  logKey('switchSubset');
   await loadFeederDataset();
   updateBreadcrumb();
 }
@@ -3682,6 +3712,7 @@ async function switchNumber(n){
   currentFeederType = FEEDER_SUBSETS[0];
   selected = new Set(); hideDupAlert();
   renderNumberTabs(); renderMainTabs(); syncFeederTypeTabCounts();
+  logKey('switchNumber');
   await loadFeederDataset();
   updateBreadcrumb();
 }
@@ -3781,6 +3812,7 @@ async function switchMain(m){
   currentFeederType = FEEDER_SUBSETS[0];
   selected = new Set(); hideDupAlert();
   renderMainTabs(); syncFeederTypeTabCounts();
+  logKey('switchMain');
   await loadFeederDataset();
   updateBreadcrumb();
 }
@@ -4047,7 +4079,9 @@ function renderFeederTypeTabs(){
 async function switchFeederType(t){
   if(!confirmIfDirty('Switch type? Unsaved changes may be lost.')) return;
   currentFeederType=t;selected=new Set();hideDupAlert();
-  renderFeederTypeTabs();await loadFeederDataset();
+  renderFeederTypeTabs();
+  logKey('switchFeederType');
+  await loadFeederDataset();
   updateBreadcrumb();
 }
 
@@ -4620,6 +4654,7 @@ async function selectSubstation(name){
     main: currentMain, type: currentFeederType,
     resultingKey: currentFeederKey()
   });
+  logKey('selectSubstation');
   selected = new Set(); hideDupAlert();
 
   renderVoltageTabs(); renderSchemeTabs(); renderFeederTabs(); renderNumberTabs();
@@ -4637,6 +4672,7 @@ function changeSubstation(){
   document.getElementById('substationSearchWrap').style.display = 'block';
   document.getElementById('substationSearchInput').value = '';
   renderVoltageTabs(); renderSchemeTabs(); renderFeederTabs(); renderNumberTabs(); renderSubsetTabs(); renderMainTabs(); syncFeederTypeTabCounts();
+  logKey('changeSubstation');
   showEmptySubstationState();
   updateBreadcrumb();
 }
@@ -4701,6 +4737,7 @@ async function switchScheme(sc){
   currentFeederType = FEEDER_SUBSETS[0];
   selected = new Set(); hideDupAlert();
   renderSchemeTabs(); renderFeederTabs(); renderNumberTabs(); renderSubsetTabs(); renderMainTabs(); syncFeederTypeTabCounts();
+  logKey('switchScheme');
   if(currentFeeder) await loadFeederDataset();
   else {
     document.getElementById('tableArea').innerHTML='<div class="empty"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg><p>No feeders in this scheme</p></div>';
