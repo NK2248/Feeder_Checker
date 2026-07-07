@@ -1673,6 +1673,7 @@ async function doManualRouteImport(importMode) {
       console.error('Feeder save error:',e);
     }
     await saveFeederHistoryPoint('auto');
+    await verifySavedRowCount(savedKey, savedData.rows.length, route.feeder+' / '+route.type);
     hideLoading();
     syncFeederTypeTabCounts();
     updateBreadcrumb();
@@ -4141,6 +4142,22 @@ async function loadFeederDataset(){
     setSyncStatus('error','sync error');console.error('Feeder load error:',e);
   }
   renderFeederTable();renderFeederStats();renderFeederKeyChips();renderFeederTypeTabs();
+}
+
+async function verifySavedRowCount(key, expectedCount, label){
+  try{
+    const check = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(key)+'&select=id');
+    const actualCount = check ? check.length : 0;
+    if(actualCount !== expectedCount){
+      console.error('[verify] MISMATCH for', key, '— expected', expectedCount, 'got', actualCount);
+      showImportToast(`<strong>⚠ Save verification failed</strong><br>${label||key}: expected ${expectedCount} rows, found ${actualCount} in database. Please re-check this dataset.`, true);
+      return false;
+    }
+    return true;
+  }catch(e){
+    console.error('[verify] check failed', e);
+    return true; // don't block the flow if the check itself fails
+  }
 }
 
 async function saveFeederDataset(){
