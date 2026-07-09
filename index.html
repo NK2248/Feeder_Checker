@@ -2583,7 +2583,7 @@ function updateDescriptorHint(){
     const s1 = (document.getElementById('nf_STATE_1')||{}).value||'';
     const s2 = (document.getElementById('nf_STATE_2')||{}).value||'';
     // if STATE_0 is UNDEFINED (or empty), shift to STATE_1 / STATE_2
-    const s0IsUndefined = s0.trim().toUpperCase()==='UNDEFINED' || s0.trim()==='';
+    const s0IsUndefined = s0.trim().toUpperCase()==='UNDEFINED' || s0.trim()===''|| s0.trim().toUpperCase()==='N/A' || s0.trim().toUpperCase()==='NA' || s0.trim().toUpperCase()==='NONE'|| s0.trim().toUpperCase()==='NULL' || s0.trim().toUpperCase()==='EMPTY' || s0.trim().toUpperCase()==='BLANK' || s0.trim().toUpperCase()==='-';
     if(s0IsUndefined){
       if(s1||s2) hint = [s1,s2].filter(Boolean).join(' / ');
     } else {
