@@ -2836,6 +2836,7 @@ async function saveHistoryPoint(trigger='auto'){
     label,trigger,
     timestamp: new Date().toISOString(),
     rowCount: d.rows.length,
+    saved_by: currentUser(),
     rows: JSON.parse(JSON.stringify(d.rows))
   };
 
@@ -2886,7 +2887,7 @@ async function renderHistList(){
       return `<div class="hist-item">
         <div class="hist-meta">
           <div class="hist-label">${isManual ? '📌 ' : '🔄 '}${e.label}</div>
-          <div class="hist-time">${dateStr} at ${timeStr}</div>
+          <div class="hist-time">${dateStr} at ${timeStr}${e.saved_by ? ' · by <span style="color:var(--accent);font-weight:500">'+e.saved_by+'</span>' : ''}</div>
           <div class="hist-rows">${e.rowCount ?? (e.rows ? e.rows.length : '?')} rows</div>
         </div>
         <div class="hist-actions">
@@ -4546,6 +4547,7 @@ async function saveFeederHistoryPoint(trigger='auto'){
   const entry={
     label:trigger==='manual'?'Manual save':'Auto — '+currentSubstation+' / '+currentFeeder+' / '+currentFeederType,
     trigger,timestamp:new Date().toISOString(),rowCount:d.rows.length,
+    saved_by: currentUser(),
     rows:JSON.parse(JSON.stringify(d.rows))
   };
   try{
