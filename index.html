@@ -2887,7 +2887,8 @@ async function openHistory(){
   document.getElementById('histList').innerHTML = '<div class="hist-empty">Loading…</div>';
   const restoreBtn = document.getElementById('btnRestoreDefault');
   if(restoreBtn){
-    restoreBtn.style.display = (currentMode==='feeder' && !isEditingDefault()) ? 'flex' : 'none';
+    const isDefaultCtx = currentMode==='feeder' ? isEditingDefault() : (currentDeviceSubstation === DEFAULT_SUBSTATION_NAME);
+    restoreBtn.style.display = !isDefaultCtx ? 'flex' : 'none';
   }
   document.getElementById('historyModal').classList.add('open');
   await renderHistList();
@@ -3020,12 +3021,59 @@ async function doClearHistory(){
 }
 
 function confirmRestoreDefaultTemplate(){
+  if(currentMode === 'device'){
+    if(!currentDeviceSubstation){ alert('Select a substation first.'); return; }
+    document.getElementById('confirmMsg').textContent =
+      'Replace all current data in "'+currentDeviceSubstation+' / '+currentDevice+' / '+currentType+
+      '" with the DEFAULT template version? A backup checkpoint will be saved first. This cannot be undone.';
+    document.getElementById('confirmOkBtn').onclick = doRestoreDefaultDeviceTemplate;
+    document.getElementById('confirmModal').classList.add('open');
+    return;
+  }
   if(!currentFeeder){ alert('Select a feeder first.'); return; }
   document.getElementById('confirmMsg').textContent =
     'Replace all current data in "'+currentSubstation+' / '+currentFeeder+' / '+currentFeederType+
     '" with the DEFAULT template version? A backup checkpoint will be saved first. This cannot be undone.';
   document.getElementById('confirmOkBtn').onclick = doRestoreDefaultTemplate;
   document.getElementById('confirmModal').classList.add('open');
+}
+
+async function doRestoreDefaultDeviceTemplate(){
+  closeModal('confirmModal');
+  const schemaKey = GROUPS[currentDevice][currentType];
+  const srcKey = DEFAULT_SUBSTATION_NAME+'__'+schemaKey;
+
+  showLoading('Fetching default template…');
+  let data = [];
+  try{
+    data = await sbFetchAll(TABLE+'?dataset_key=eq.'+encodeURIComponent(srcKey)+'&order=row_index.asc');
+  }catch(e){
+    hideLoading();
+    alert('Could not fetch default template: '+e.message);
+    return;
+  }
+  if(!data.length){
+    hideLoading();
+    alert('No default template data found for "'+currentDevice+' / '+currentType+'".');
+    return;
+  }
+
+  await saveHistoryPoint('auto');
+
+  const d = ds(); const c = cols();
+  d.rows = data.map(r => { const o={}; c.forEach(col=>o[col]=r.data[col]??''); return o; });
+  d.originCount = data[0].origin_count || 0;
+  d.manuallyAdded = new Set();
+  d.dupInfo = {}; d.checked = false;
+  selected = new Set(); hideDupAlert();
+
+  closeModal('historyModal');
+  renderAll();
+  showLoading('Saving restored data…');
+  await saveDataset(currentKey());
+  await saveHistoryPoint('auto');
+  hideLoading();
+  setSyncStatus('synced','restored from default ✓');
 }
 
 async function doRestoreDefaultTemplate(){
