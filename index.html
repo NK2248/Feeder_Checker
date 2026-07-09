@@ -2507,6 +2507,12 @@ function isStateFilled(v){
       return [row0, row1];
     }
 
+    if(!s0Filled && s1Filled && s2Filled && s3Filled){
+      const row0 = {...baseRow, 'DNP3.0_ADDRESS': String(baseAddr)};
+      const row1 = {...baseRow, 'DNP3.0_ADDRESS': String(baseAddr+1)};
+      return [row0, row1];
+    }
+
     if(!s0Filled && s1Filled && s2Filled){
       // STATE_0 is a placeholder ('-' etc) — shift to STATE_1/STATE_2 pair, single row
       return [baseRow];
