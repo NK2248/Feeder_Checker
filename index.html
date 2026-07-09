@@ -2476,8 +2476,9 @@ function getNextAddress(rows){
     return String(max + 1);
   }
 
-  function isStateFilled(v){
-    const t = String(v ?? '').trim();
+function isStateFilled(v){
+    let t;
+    try{ t = String(v ?? '').trim(); }catch(e){ return false; }
     return t !== '' && t !== '-' && t !== '—' && t !== 'N/A' && t !== 'n/a' && t !== 'na' && t !== 'NA' && t !== 'null' && t !== 'NULL' && t !== 'undefined' && t !== 'UNDEFINED';
   }
 
