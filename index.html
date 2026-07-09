@@ -172,6 +172,7 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
 .meta-cell span{display:block;line-height:1.5}
 .meta-cell .who{color:var(--accent);font-weight:500}
 #tableArea{max-width:100%;overflow-x:auto;box-sizing:border-box}
+#confirmModal, #restoreModal { z-index: 150; }
 
 /* ── FIX 2: Mode bar / substation / feeder tab styles ───────────────── */
 .mode-bar{display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;padding:6px;background:var(--accent);border-radius:var(--rlg)}
@@ -445,7 +446,7 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
     <kbd style="background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:1px 5px;font-size:9px">Ctrl+F</kbd> search
   </span>
   <span style="display:flex;align-items:center;gap:4px">
-    <kbd style="background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:1px 5px;font-size:9px">Ctrl+S</kbd> checkpoint
+    <kbd style="background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:1px 5px;font-size:9px">Ctrl+S</kbd> save history
   </span>
   <span style="display:flex;align-items:center;gap:4px">
     <kbd style="background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:1px 5px;font-size:9px">Ctrl+D</kbd> dup check
