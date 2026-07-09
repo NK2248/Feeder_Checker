@@ -2462,9 +2462,24 @@ const TYPE_AUTOFILL = {
   'CTR': {'DNP3.0_OBJ':'20','DNP3.0_VAR':'1','DNP3.0_QII':'17,28 or 00,01','DNP3.0_CLASS':'1'},
 };
 
+function getNextAddress(rows){
+    let max = -1;
+    rows.forEach(r=>{
+      const v = parseInt(r['DNP3.0_ADDRESS']);
+      if(!isNaN(v) && v > max) max = v;
+    });
+    return String(max + 1);
+  }
+
+  function isStateFilled(v){
+    const t = String(v ?? '').trim();
+    return t !== '' && t !== '-' && t !== '—' && t !== 'N/A' && t !== 'n/a' && t !== 'na' && t !== 'NA' && t !== 'null' && t !== 'NULL' && t !== 'undefined' && t !== 'UNDEFINED';
+  }
+
 function openAddRow(){
   const c=cols();
-  const defaults=DEVICE_ROW_DEFAULTS[currentType]||{};
+  const defaults={...(DEVICE_ROW_DEFAULTS[currentType]||{})};
+  defaults['DNP3.0_ADDRESS']=getNextAddress(ds().rows);
   document.getElementById('addFields').innerHTML=c.map(col=>{
     const def=defaults[col]??'';
     // DNP3.0_TYPE gets a dropdown
@@ -2516,7 +2531,7 @@ async function saveNewRow(){
   const allStates=[state0,state1,state2,state3];
   const baseAddr=parseInt(baseRow['DNP3.0_ADDRESS'])||0;
 
-  const all4Filled = isStatusPoint && state0.trim() && state1.trim() && state2.trim() && state3.trim();
+  const all4Filled = isStatusPoint && isStateFilled(state0) && isStateFilled(state1) && isStateFilled(state2) && isStateFilled(state3);
   if(all4Filled){
     const row0={...baseRow};
     //row0['SPECIFICATION_DESCRIPTOR']=state0+' / '+state1;
@@ -2583,7 +2598,7 @@ function updateDescriptorHint(){
     const s1 = (document.getElementById('nf_STATE_1')||{}).value||'';
     const s2 = (document.getElementById('nf_STATE_2')||{}).value||'';
     // if STATE_0 is UNDEFINED (or empty), shift to STATE_1 / STATE_2
-    const s0IsUndefined = s0.trim().toUpperCase()==='UNDEFINED' || s0.trim()===''|| s0.trim().toUpperCase()==='N/A' || s0.trim().toUpperCase()==='NA' || s0.trim().toUpperCase()==='NONE'|| s0.trim().toUpperCase()==='NULL' || s0.trim().toUpperCase()==='EMPTY' || s0.trim().toUpperCase()==='BLANK' || s0.trim().toUpperCase()==='-';
+    const s0IsUndefined = isStateFilled(s0) === false;
     if(s0IsUndefined){
       if(s1||s2) hint = [s1,s2].filter(Boolean).join(' / ');
     } else {
@@ -4462,7 +4477,8 @@ function openFeederAddRow(){
   const defaults= {
     ...(feederDefaultsMap[currentFeederType] || {}),
     'FEEDER_NAME': defaultFeederNameFor(currentSubstation, currentFeeder, currentNumber) || '',
-    'BAY_NAME': bayDefault
+    'BAY_NAME': bayDefault,
+    'DNP3.0_ADDRESS': getNextAddress(fds().rows)
   };
   document.getElementById('addFields').innerHTML=c.map(col=>{
     const def=defaults[col]??'';
@@ -4522,7 +4538,7 @@ async function saveFeederNewRow(){
   const allStates = [state0,state1,state2,state3];
   const baseAddr = parseInt(baseRow['DNP3.0_ADDRESS'])||0;
 
-  const all4Filled = isStatusPoint && state0.trim() && state1.trim() && state2.trim() && state3.trim();
+  const all4Filled = isStatusPoint && isStateFilled(state0) && isStateFilled(state1) && isStateFilled(state2) && isStateFilled(state3);
   if(all4Filled){
     // 2-bit DI: two rows, addr N (state 0+1) and addr N+1 (state 2+3)
     const row0 = {...baseRow};
