@@ -2477,9 +2477,42 @@ function getNextAddress(rows){
   }
 
 function isStateFilled(v){
-    let t;
-    try{ t = String(v ?? '').trim(); }catch(e){ return false; }
+    const t = String(v ?? '').trim();
     return t !== '' && t !== '-' && t !== '—' && t !== 'N/A' && t !== 'n/a' && t !== 'na' && t !== 'NA' && t !== 'null' && t !== 'NULL' && t !== 'undefined' && t !== 'UNDEFINED';
+  }
+
+  // Builds the row(s) to insert for a Status Point.
+  // - all 4 states filled → 2-bit split: two rows, addr N and N+1 (existing behavior)
+  // - STATE_0 is empty/undefined-like ('-','N/A', etc) but STATE_1 & STATE_2 are filled
+  //   → treat STATE_0 as a placeholder; the "real" pair lives in STATE_1/STATE_2.
+  //     Only ONE row is created (no address split), matching the shift logic
+  //     already used for the descriptor hint.
+  // - otherwise → single row, unchanged.
+  function buildStatusPointRows(baseRow, isStatusPoint){
+    if(!isStatusPoint) return [baseRow];
+    const state0 = baseRow['STATE_0']||'';
+    const state1 = baseRow['STATE_1']||'';
+    const state2 = baseRow['STATE_2']||'';
+    const state3 = baseRow['STATE_3']||'';
+    const baseAddr = parseInt(baseRow['DNP3.0_ADDRESS'])||0;
+
+    const s0Filled = isStateFilled(state0);
+    const s1Filled = isStateFilled(state1);
+    const s2Filled = isStateFilled(state2);
+    const s3Filled = isStateFilled(state3);
+
+    if(s0Filled && s1Filled && s2Filled && s3Filled){
+      const row0 = {...baseRow, 'DNP3.0_ADDRESS': String(baseAddr)};
+      const row1 = {...baseRow, 'DNP3.0_ADDRESS': String(baseAddr+1)};
+      return [row0, row1];
+    }
+
+    if(!s0Filled && s1Filled && s2Filled){
+      // STATE_0 is a placeholder ('-' etc) — shift to STATE_1/STATE_2 pair, single row
+      return [baseRow];
+    }
+
+    return [baseRow];
   }
 
 function openAddRow(){
@@ -2532,24 +2565,8 @@ async function saveNewRow(){
   baseRow.__edited_by=''; baseRow.__edited_at='';
 
   const isStatusPoint = c.includes('STATE_0') && !c.includes('STATE_CLOSE');
-  const state0=baseRow['STATE_0']||'', state1=baseRow['STATE_1']||'',
-        state2=baseRow['STATE_2']||'', state3=baseRow['STATE_3']||'';
-  const allStates=[state0,state1,state2,state3];
-  const baseAddr=parseInt(baseRow['DNP3.0_ADDRESS'])||0;
-
-  const all4Filled = isStatusPoint && isStateFilled(state0) && isStateFilled(state1) && isStateFilled(state2) && isStateFilled(state3);
-  if(all4Filled){
-    const row0={...baseRow};
-    //row0['SPECIFICATION_DESCRIPTOR']=state0+' / '+state1;
-    row0['DNP3.0_ADDRESS']=String(baseAddr);
-    d.rows.push(row0); d.manuallyAdded.add(d.rows.length-1);
-    const row1={...baseRow};
-    //row1['SPECIFICATION_DESCRIPTOR']=state2+' / '+state3;
-    row1['DNP3.0_ADDRESS']=String(baseAddr+1);
-    d.rows.push(row1); d.manuallyAdded.add(d.rows.length-1);
-  } else {
-    d.rows.push(baseRow); d.manuallyAdded.add(d.rows.length-1);
-  }
+  const rowsToAdd = buildStatusPointRows(baseRow, isStatusPoint);
+  rowsToAdd.forEach(r => { d.rows.push(r); d.manuallyAdded.add(d.rows.length-1); });
 
   d.dupInfo={};d.checked=false;hideDupAlert();
   closeModal('addModal');renderAll();
@@ -4647,27 +4664,8 @@ async function saveFeederNewRow(){
   baseRow.__added_by=currentUser();baseRow.__added_at=nowISO();baseRow.__edited_by='';baseRow.__edited_at='';
 
   const isStatusPoint = c.includes('STATE_0') && !c.includes('STATE_CLOSE');
-  const state0 = baseRow['STATE_0']||'';
-  const state1 = baseRow['STATE_1']||'';
-  const state2 = baseRow['STATE_2']||'';
-  const state3 = baseRow['STATE_3']||'';
-  const allStates = [state0,state1,state2,state3];
-  const baseAddr = parseInt(baseRow['DNP3.0_ADDRESS'])||0;
-
-  const all4Filled = isStatusPoint && isStateFilled(state0) && isStateFilled(state1) && isStateFilled(state2) && isStateFilled(state3);
-  if(all4Filled){
-    // 2-bit DI: two rows, addr N (state 0+1) and addr N+1 (state 2+3)
-    const row0 = {...baseRow};
-    //row0['SPECIFICATION_DESCRIPTOR'] = state0 + ' / ' + state1;
-    row0['DNP3.0_ADDRESS'] = String(baseAddr);
-    d.rows.push(row0); d.manuallyAdded.add(d.rows.length-1);
-    const row1 = {...baseRow};
-    //row1['SPECIFICATION_DESCRIPTOR'] = state0 + ' / ' + state1;
-    row1['DNP3.0_ADDRESS'] = String(baseAddr + 1);
-    d.rows.push(row1); d.manuallyAdded.add(d.rows.length-1);
-  } else {
-    d.rows.push(baseRow); d.manuallyAdded.add(d.rows.length-1);
-  }
+  const rowsToAdd = buildStatusPointRows(baseRow, isStatusPoint);
+  rowsToAdd.forEach(r => { d.rows.push(r); d.manuallyAdded.add(d.rows.length-1); });
 
   d.dupInfo={};d.checked=false;hideDupAlert();
   closeModal('addModal');renderFeederTable();renderFeederStats();
