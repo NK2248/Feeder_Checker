@@ -2417,7 +2417,7 @@ function renderTable(){
     const badge=isOrigin?`<span class="origin-badge">origin</span>`:st==='dup'?`<span class="badge dup">duplicate</span>`:st==='orig'?`<span class="badge orig">original</span>`:isM?`<span class="badge new">added</span>`:'';
     const cells=c.map((col,ci)=>{
       const isAddr=col==='DNP3.0_ADDRESS';
-      const isNote=col==='NOTE';
+      const isNote=col==='NOTE'||col==='REMARK';
       const isScale=col==='SCALE_ACTUAL_DATA'||col==='SCALE_RAW_DATA';
       const locked=isOrigin&&!isAddr&&!isNote&&!isScale;
       let cls=ci===0?'fl':'';
