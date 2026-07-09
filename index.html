@@ -2339,7 +2339,7 @@ function editCell(idx,col,el){
   setDirty(true);
   const d=ds();
   const isOrigin=idx<(d.originCount||0);
-  const alwaysEditable=['DNP3.0_ADDRESS','NOTE','SCALE_ACTUAL_DATA','SCALE_RAW_DATA'];
+  const alwaysEditable=['DNP3.0_ADDRESS','NOTE','SCALE_ACTUAL_DATA','SCALE_RAW_DATA','REMARK','BAY_NAME'];
   if(isOrigin && !alwaysEditable.includes(col)){
     el.innerText=d.rows[idx][col]??'';
     return;
