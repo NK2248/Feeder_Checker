@@ -641,10 +641,15 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
       </button>
     </div>
     <div style="font-size:12px;color:var(--text3);font-family:var(--mono);margin-bottom:14px" id="histSubLabel"></div>
-    <button class="btn success" style="width:100%;justify-content:center;margin-bottom:14px" 
+    <button class="btn success" style="width:100%;justify-content:center;margin-bottom:10px" 
     onclick="currentMode==='feeder'?saveFeederHistoryPoint('manual').then(()=>{setSyncStatus('synced','history saved ✓');renderHistList();}):saveHistoryPoint('manual').then(()=>{setSyncStatus('synced','history saved ✓');renderHistList();})">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         💾 save history now
+    </button>
+    <button class="btn" id="btnRestoreDefault" style="display:none;width:100%;justify-content:center;margin-bottom:14px;border-color:#c8a8e8;background:#f3eaff;color:#5a3d8a"
+    onclick="confirmRestoreDefaultTemplate()">
+      <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+      ⚙ restore from default template
     </button>
     <div class="hist-list" id="histList"></div>
     <div style="border-top:1px solid var(--border);padding-top:12px;display:flex;justify-content:flex-end">
@@ -2878,6 +2883,10 @@ async function openHistory(){
     : currentDevice+' — '+currentType;
   document.getElementById('histSubLabel').textContent = lbl+'  (max '+MAX_HISTORY+' entries)';
   document.getElementById('histList').innerHTML = '<div class="hist-empty">Loading…</div>';
+  const restoreBtn = document.getElementById('btnRestoreDefault');
+  if(restoreBtn){
+    restoreBtn.style.display = (currentMode==='feeder' && !isEditingDefault()) ? 'flex' : 'none';
+  }
   document.getElementById('historyModal').classList.add('open');
   await renderHistList();
 }
@@ -2886,7 +2895,8 @@ async function renderHistList(){
   const histKey = '__history__' + (currentMode==='feeder' ? currentFeederKey() : currentKey());
   try {
     const existing = await sbFetch('GET', TABLE + '?dataset_key=eq.' + encodeURIComponent(histKey) + '&order=row_index.asc');
-    const entries = existing.map(r => ({...r.data, dbId: r.id}));
+    const entries = existing.map(r => ({...r.data, dbId: r.id}))
+      .sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
     const list = document.getElementById('histList');
 
     if(!entries.length){
@@ -3005,6 +3015,62 @@ async function doClearHistory(){
     closeModal('confirmModal');
     await renderHistList();
   }catch(e){ console.error(e); }
+}
+
+function confirmRestoreDefaultTemplate(){
+  if(!currentFeeder){ alert('Select a feeder first.'); return; }
+  document.getElementById('confirmMsg').textContent =
+    'Replace all current data in "'+currentSubstation+' / '+currentFeeder+' / '+currentFeederType+
+    '" with the DEFAULT template version? A backup checkpoint will be saved first. This cannot be undone.';
+  document.getElementById('confirmOkBtn').onclick = doRestoreDefaultTemplate;
+  document.getElementById('confirmModal').classList.add('open');
+}
+
+async function doRestoreDefaultTemplate(){
+  closeModal('confirmModal');
+  if(!FEEDER_STRUCTURE[DEFAULT_SUBSTATION_NAME]){
+    alert('No DEFAULT template exists yet.');
+    return;
+  }
+  const srcKey = feederKeyFor(
+    DEFAULT_SUBSTATION_NAME, currentFeeder, currentNumber,
+    currentSubset, currentMain, currentFeederType,
+    null, currentScheme
+  );
+
+  showLoading('Fetching default template…');
+  let data = [];
+  try{
+    data = await sbFetchAll(TABLE+'?dataset_key=eq.'+encodeURIComponent(srcKey)+'&order=row_index.asc');
+  }catch(e){
+    hideLoading();
+    alert('Could not fetch default template: '+e.message);
+    return;
+  }
+  if(!data.length){
+    hideLoading();
+    alert('No default template data found for "'+currentFeeder+' / '+currentFeederType+'".');
+    return;
+  }
+
+  // backup current state first
+  await saveFeederHistoryPoint('auto');
+
+  const d = fds(); const c = feederCols();
+  d.rows = data.map(r => { const o={}; c.forEach(col=>o[col]=r.data[col]??''); return o; });
+  d.originCount = data[0].origin_count || 0;
+  d.manuallyAdded = new Set();
+  d.dupInfo = {}; d.checked = false;
+  selected = new Set(); hideDupAlert();
+
+  closeModal('historyModal');
+  renderFeederTable(); renderFeederStats();
+  showLoading('Saving restored data…');
+  await saveFeederDataset();
+  await saveFeederHistoryPoint('auto');
+  hideLoading();
+  syncFeederTypeTabCounts();
+  setSyncStatus('synced','restored from default ✓');
 }
 
 // ── Schema templates ──────────────────────────────────────────────────────────
