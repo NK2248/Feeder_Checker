@@ -4776,6 +4776,9 @@ function runFeederDupCheck(col){
 
 // ── Add Substation / Feeder ───────────────────────────────────────────────────
 function editDefaultTemplate(){
+  if(!confirm('You are about to edit the DEFAULT template.\n\nAny changes here become the baseline copied into every NEW substation, and can be pulled into existing substations via "restore from default template."\n\nContinue?')){
+    return;
+  }
   if(!FEEDER_STRUCTURE[DEFAULT_SUBSTATION_NAME]){
     FEEDER_STRUCTURE[DEFAULT_SUBSTATION_NAME] = { voltage: null, schemes: {}, _userAdded: true };
     saveFeederConfig();
