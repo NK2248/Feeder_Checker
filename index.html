@@ -556,10 +556,6 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:2px;background:#c8a8e8;display:inline-block"></span> purple = locked origin</span>
   <span style="color:var(--border2)">·</span>
   <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:2px;background:var(--blue-bdr);display:inline-block"></span> blue = added</span>
-  <button onclick="editDefaultTemplate()" title="Edit the hidden default dataset template"
-    style="font-size:10px;font-family:var(--mono);color:var(--text3);background:transparent;border:1px dashed var(--border2);border-radius:var(--r);padding:4px 9px;cursor:pointer;white-space:nowrap;margin-left:4px">
-    ⚙ edit default template
-  </button>
 </div>
 
 <!-- Dup Check Modal -->
@@ -645,16 +641,24 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
     </div>
     <div style="font-size:12px;color:var(--text3);font-family:var(--mono);margin-bottom:14px" id="histSubLabel"></div>
     <button class="btn success" style="width:100%;justify-content:center;margin-bottom:10px" 
-    onclick="currentMode==='feeder'?saveFeederHistoryPoint('manual').then(()=>{setSyncStatus('synced','history saved ✓');renderHistList();}):saveHistoryPoint('manual').then(()=>{setSyncStatus('synced','history saved ✓');renderHistList();})">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        💾 save history now
-    </button>
-    <button class="btn" id="btnRestoreDefault" style="display:none;width:100%;justify-content:center;margin-bottom:14px;border-color:#c8a8e8;background:#f3eaff;color:#5a3d8a"
+onclick="currentMode==='feeder'?saveFeederHistoryPoint('manual').then(()=>{setSyncStatus('synced','history saved ✓');renderHistList();}):saveHistoryPoint('manual').then(()=>{setSyncStatus('synced','history saved ✓');renderHistList();})">
+  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    💾 save history now
+</button>
+
+<div style="display:flex;gap:8px;margin-bottom:14px" id="defaultTemplateActions" style="display:none">
+  <button class="btn" style="flex:1;justify-content:center;border-color:#c8a8e8;background:#f3eaff;color:#5a3d8a"
+    onclick="editDefaultTemplate()">
+    <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+    ⚙ edit default template
+  </button>
+  <button class="btn" id="btnRestoreDefault" style="flex:1;justify-content:center;border-color:#c8a8e8;background:#f3eaff;color:#5a3d8a"
     onclick="confirmRestoreDefaultTemplate()">
-      <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
-      ⚙ restore from default template
-    </button>
-    <div class="hist-list" id="histList"></div>
+    <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+    ⚙ restore from default template
+  </button>
+</div>
+<div class="hist-list" id="histList"></div>
     <div style="border-top:1px solid var(--border);padding-top:12px;display:flex;justify-content:flex-end">
       <button class="btn danger" onclick="confirmClearHistory()">
         <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
@@ -2922,10 +2926,11 @@ async function openHistory(){
     : currentDevice+' — '+currentType;
   document.getElementById('histSubLabel').textContent = lbl+'  (max '+MAX_HISTORY+' entries)';
   document.getElementById('histList').innerHTML = '<div class="hist-empty">Loading…</div>';
-  const restoreBtn = document.getElementById('btnRestoreDefault');
-  if(restoreBtn){
-    const isDefaultCtx = currentMode==='feeder' ? isEditingDefault() : (currentDeviceSubstation === DEFAULT_SUBSTATION_NAME);
-    restoreBtn.style.display = !isDefaultCtx ? 'flex' : 'none';
+  const isDefaultCtx = currentMode==='feeder' ? isEditingDefault() : (currentDeviceSubstation === DEFAULT_SUBSTATION_NAME);
+  const actionsWrap = document.getElementById('defaultTemplateActions');
+  if(actionsWrap){
+    // show "edit default" only when NOT already editing default; show "restore" only when NOT editing default (existing logic)
+    actionsWrap.style.display = !isDefaultCtx ? 'flex' : 'none';
   }
   document.getElementById('historyModal').classList.add('open');
   await renderHistList();
