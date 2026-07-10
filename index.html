@@ -360,6 +360,7 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
     </div>
   </div>
   <div id="deviceTabsArea" style="display:none">
+  <div id="deviceScopeIndicator" style="display:flex;align-items:center;gap:6px;margin-bottom:8px;font-size:11px;font-family:var(--mono)"></div>
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
     <div class="dev-tabs" id="devTabs" style="margin-bottom:0;flex:1"></div>
     <button class="btn-icon" onclick="openAddDevice()" title="Add new device">
@@ -369,7 +370,7 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
     <div class="type-tabs" id="typeTabs" style="margin-bottom:0"></div>
   </div>
-  </div>
+</div>
 </div>
 
 <div id="dataWorkArea">
@@ -1924,6 +1925,22 @@ function renderDeviceSubstationChip(){
     chip.style.display = 'none';
     chip.innerHTML = '';
     wrap.style.display = 'block';
+  }
+}
+
+function renderDeviceScopeIndicator(){
+  const el = document.getElementById('deviceScopeIndicator');
+  if(!el) return;
+  if(currentDeviceSubstation){
+    el.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bdr)">
+      <svg viewBox="0 0 24 24" style="width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      scoped to <strong>${currentDeviceSubstation}</strong>
+    </span>`;
+  } else {
+    el.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;background:var(--surface2);color:var(--text2);border:1px solid var(--border2)">
+      <svg viewBox="0 0 24 24" style="width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      general dataset — not scoped to any substation
+    </span>`;
   }
 }
 
@@ -3792,10 +3809,10 @@ function switchMode(mode){
 }
 
 function updateDeviceVisibility(){
-  const hasSubstation = !!currentDeviceSubstation;
-  document.getElementById('deviceTabsArea').style.display = hasSubstation ? '' : 'none';
-  document.getElementById('dataWorkArea').style.display = hasSubstation ? '' : 'none';
-  document.getElementById('deviceEmptyState').style.display = hasSubstation ? 'none' : 'block';
+  document.getElementById('deviceTabsArea').style.display = '';
+  document.getElementById('dataWorkArea').style.display = '';
+  document.getElementById('deviceEmptyState').style.display = 'none';
+  renderDeviceScopeIndicator();
 }
 
 function renderVoltageTabs(){
