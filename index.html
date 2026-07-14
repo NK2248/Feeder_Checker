@@ -1952,19 +1952,32 @@ function onDeviceSubstationSearchInput(q){
   const box = document.getElementById('deviceSubstationSearchResults');
   const all = Object.keys(FEEDER_STRUCTURE).filter(s => s !== DEFAULT_SUBSTATION_NAME);
   const ql = (q||'').trim().toLowerCase();
-  const matches = ql ? all.filter(s => s.toLowerCase().includes(ql)) : all;
+  const matches = ql
+    ? all.filter(s => {
+        const abbr = (FEEDER_STRUCTURE[s].abbr || '').toLowerCase();
+        return s.toLowerCase().includes(ql) || (abbr && abbr.includes(ql));
+      })
+    : all;
 
-  let html = matches.map(s =>
-    `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
-      onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background=''">
-      <span onclick="selectDeviceSubstation('${s.replace(/'/g,"\\'")}')" style="flex:1">${s}</span>
+  let html = matches.map(s => {
+    const abbr = FEEDER_STRUCTURE[s].abbr;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
+      onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background=''"
+      onclick="selectDeviceSubstation('${s.replace(/'/g,"\\'")}')">
+      <div style="flex:1;min-width:0;display:flex;align-items:center;gap:6px">
+        <span style="padding:3px 10px;border:1px solid var(--border2);border-radius:var(--r);background:var(--surface);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s}</span>
+        ${abbr ? `<span style="font-size:11px;font-family:var(--mono);color:var(--text2);padding:3px 10px;border:1px solid var(--border2);border-radius:var(--r);background:var(--surface2);flex-shrink:0">${abbr}</span>` : ''}
+      </div>
+      <span onclick="event.stopPropagation();editSubstationAbbr('${s.replace(/'/g,"\\'")}')"
+        style="width:18px;height:18px;border-radius:50%;background:var(--surface2);color:var(--text2);display:inline-flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0"
+        title="Edit abbreviation">✎</span>
       <span onclick="event.stopPropagation();confirmRemoveDeviceSubstation('${s.replace(/'/g,"\\'")}')"
         style="width:18px;height:18px;border-radius:50%;background:var(--red-bg);color:var(--red);display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0"
         title="Delete substation">✕</span>
-    </div>`
-  ).join('');
+    </div>`;
+  }).join('');
 
-  if(ql && !all.some(s => s.toLowerCase() === ql)){
+  if(ql && !all.some(s => s.toLowerCase() === ql || (FEEDER_STRUCTURE[s].abbr||'').toLowerCase() === ql)){
     html += `<div onclick="createDeviceSubstation('${q.replace(/'/g,"\\'")}')"
       style="padding:7px 12px;cursor:pointer;font-size:13px;color:var(--accent);font-weight:500"
       onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background=''">
@@ -1972,7 +1985,7 @@ function onDeviceSubstationSearchInput(q){
     </div>`;
   }
 
-  if(!html){ html = `<div style="padding:8px 12px;font-size:12px;color:var(--text3)">Type a name to search or create</div>`; }
+  if(!html){ html = `<div style="padding:8px 12px;font-size:12px;color:var(--text3)">Type a name or abbreviation to search or create</div>`; }
   box.innerHTML = html;
   box.style.display = 'block';
 }
