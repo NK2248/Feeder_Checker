@@ -290,7 +290,7 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
     <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;width:80px">Substation</span>
     <div id="substationChip" style="display:none;align-items:center;gap:6px"></div>
-    <div id="substationSearchWrap" style="position:relative;flex:1;min-width:180px;max-width:320px">
+    <div id="substationSearchWrap" style="display:none;position:relative;flex:1;min-width:180px;max-width:320px">
       <input type="text" id="substationSearchInput" placeholder="Type a substation name…"
         oninput="onSubstationSearchInput(this.value)"
         onfocus="onSubstationSearchInput(this.value)"
@@ -351,7 +351,7 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
   <div style="background:var(--surface);border:1px solid var(--border2);border-radius:var(--rlg);padding:8px 14px;margin-bottom:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
     <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;width:80px">Substation</span>
     <div id="deviceSubstationChip" style="display:none;align-items:center;gap:6px"></div>
-    <div id="deviceSubstationSearchWrap" style="position:relative;flex:1;min-width:180px;max-width:320px">
+    <div id="deviceSubstationSearchWrap" style="display:none;position:relative;flex:1;min-width:180px;max-width:320px">
       <input type="text" id="deviceSubstationSearchInput" placeholder="Type a substation name to begin…"
         oninput="onDeviceSubstationSearchInput(this.value)"
         onfocus="onDeviceSubstationSearchInput(this.value)"
@@ -1916,10 +1916,7 @@ function renderDeviceSubstationChip(){
   const wrap = document.getElementById('deviceSubstationSearchWrap');
   if(currentDeviceSubstation){
     chip.style.display = 'flex';
-    chip.innerHTML = `<span style="font-size:12px;font-weight:600;padding:5px 12px;border-radius:20px;background:var(--accent);color:#fff;display:inline-flex;align-items:center;gap:6px">
-      ${currentDeviceSubstation}
-      <span onclick="event.stopPropagation();changeDeviceSubstation()" style="cursor:pointer;opacity:.8" title="clear substation scope">✕</span>
-    </span>`;
+    chip.innerHTML = `...`; // your two-box chip HTML
     wrap.style.display = 'none';
   } else {
     chip.style.display = 'none';
@@ -4900,6 +4897,8 @@ async function selectSubstation(name){
       <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </span>
   </div>`;
+
+  document.getElementById('substationSearchWrap').style.display = 'none';
 
   // DEFAULT always applies to all voltages — never trust a stored voltage value for it,
   // since it may be stale from before this rule existed.
