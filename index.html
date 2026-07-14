@@ -2861,6 +2861,9 @@ function renderAll(){
     currentSubstation = null; currentVoltage = null; currentScheme = null;
     currentFeeder = null; currentNumber = null; currentSubset = null; currentMain = null;
 
+    // No substation chosen yet — show the search box (it defaults to hidden now)
+    document.getElementById('substationSearchWrap').style.display = 'block';
+
     renderVoltageTabs();
     renderSchemeTabs();
     renderFeederTabs();
