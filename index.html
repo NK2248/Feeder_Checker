@@ -2003,7 +2003,8 @@ async function createDeviceSubstation(name){
   if(!name) return;
   if(name.toLowerCase() === DEFAULT_SUBSTATION_NAME.toLowerCase()){ alert('"'+DEFAULT_SUBSTATION_NAME+'" is a reserved name.'); return; }
   if(!FEEDER_STRUCTURE[name]){
-    FEEDER_STRUCTURE[name] = { voltage: null, schemes: {}, _userAdded: true };
+    const abbr = (prompt('Enter an abbreviation for "'+name+'" (optional, used for quick search):','')||'').trim().toUpperCase();
+    FEEDER_STRUCTURE[name] = { voltage: null, schemes: {}, _userAdded: true, abbr };
     saveFeederConfig();
   }
   selectDeviceSubstation(name);
@@ -4822,7 +4823,8 @@ function createNewSubstation(name){
   if(!name) return;
   if(name.toLowerCase() === DEFAULT_SUBSTATION_NAME.toLowerCase()){ alert('"'+DEFAULT_SUBSTATION_NAME+'" is a reserved name.'); return; }
   if(FEEDER_STRUCTURE[name]){ selectSubstation(name); return; }
-  FEEDER_STRUCTURE[name] = { voltage: null, schemes: {}, _userAdded: true };
+  const abbr = (prompt('Enter an abbreviation for "'+name+'" (optional, used for quick search):','')||'').trim().toUpperCase();
+  FEEDER_STRUCTURE[name] = { voltage: null, schemes: {}, _userAdded: true, abbr };
   selectSubstation(name);
   saveFeederConfig();
 }
@@ -4832,19 +4834,29 @@ function onSubstationSearchInput(q){
   const box = document.getElementById('substationSearchResults');
   const all = Object.keys(FEEDER_STRUCTURE).filter(s => s !== DEFAULT_SUBSTATION_NAME);
   const ql = (q||'').trim().toLowerCase();
-  const matches = ql ? all.filter(s => s.toLowerCase().includes(ql)) : all;
+  const matches = ql
+    ? all.filter(s => {
+        const abbr = (FEEDER_STRUCTURE[s].abbr || '').toLowerCase();
+        return s.toLowerCase().includes(ql) || (abbr && abbr.includes(ql));
+      })
+    : all;
 
-  let html = matches.map(s =>
-    `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
+  let html = matches.map(s => {
+    const abbr = FEEDER_STRUCTURE[s].abbr;
+    const abbrBadge = abbr ? `<span style="font-size:10px;font-family:var(--mono);background:var(--surface2);color:var(--text2);border:1px solid var(--border2);border-radius:3px;padding:1px 6px;margin-left:6px">${abbr}</span>` : '';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
       onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background=''">
-      <span onclick="selectSubstation('${s.replace(/'/g,"\\'")}')" style="flex:1">${s}</span>
+      <span onclick="selectSubstation('${s.replace(/'/g,"\\'")}')" style="flex:1;display:flex;align-items:center">${s}${abbrBadge}</span>
+      <span onclick="event.stopPropagation();editSubstationAbbr('${s.replace(/'/g,"\\'")}')"
+        style="width:18px;height:18px;border-radius:50%;background:var(--surface2);color:var(--text2);display:inline-flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0"
+        title="Edit abbreviation">✎</span>
       <span onclick="event.stopPropagation();confirmRemoveSubstation('${s.replace(/'/g,"\\'")}')"
         style="width:18px;height:18px;border-radius:50%;background:var(--red-bg);color:var(--red);display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0"
         title="Delete substation">✕</span>
-    </div>`
-  ).join('');
+    </div>`;
+  }).join('');
 
-  if(ql && !all.some(s => s.toLowerCase() === ql)){
+  if(ql && !all.some(s => s.toLowerCase() === ql || (FEEDER_STRUCTURE[s].abbr||'').toLowerCase() === ql)){
     html += `<div onclick="createNewSubstation('${q.replace(/'/g,"\\'")}')"
       style="padding:7px 12px;cursor:pointer;font-size:13px;color:var(--accent);font-weight:500"
       onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background=''">
@@ -4852,9 +4864,21 @@ function onSubstationSearchInput(q){
     </div>`;
   }
 
-  if(!html){ html = `<div style="padding:8px 12px;font-size:12px;color:var(--text3)">Type a name to search or create</div>`; }
+  if(!html){ html = `<div style="padding:8px 12px;font-size:12px;color:var(--text3)">Type a name or abbreviation to search or create</div>`; }
   box.innerHTML = html;
   box.style.display = 'block';
+}
+
+function editSubstationAbbr(name){
+  const current = FEEDER_STRUCTURE[name]?.abbr || '';
+  const abbr = prompt('Abbreviation for "'+name+'":', current);
+  if(abbr === null) return; // cancelled
+  FEEDER_STRUCTURE[name].abbr = abbr.trim().toUpperCase();
+  saveFeederConfig();
+  const input = document.getElementById('substationSearchInput');
+  if(input) onSubstationSearchInput(input.value);
+  const devInput = document.getElementById('deviceSubstationSearchInput');
+  if(devInput) onDeviceSubstationSearchInput(devInput.value);
 }
 
 async function selectSubstation(name){
