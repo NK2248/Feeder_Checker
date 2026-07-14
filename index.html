@@ -3799,6 +3799,11 @@ function switchMode(mode){
   if(mode==='feeder'){
     document.getElementById('dataWorkArea').style.display = '';
     document.getElementById('deviceEmptyState').style.display = 'none';
+
+    // Safety net: keep search box / chip in sync with state, same pattern as device mode
+    document.getElementById('substationChip').style.display = currentSubstation ? 'flex' : 'none';
+    document.getElementById('substationSearchWrap').style.display = currentSubstation ? 'none' : 'block';
+    
     renderVoltageTabs();renderSchemeTabs();renderFeederTabs();renderNumberTabs();renderSubsetTabs();renderMainTabs();syncFeederTypeTabCounts();
     if(currentFeeder) loadFeederDataset(); else showEmptySubstationState();
   } else {
