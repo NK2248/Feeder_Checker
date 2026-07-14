@@ -4847,8 +4847,8 @@ function onSubstationSearchInput(q){
       onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background=''"
       onclick="selectSubstation('${s.replace(/'/g,"\\'")}')">
       <div style="flex:1;min-width:0;display:flex;align-items:center;gap:6px">
-        <span style="padding:2px 9px;border:1px solid var(--border2);border-radius:var(--r);background:var(--surface);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${s}</span>
-        ${abbr ? `<span style="font-size:11px;font-family:var(--mono);color:var(--text2);padding:2px 8px;border:1px solid var(--border2);border-radius:var(--r);background:var(--surface2);flex-shrink:0">${abbr}</span>` : ''}
+        <span style="padding:3px 10px;border:1px solid var(--border2);border-radius:var(--r);background:var(--surface);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s}</span>
+        ${abbr ? `<span style="font-size:11px;font-family:var(--mono);color:var(--text2);padding:3px 10px;border:1px solid var(--border2);border-radius:var(--r);background:var(--surface2);flex-shrink:0">${abbr}</span>` : ''}
       </div>
       <span onclick="event.stopPropagation();editSubstationAbbr('${s.replace(/'/g,"\\'")}')"
         style="width:18px;height:18px;border-radius:50%;background:var(--surface2);color:var(--text2);display:inline-flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0"
@@ -4893,11 +4893,13 @@ async function selectSubstation(name){
   const chip = document.getElementById('substationChip');
   chip.style.display = 'flex';
   const abbr = FEEDER_STRUCTURE[name]?.abbr;
-  chip.innerHTML = `<span style="display:inline-flex;align-items:center;gap:0;border-radius:20px;overflow:hidden;font-size:12px;font-weight:600">
-    <span style="padding:5px 12px;background:var(--accent);color:#fff">${name}</span>
-    ${abbr ? `<span style="padding:5px 10px;background:rgba(255,255,255,.18);color:#fff;font-family:var(--mono);font-weight:400;font-size:11px">${abbr}</span>` : ''}
-    <span onclick="event.stopPropagation();changeSubstation()" style="padding:5px 10px;background:var(--accent);color:#fff;cursor:pointer;opacity:.85" title="change substation">✕</span>
-  </span>`;
+  chip.innerHTML = `<div style="display:flex;align-items:center;gap:6px">
+    <span style="font-size:12px;font-weight:600;padding:5px 12px;border-radius:var(--r);background:var(--accent);color:#fff">${name}</span>
+    ${abbr ? `<span style="font-size:11px;font-family:var(--mono);font-weight:500;padding:5px 12px;border-radius:var(--r);background:var(--accent-light);color:var(--accent-text);border:1px solid var(--blue-bdr)">${abbr}</span>` : ''}
+    <span onclick="changeSubstation()" style="cursor:pointer;color:var(--text3);padding:5px" title="change substation">
+      <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </span>
+  </div>`;
 
   // DEFAULT always applies to all voltages — never trust a stored voltage value for it,
   // since it may be stale from before this rule existed.
