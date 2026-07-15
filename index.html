@@ -970,7 +970,7 @@ Object.values(GROUPS).forEach(types=>Object.values(types).forEach(key=>{
 
 let currentDevice=Object.keys(GROUPS)[0];
 let currentType=Object.keys(Object.values(GROUPS)[0])[0];
-let currentDeviceSubstation = null; // optional substation scope for device-mode datasets
+let currentDeviceSubstation = 'DEFAULT'; // device tab defaults to the DEFAULT template dataset
 let selected=new Set();
 let syncTimer=null;
 let isDirty = false;
