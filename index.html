@@ -839,14 +839,14 @@ onclick="currentMode==='feeder'?saveFeederHistoryPoint('manual').then(()=>{setSy
         <div class="frow"><label>Scheme</label><select id="mrScheme" onchange="mrUpdateFeeders()" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select></div>
         <div class="frow"><label>Feeder</label><select id="mrFeeder" onchange="mrUpdateNumbers()" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select></div>
         <div class="frow" id="mrNumberRow"><label>Number</label><select id="mrNumber" onchange="mrUpdateMains()" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select></div>
-        <div class="frow"><label>Main</label><select id="mrMain" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select></div>
-        <div class="frow"><label>Type</label><select id="mrTypeFeeder" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select></div>
+        <div class="frow"><label>Main</label><select id="mrMain" onchange="mrUpdateDestinationPreview()" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select></div>
+        <div class="frow"><label>Type</label><select id="mrTypeFeeder" onchange="mrUpdateDestinationPreview()" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select></div>
       </div>
     </div>
     <div id="mrDevicePanel" style="display:none">
       <div class="fgrid">
-        <div class="frow"><label>Device</label><select id="mrDevice" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select></div>
-        <div class="frow"><label>Type</label><select id="mrTypeDevice" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select></div>
+        <div class="frow"><label>Device</label><select id="mrDevice" onchange="mrUpdateDestinationPreview()" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select></div>
+        <div class="frow"><label>Type</label><select id="mrTypeDevice" onchange="mrUpdateDestinationPreview()" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%"></select></div>
       </div>
     </div>
     <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
@@ -863,6 +863,7 @@ onclick="currentMode==='feeder'?saveFeederHistoryPoint('manual').then(()=>{setSy
       </div>
       <div id="mrImportModeHint" style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:6px">Rows are locked — only DNP3.0_ADDRESS can be edited. Cannot be deleted.</div>
     </div>
+    <div id="mrDestinationPreview" style="margin-top:12px;padding:8px 12px;border-radius:var(--r);font-size:11px;font-family:var(--mono);display:none"></div>
     <div class="mfooter">
       <button class="btn" onclick="closeModal('manualRouteModal');pendingImportData=null;pendingImportRoute=null;">Cancel</button>
       <button class="btn primary" onclick="doManualRouteImport(mrImportMode)">
@@ -1406,6 +1407,7 @@ function mrSwitchMode(mode) {
   document.getElementById('mrModeDevice').classList.toggle('active', mode === 'device');
   document.getElementById('mrFeederPanel').style.display = mode === 'feeder' ? 'block' : 'none';
   document.getElementById('mrDevicePanel').style.display = mode === 'device' ? 'block' : 'none';
+  mrUpdateDestinationPreview();
 }
 
 let mrImportMode = 'origin';
@@ -1416,7 +1418,78 @@ function mrSelectImportMode(mode){
   document.getElementById('mrImportModeHint').textContent = mode === 'origin'
     ? 'Rows are locked — only DNP3.0_ADDRESS can be edited. Cannot be deleted.'
     : 'Rows are fully editable and deletable. Added after existing data.';
+  mrUpdateDestinationPreview();
 }
+
+let _mrPreviewToken = 0;
+async function mrGetRowCount(key){
+  try{
+    const res = await fetch(SUPABASE_URL+'/rest/v1/'+TABLE+'?dataset_key=eq.'+encodeURIComponent(key)+'&select=id', {
+      method:'HEAD',
+      headers:{
+        'apikey': SUPABASE_KEY,
+        'Authorization':'Bearer '+SUPABASE_KEY,
+        'Prefer':'count=exact'
+      }
+    });
+    const range = res.headers.get('content-range'); // e.g. "0-9/40" or "*/0"
+    if(!range) return 0;
+    const total = range.split('/')[1];
+    return total === '*' ? 0 : (parseInt(total)||0);
+  }catch(e){ console.error('[mrGetRowCount] error', e); return null; }
+}
+
+async function mrUpdateDestinationPreview(){
+  const token = ++_mrPreviewToken; // guards against out-of-order async responses
+  const box = document.getElementById('mrDestinationPreview');
+  if(!box) return;
+  const isFeeder = document.getElementById('mrFeederPanel').style.display !== 'none';
+  let key = null, label = '';
+
+  if(isFeeder){
+    const sub  = document.getElementById('mrSubstation').value;
+    const v    = document.getElementById('mrVoltage').value;
+    const sc   = document.getElementById('mrScheme').value;
+    const feed = document.getElementById('mrFeeder').value;
+    const type = document.getElementById('mrTypeFeeder').value;
+    if(!sub || !sc || !feed || !type){ box.style.display = 'none'; return; }
+    const feedCfg = schemeNode(sub, v, sc)?.feeders?.[feed] || SCHEME_TEMPLATES[sc]?.feeders?.[feed];
+    const num = feedCfg?.hasNumbers ? (document.getElementById('mrNumber')?.value || null) : null;
+    const mainVal = feedCfg?.hasMain === false ? null : (document.getElementById('mrMain').value || 'MAIN_01');
+    key = feederKeyFor(sub, feed, num, mainVal, mainVal, type, v, sc);
+    label = [sub, feed, num, mainVal, type].filter(Boolean).join(' / ');
+  } else {
+    const device = document.getElementById('mrDevice').value;
+    const type   = document.getElementById('mrTypeDevice').value;
+    if(!device || !type){ box.style.display = 'none'; return; }
+    const schemaKey = GROUPS[device]?.[type];
+    if(!schemaKey){ box.style.display = 'none'; return; }
+    key = currentDeviceSubstation ? currentDeviceSubstation+'__'+schemaKey : schemaKey;
+    label = (currentDeviceSubstation ? currentDeviceSubstation+' / ' : '') + device + ' / ' + type;
+  }
+
+  box.style.display = 'block';
+  box.style.background = 'var(--surface2)'; box.style.border = '1px solid var(--border2)'; box.style.color = 'var(--text2)';
+  box.textContent = 'Checking destination — ' + label + '…';
+
+  const count = await mrGetRowCount(key);
+  if(token !== _mrPreviewToken) return; // a newer selection superseded this check
+
+  if(count === null){
+    box.textContent = '⚠ Could not check destination row count.';
+    box.style.background = 'var(--amber-bg)'; box.style.border = '1px solid var(--amber-bdr)'; box.style.color = 'var(--amber)';
+  } else if(count === 0){
+    box.textContent = '✓ Destination is empty — ' + label;
+    box.style.background = 'var(--green-bg)'; box.style.border = '1px solid var(--green-bdr)'; box.style.color = 'var(--green)';
+  } else if(mrImportMode === 'origin'){
+    box.innerHTML = '⚠ <strong>' + count + ' existing row' + (count>1?'s':'') + '</strong> will be DELETED and replaced — ' + label;
+    box.style.background = 'var(--red-bg)'; box.style.border = '1px solid var(--red-bdr)'; box.style.color = 'var(--red)';
+  } else {
+    box.innerHTML = 'ℹ <strong>' + count + ' existing row' + (count>1?'s':'') + '</strong> — new rows will be appended — ' + label;
+    box.style.background = 'var(--blue-bg)'; box.style.border = '1px solid var(--blue-bdr)'; box.style.color = 'var(--blue)';
+  }
+}
+
 
 function mrUpdateVoltages() {
   const sub = document.getElementById('mrSubstation').value;
@@ -1501,6 +1574,7 @@ function mrUpdateMains() {
   if(feedCfg?.hasMain === false){
     mainSel.innerHTML = `<option value="">— flat feeder, no main —</option>`;
     mainSel.disabled = true;
+    mrUpdateDestinationPreview();
     return;
   }
   mainSel.disabled = false;
@@ -1514,6 +1588,7 @@ function mrUpdateMains() {
   }
   document.getElementById('mrMain').innerHTML = mains
     .map(m => `<option value="${m}">${m}</option>`).join('');
+  mrUpdateDestinationPreview();
 }
 
 function syncFeederTypeTabCounts() {
