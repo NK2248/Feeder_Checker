@@ -363,9 +363,14 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
 </div>
 
 <div id="dataWorkArea">
-  <div id="defaultTemplateBanner" style="display:none;align-items:center;gap:8px;background:#f3eaff;border:1px solid #c8a8e8;color:#5a3d8a;padding:8px 14px;border-radius:var(--rlg);margin-bottom:10px;font-size:12px;font-weight:500">
-    <svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:#5a3d8a;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-    <span>You are editing the <strong>DEFAULT</strong> template — changes here become the baseline copied into every new substation.</span>
+  <!-- NEW -->
+  <div id="defaultTemplateBannerFeeder" style="display:none;align-items:center;gap:8px;background:#f3eaff;border:1px solid #c8a8e8;color:#5a3d8a;padding:8px 14px;border-radius:var(--rlg);margin-bottom:10px;font-size:12px;font-weight:500">
+      <svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:#5a3d8a;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <span>You are editing the <strong>DEFAULT</strong> feeder template — changes here become the baseline copied into every new substation.</span>
+  </div>
+  <div id="defaultTemplateBannerDevice" style="display:none;align-items:center;gap:8px;background:#f3eaff;border:1px solid #c8a8e8;color:#5a3d8a;padding:8px 14px;border-radius:var(--rlg);margin-bottom:10px;font-size:12px;font-weight:500">
+      <svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:#5a3d8a;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <span>You are editing the <strong>DEFAULT</strong> device template — changes here become the baseline copied.</span>
   </div>
 <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileIn').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
   <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -1097,13 +1102,14 @@ function updateBreadcrumb(){
   updateDefaultTemplateBanner();
 }
 
+// NEW
 function updateDefaultTemplateBanner(){
-  const banner = document.getElementById('defaultTemplateBanner');
-  if(!banner) return;
-  const isDefault = currentMode === 'feeder'
-    ? isEditingDefault()
-    : (currentDeviceSubstation === DEFAULT_SUBSTATION_NAME);
-  banner.style.display = isDefault ? 'flex' : 'none';
+  const feederBanner = document.getElementById('defaultTemplateBannerFeeder');
+  const deviceBanner = document.getElementById('defaultTemplateBannerDevice');
+  const isDefaultFeeder = currentMode === 'feeder' && isEditingDefault();
+  const isDefaultDevice = currentMode === 'device' && currentDeviceSubstation === DEFAULT_SUBSTATION_NAME;
+  if(feederBanner) feederBanner.style.display = isDefaultFeeder ? 'flex' : 'none';
+  if(deviceBanner) deviceBanner.style.display = isDefaultDevice ? 'flex' : 'none';
 }
 
 // ── Drag/drop upload ──────────────────────────────────────────────────────────
