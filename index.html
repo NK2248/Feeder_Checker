@@ -347,20 +347,9 @@ td[contenteditable]:focus{background:#e8f0f8!important;box-shadow:inset 0 0 0 1p
 </div><!-- end feederSection -->
 
 <!-- Device mode -->
+<!-- Device mode -->
 <div id="deviceSection" style="display:none">
-  <div style="background:var(--surface);border:1px solid var(--border2);border-radius:var(--rlg);padding:8px 14px;margin-bottom:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-    <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;width:80px">Substation</span>
-    <div id="deviceSubstationChip" style="display:none;align-items:center;gap:6px"></div>
-    <div id="deviceSubstationSearchWrap" style="display:none;position:relative;flex:1;min-width:180px;max-width:320px">
-      <input type="text" id="deviceSubstationSearchInput" placeholder="Type a substation name to begin…"
-        oninput="onDeviceSubstationSearchInput(this.value)"
-        onfocus="onDeviceSubstationSearchInput(this.value)"
-        style="padding:6px 10px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);width:100%;outline:none">
-      <div id="deviceSubstationSearchResults" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:20;max-height:220px;overflow-y:auto"></div>
-    </div>
-  </div>
-  <div id="deviceTabsArea" style="display:none">
-  <div id="deviceScopeIndicator" style="display:flex;align-items:center;gap:6px;margin-bottom:8px;font-size:11px;font-family:var(--mono)"></div>
+  <div id="deviceTabsArea">
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
     <div class="dev-tabs" id="devTabs" style="margin-bottom:0;flex:1"></div>
     <button class="btn-icon" onclick="openAddDevice()" title="Add new device">
@@ -1914,6 +1903,7 @@ async function switchType(t){
 function renderDeviceSubstationChip(){
   const chip = document.getElementById('deviceSubstationChip');
   const wrap = document.getElementById('deviceSubstationSearchWrap');
+  if(!chip || !wrap) return;
   if(currentDeviceSubstation){
     chip.style.display = 'flex';
     const abbr = FEEDER_STRUCTURE[currentDeviceSubstation]?.abbr;
@@ -2030,8 +2020,10 @@ async function createDeviceSubstation(name){
 async function selectDeviceSubstation(name){
   if(!confirmIfDirty('Switch substation scope? Unsaved changes may be lost.')) return;
   currentDeviceSubstation = name;
-  document.getElementById('deviceSubstationSearchResults').style.display = 'none';
-  document.getElementById('deviceSubstationSearchInput').value = '';
+  const dsResults = document.getElementById('deviceSubstationSearchResults');
+  if(dsResults) dsResults.style.display = 'none';
+  const dsInput = document.getElementById('deviceSubstationSearchInput');
+  if(dsInput) dsInput.value = '';
   renderDeviceSubstationChip();
   updateDeviceVisibility();
   if(name !== DEFAULT_SUBSTATION_NAME) await copyDefaultDeviceData(name); // idempotent — copies once per substation
@@ -3827,7 +3819,6 @@ function switchMode(mode){
     renderVoltageTabs();renderSchemeTabs();renderFeederTabs();renderNumberTabs();renderSubsetTabs();renderMainTabs();syncFeederTypeTabCounts();
     if(currentFeeder) loadFeederDataset(); else showEmptySubstationState();
   } else {
-    renderDeviceSubstationChip();
     updateDeviceVisibility();
     renderAll();
   }
@@ -3838,7 +3829,6 @@ function updateDeviceVisibility(){
   document.getElementById('deviceTabsArea').style.display = '';
   document.getElementById('dataWorkArea').style.display = '';
   document.getElementById('deviceEmptyState').style.display = 'none';
-  renderDeviceScopeIndicator();
 }
 
 function renderVoltageTabs(){
