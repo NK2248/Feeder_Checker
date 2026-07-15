@@ -784,6 +784,17 @@ onclick="currentMode==='feeder'?saveFeederHistoryPoint('manual').then(()=>{setSy
       <div class="leg"><div class="leg-dot" style="background:#e8c84a"></div><span>only in File B</span></div>
       <div class="leg"><div class="leg-dot" style="background:#e8a0a0"></div><span>different value</span></div>
     </div>
+    <div id="cmpFilterBar" style="display:none;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <span style="font-size:11px;font-family:var(--mono);color:var(--text2)">show:</span>
+      <select id="cmpStatusFilter" onchange="CMP.statusFilter=this.value;renderCmpTable();" style="padding:4px 10px;border:1px solid var(--border2);border-radius:var(--r);font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--text)">
+        <option value="all">all rows</option>
+        <option value="same">same in both</option>
+        <option value="only-a">only in File A</option>
+        <option value="only-b">only in File B</option>
+        <option value="diff">different value</option>
+      </select>
+      <span id="cmpFilterCount" style="font-size:11px;font-family:var(--mono);color:var(--text3)"></span>
+    </div>
     <div id="cmpSummary" style="display:none;gap:8px;margin-bottom:10px;flex-wrap:wrap"></div>
     <div id="cmpTable"></div>
     <div id="cmpActions" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);gap:8px;flex-wrap:wrap;align-items:center">
@@ -5295,14 +5306,15 @@ async function exportAllSubstation(){
 }
 
 // ── Compare ───────────────────────────────────────────────────────────────────
-const CMP={A:null,B:null,colsA:[],colsB:[],keyColumns:new Set(),result:null};
+const CMP={A:null,B:null,colsA:[],colsB:[],keyColumns:new Set(),result:null,statusFilter:'all'};
 
 function openCompare(){
-  CMP.A=null;CMP.B=null;CMP.colsA=[];CMP.colsB=[];CMP.keyColumns=new Set();CMP.result=null;
+  CMP.A=null;CMP.B=null;CMP.colsA=[];CMP.colsB=[];CMP.keyColumns=new Set();CMP.result=null;CMP.statusFilter='all';
   document.getElementById('lblB').textContent='Drop or click to upload File B';
   document.getElementById('dzB').style.borderColor='';
   document.getElementById('cmpKeyBar').style.display='none';
   document.getElementById('cmpLegend').style.display='none';
+  document.getElementById('cmpFilterBar').style.display='none';
   document.getElementById('cmpSummary').style.display='none';
   document.getElementById('cmpActions').style.display='none';
   document.getElementById('cmpTable').innerHTML='';
@@ -5386,6 +5398,7 @@ function runCompare(){
     return{key:k,ra,rb,status,cols:allCols};
   });
   CMP.result=rows;
+  CMP.statusFilter='all';
   const same=rows.filter(r=>r.status==='same').length;
   const onlyA=rows.filter(r=>r.status==='only-a').length;
   const onlyB=rows.filter(r=>r.status==='only-b').length;
@@ -5393,15 +5406,36 @@ function runCompare(){
   const sum=document.getElementById('cmpSummary');sum.style.display='flex';
   sum.innerHTML=`<span class="stat-pill pill-same">✓ ${same} same</span><span class="stat-pill pill-a">A only: ${onlyA}</span><span class="stat-pill pill-b">B only: ${onlyB}</span><span class="stat-pill pill-diff">⚠ ${diff} different</span>`;
   document.getElementById('cmpLegend').style.display='flex';
+  document.getElementById('cmpFilterBar').style.display='flex';
+  document.getElementById('cmpStatusFilter').value='all';
+  renderCmpTable();
+  document.getElementById('cmpActions').style.display='flex';
+}
+
+function renderCmpTable(){
+  const rows = CMP.result || [];
+  const filter = CMP.statusFilter || 'all';
+  const filtered = filter==='all' ? rows : rows.filter(r=>r.status===filter);
+  const allCols = rows.length ? rows[0].cols : [];
+  const countEl = document.getElementById('cmpFilterCount');
+  if(countEl) countEl.textContent = filtered.length + ' of ' + rows.length + ' rows';
+
+  if(!filtered.length){
+    document.getElementById('cmpTable').innerHTML = `<div class="empty" style="padding:2rem">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <p>No rows match this filter</p>
+    </div>`;
+    return;
+  }
+
   const thead=`<tr><th>#</th><th>status</th>${allCols.map(c=>`<th colspan="2" style="text-align:center;border-left:2px solid var(--border2)">${c}</th>`).join('')}</tr><tr><th></th><th></th>${allCols.map(()=>`<th style="border-left:2px solid var(--border2);color:#3B6D11">A</th><th style="color:#1a4a7a">B</th>`).join('')}</tr>`;
-  const tbody=rows.map((r,i)=>{
+  const tbody=filtered.map((r,i)=>{
     const sc=r.status==='same'?'row-same':r.status==='only-a'?'row-only-a':r.status==='only-b'?'row-only-b':'row-diff';
     const statusBadge=r.status==='same'?`<span class="badge orig">same</span>`:r.status==='only-a'?`<span class="badge new">A only</span>`:r.status==='only-b'?`<span class="badge dup" style="background:var(--amber-bg);color:var(--amber)">B only</span>`:`<span class="badge dup">different</span>`;
     const cells=r.cols.map(c=>{const va=r.ra?String(r.ra[c]??''):'—';const vb=r.rb?String(r.rb[c]??''):'—';const isDiff=va!==vb;return `<td style="border-left:2px solid var(--border2)" class="${isDiff?'cell-diff':''}" title="${va}">${va}</td><td class="${isDiff?'cell-diff-b':''}" title="${vb}">${vb}</td>`;}).join('');
     return `<tr class="${sc}"><td class="rn">${i+1}</td><td>${statusBadge}</td>${cells}</tr>`;
   }).join('');
   document.getElementById('cmpTable').innerHTML=`<div class="cmp-tbl-wrap"><table><thead>${thead}</thead><tbody>${tbody}</tbody></table></div>`;
-  document.getElementById('cmpActions').style.display='flex';
 }
 
 async function applyFile(side){
