@@ -839,6 +839,7 @@ onclick="currentMode==='feeder'?saveFeederHistoryPoint('manual').then(()=>{setSy
     <h3>Select import destination</h3>
     <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:10px" id="manualRouteFilename"></div>
     <div id="manualRouteNote"></div>
+    <div id="manualRouteCandidates"></div>
     <div style="display:flex;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:4px;margin-bottom:14px">
       <button id="mrModeFeeder" class="type-tab active" style="flex:1;justify-content:center" onclick="mrSwitchMode('feeder')">Feeder / Substation</button>
       <button id="mrModeDevice" class="type-tab" style="flex:1;justify-content:center" onclick="mrSwitchMode('device')">Device</button>
@@ -1130,6 +1131,77 @@ function onDragLeave(){document.getElementById('dropZone').classList.remove('dra
 function onDrop(e){e.preventDefault();document.getElementById('dropZone').classList.remove('drag');const f=e.dataTransfer.files[0];if(f)processFile(f);}
 function handleUpload(inp){const f=inp.files[0];if(f)processFile(f);inp.value='';}
 
+function scoreFeederCandidates(normB, numMatch, mainMatch, detectedType){
+  const candidates = [];
+  const norm = s => String(s||'').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+
+  Object.keys(FEEDER_STRUCTURE).forEach(sub => {
+    const isDefault = sub === DEFAULT_SUBSTATION_NAME;
+    const subBonus = (!isDefault && normB.includes(norm(sub))) ? 30 : 0;
+
+    const schemes = isDefault
+      ? (getSchemesFor(sub).length ? getSchemesFor(sub) : Object.keys(SCHEME_TEMPLATES))
+      : getSchemesFor(sub);
+    const v = isDefault ? null : (getVoltagesForSub(sub)[0] || null);
+
+    schemes.forEach(sc => {
+      const feederNames = schemeNode(sub, v, sc)?.feeders
+        ? getFeederNames(sub, v, sc)
+        : Object.keys(SCHEME_TEMPLATES[sc]?.feeders || {});
+
+      feederNames.forEach(feed => {
+        const fn = norm(feed);
+        if(fn.length < 2) return;
+        let score = 0, matchType = null;
+
+        if(normB.includes(fn)){
+          score = fn.length * 10;
+          matchType = 'exact';
+        } else if(fn.length >= 3){
+          const tokens = normB.split('_').filter(Boolean);
+          let best = 0;
+          tokens.forEach(t=>{ const s = stringSimilarity(fn, t); if(s > best) best = s; });
+          if(best >= FUZZY_THRESHOLD){ score = fn.length * 10 * best; matchType = 'fuzzy'; }
+        }
+        if(!score) return;
+
+        score += subBonus;
+        if(detectedType) score += 15;
+        if(numMatch) score += 5;
+
+        candidates.push({
+          score, matchType,
+          mode:'feeder', substation:sub, voltage:v, scheme:sc, feeder:feed,
+          main: mainMatch, subset: mainMatch, type: detectedType, number: numMatch || null
+        });
+      });
+    });
+
+    if(!isDefault && normB.includes(norm(sub)) && sub.length > 4){
+      const sc2 = v ? (getSchemesFor(sub, v)[0] || null) : null;
+      candidates.push({
+        score: norm(sub).length * 8, matchType:'substation-only',
+        mode:'feeder', substation:sub, voltage:v, scheme:sc2, feeder:null,
+        main: mainMatch, subset: mainMatch, type: detectedType, number: numMatch || null
+      });
+    }
+  });
+
+  return candidates.sort((a,b)=>b.score-a.score);
+}
+
+function scoreDeviceCandidates(normB, detectedType){
+  const norm = s => String(s||'').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  const candidates = [];
+  Object.keys(GROUPS).forEach(dev=>{
+    const dn = norm(dev);
+    if(normB.includes(dn)){
+      candidates.push({ score: dn.length*10 + (detectedType?15:0), matchType:'exact', mode:'device', device:dev, type:detectedType });
+    }
+  });
+  return candidates.sort((a,b)=>b.score-a.score);
+}
+
 function parseFilenameForRouting(filename, sheetName) {
   const base = filename
     .replace(/\.(csv|xlsx|xls)$/i, '')
@@ -1148,105 +1220,32 @@ function parseFilenameForRouting(filename, sheetName) {
   ];
   let detectedType = null;
   for (const { keys, type } of TYPE_KEYWORDS) {
-    if (keys.some(k => normB.includes(norm(k)))) {
-      detectedType = type;
-      break;
-    }
+    if (keys.some(k => normB.includes(norm(k)))) { detectedType = type; break; }
   }
 
   const mainMatch = (base.match(/MAIN_\d+/i) || [])[0]?.toUpperCase() || 'MAIN_01';
-  const numMatch = (normB.match(/(?:^|_)(\d{2})(?:_|$)/) || 
+  const numMatch = (normB.match(/(?:^|_)(\d{2})(?:_|$)/) ||
                     normB.match(/no[_\s]*(\d+)/i) || [])[1];
   const detectedNumber = numMatch ? numMatch.padStart(2, '0') : null;
 
-  // FIX: DEFAULT's voltage is always null, so getVoltagesForSub(DEFAULT) returns []
-  // and the main loop below never even looks at DEFAULT's feeders. Check DEFAULT
-  // separately, scanning every scheme it has (or every template scheme if DEFAULT
-  // has none locally yet) directly, since DEFAULT has no voltage gate.
-  if(FEEDER_STRUCTURE[DEFAULT_SUBSTATION_NAME]){
-    const defaultSchemes = getSchemesFor(DEFAULT_SUBSTATION_NAME).length
-      ? getSchemesFor(DEFAULT_SUBSTATION_NAME)
-      : Object.keys(SCHEME_TEMPLATES); // fall back to templates if DEFAULT hasn't visited any scheme tab yet
-    for(const sc of defaultSchemes){
-      const feederNames = schemeNode(DEFAULT_SUBSTATION_NAME, undefined, sc)?.feeders
-        ? getFeederNames(DEFAULT_SUBSTATION_NAME, undefined, sc)
-        : Object.keys(SCHEME_TEMPLATES[sc]?.feeders || {});
-      for(const feed of feederNames){
-        if(normB.includes(norm(feed))){
-          console.log('[routing] matched DEFAULT feeder', {feed, scheme: sc});
-          return {
-            confidence: detectedType ? 'full' : 'partial',
-            mode: 'feeder',
-            substation: DEFAULT_SUBSTATION_NAME,
-            voltage: null,
-            scheme: sc,
-            feeder: feed,
-            main: mainMatch,
-            subset: mainMatch,
-            type: detectedType
-          };
-        }
-      }
-    }
-  }
+  const feederCandidates = scoreFeederCandidates(normB, detectedNumber, mainMatch, detectedType);
+  const deviceCandidates = scoreDeviceCandidates(normB, detectedType);
+  const allCandidates = [...feederCandidates, ...deviceCandidates].sort((a,b)=>b.score-a.score);
 
-  for (const sub of Object.keys(FEEDER_STRUCTURE)) {
-    if(sub === DEFAULT_SUBSTATION_NAME) continue; // already handled above
-    for (const v of getVoltagesForSub(sub)) {
-      for (const sc of getSchemesFor(sub, v)) {
-        for (const feed of getFeederNames(sub, v, sc)) {
-          if (normB.includes(norm(feed))) {
-            return {
-              confidence: detectedType ? 'full' : 'partial',
-              mode: 'feeder',
-              substation: sub,
-              voltage: v,
-              scheme: sc,
-              feeder: feed,
-              main: mainMatch,
-              subset: mainMatch,
-              type: detectedType
-            };
-          }
-        }
-      }
-    }
-  }
+  if(!allCandidates.length) return { confidence: 'none', mode: null };
 
-  // substation-only match — set feeder:null to force manual selection
-  for (const sub of Object.keys(FEEDER_STRUCTURE)) {
-    const normSub = norm(sub);
-    if (normSub.length > 4 && normB.includes(normSub)) {
-      const voltages = getVoltagesForSub(sub);
-      const v = voltages[0] || null;
-      const sc = v ? (getSchemesFor(sub, v)[0] || null) : null;
-      return {
-        confidence: 'partial',
-        mode: 'feeder',
-        substation: sub,
-        voltage: v,
-        scheme: sc,
-        feeder: null,   // forces manual selection
-        main: mainMatch,
-        subset: mainMatch,
-        type: detectedType,
-        number: detectedNumber
-      };
-    }
-  }
+  const top = allCandidates[0];
+  const runnerUp = allCandidates[1];
+  const isClose = !!runnerUp && (runnerUp.score >= top.score * 0.85);
+  const hasFeeder = top.mode === 'feeder' ? !!top.feeder : true;
+  const hasType = !!top.type;
 
-  for (const dev of Object.keys(GROUPS)) {
-    if (normB.includes(norm(dev))) {
-      return {
-        confidence: detectedType ? 'full' : 'partial',
-        mode: 'device',
-        device: dev,
-        type: detectedType
-      };
-    }
-  }
+  let confidence;
+  if(isClose) confidence = 'ambiguous';
+  else if(hasFeeder && hasType) confidence = 'full';
+  else confidence = 'partial';
 
-  return { confidence: 'none', mode: null };
+  return { ...top, confidence, candidates: allCandidates.slice(0, 4), number: top.number ?? detectedNumber };
 }
 
 let pendingImportData = null;
@@ -1332,6 +1331,32 @@ function showManualRouteModal(filename, partialRoute) {
 
   document.getElementById('manualRouteFilename').textContent = filename;
   document.getElementById('manualRouteNote').innerHTML = note;
+
+  if(partialRoute?.confidence === 'remembered'){
+    note = `<div style="background:#eef0ff;border:1px solid #b0b8f0;border-radius:var(--r);padding:8px 12px;font-size:12px;color:#3d4ba0;margin-bottom:14px">
+      <strong>🔁 Remembered route</strong> — this filename pattern matched a previously confirmed import (match ${Math.round((partialRoute._matchScore||0)*100)}%). Adjust below if needed.
+    </div>`;
+  } else if(partialRoute?.confidence === 'ambiguous'){
+    note = `<div style="background:var(--amber-bg);border:1px solid var(--amber-bdr);border-radius:var(--r);padding:8px 12px;font-size:12px;color:var(--amber);margin-bottom:14px">
+      <strong>⚠ Multiple close matches</strong> — please confirm the selection below or pick an alternate candidate.
+    </div>` + note;
+  }
+
+  window._mrCurrentFilename = filename;
+  window._mrCandidates = partialRoute?.candidates || [];
+  const altBox = document.getElementById('manualRouteCandidates');
+  altBox.innerHTML = (window._mrCandidates.length > 1) ? `
+    <div style="margin-bottom:14px">
+      <div style="font-size:11px;font-family:var(--mono);color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Candidate matches (click to use)</div>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        ${window._mrCandidates.map((c,i)=>{
+          const label = c.mode==='device' ? c.device+' / '+(c.type||'?') : [c.substation, c.feeder, c.type].filter(Boolean).join(' / ');
+          return `<button class="btn" style="justify-content:flex-start;font-size:11px;font-family:var(--mono);${i===0?'border-color:var(--accent);background:var(--accent-light)':''}" onclick="mrApplyCandidate(${i})">
+            ${i===0?'★ ':''}${label} <span style="margin-left:auto;color:var(--text3)">score ${Math.round(c.score)}</span>
+          </button>`;
+        }).join('')}
+      </div>
+    </div>` : '';
 
   mrSwitchMode(modeVal);
 
@@ -1695,6 +1720,7 @@ async function doManualRouteImport(importMode) {
     };
   }
 
+  rememberRoute(COLMAP.filename, COLMAP.sheetName, route); // fire-and-forget, doesn't block the import
   closeModal('manualRouteModal');
 
   const importData = pendingImportData;
@@ -5583,6 +5609,62 @@ const COLMAP_CONFIG = {
 };
 
 // ── Column Mapping Presets ────────────────────────────────────────────────────
+const ROUTE_PRESET_KEY = '__route_presets__';
+
+function normalizeRoutePattern(filename, sheetName){
+  const combined = (filename + ' ' + (sheetName||'')).replace(/\.(csv|xlsx|xls)$/i,'');
+  return combined.toLowerCase()
+    .replace(/\d{4}[-_]?\d{2}[-_]?\d{2}/g,'')
+    .replace(/\d+/g,'#')
+    .replace(/[^a-z#]+/g,'_')
+    .replace(/_+/g,'_')
+    .replace(/^_|_$/g,'');
+}
+
+async function loadRoutePresets(){
+  try{
+    const data = await sbFetch('GET', TABLE+'?dataset_key=eq.'+encodeURIComponent(ROUTE_PRESET_KEY)+'&order=row_index.asc');
+    return data.map(r => r.data);
+  }catch(e){ console.error('Route preset load error:',e); return []; }
+}
+
+async function saveRoutePresets(presets){
+  await sbFetch('DELETE', TABLE+'?dataset_key=eq.'+encodeURIComponent(ROUTE_PRESET_KEY));
+  if(presets.length) await sbFetch('POST', TABLE, presets.map((p,i)=>({dataset_key:ROUTE_PRESET_KEY,row_index:i,data:p})));
+}
+
+async function rememberRoute(filename, sheetName, route){
+  if(!route || route.confidence==='none') return;
+  const pattern = normalizeRoutePattern(filename, sheetName);
+  if(!pattern) return;
+  const presets = await loadRoutePresets();
+  const idx = presets.findIndex(p=>p.pattern===pattern);
+  const entry = {
+    pattern, route: {...route, candidates: undefined},
+    saved_by: currentUser(), updated_at: new Date().toISOString(),
+    hitCount: idx>=0 ? (presets[idx].hitCount||0)+1 : 1
+  };
+  if(idx>=0) presets[idx] = entry; else presets.push(entry);
+  if(presets.length > 200) presets.splice(0, presets.length-200);
+  await saveRoutePresets(presets);
+}
+
+async function findRoutePresetMatch(filename, sheetName){
+  const pattern = normalizeRoutePattern(filename, sheetName);
+  if(!pattern) return null;
+  const presets = await loadRoutePresets();
+  let best = null, bestScore = 0;
+  presets.forEach(p=>{ const s = stringSimilarity(pattern, p.pattern); if(s > bestScore){ bestScore = s; best = p; } });
+  if(best && bestScore >= 0.82) return { ...best.route, confidence:'remembered', _remembered:true, _matchScore:bestScore };
+  return null;
+}
+
+function mrApplyCandidate(i){
+  const c = window._mrCandidates[i];
+  if(!c) return;
+  showManualRouteModal(window._mrCurrentFilename, {...c, candidates: window._mrCandidates});
+}
+
 const PRESET_KEY = '__colmap_presets__';
 
 async function loadColPresets(){
@@ -8057,7 +8139,7 @@ function applyFeederNameGuard(rows, feederName){
 
 
 
-function applyColumnMapping(){
+async function applyColumnMapping(){
   const mapped = buildMappedRows();
   if(!mapped.length){ alert('No data rows found after mapping.'); return; }
   const mappedCols = Object.values(COLMAP.mappings).filter(v=>v!=='— skip —');
@@ -8091,15 +8173,15 @@ function applyColumnMapping(){
   pendingImportData = mapped;
 
   // Try to detect type from mapped columns
-  const detectedType = detectTypeFromHeaders(mappedCols);
-
-  const route = parseFilenameForRouting(COLMAP.filename, COLMAP.sheetName);
+  const remembered = await findRoutePresetMatch(COLMAP.filename, COLMAP.sheetName);
+  const route = remembered || parseFilenameForRouting(COLMAP.filename, COLMAP.sheetName);
   pendingImportRoute = route.confidence !== 'none'
     ? {...route, type: detectedType || route.type}
     : { confidence:'none', mode:null, type: detectedType };
 
   showManualRouteModal(COLMAP.filename, pendingImportRoute);
 }
+
 
 function openRenumberModal(){
   document.getElementById('rnPreview').style.display = 'none';
