@@ -1152,25 +1152,34 @@ function scoreFeederCandidates(normB, numMatch, mainMatch, detectedType){
       feederNames.forEach(feed => {
         const fn = norm(feed);
         if(fn.length < 2) return;
-        let score = 0, matchType = null;
+        let score = 0, matchType = null, matchedText = null, matchScore = null, feederScore = 0;
 
         if(normB.includes(fn)){
-          score = fn.length * 10;
+          feederScore = fn.length * 10;
+          score = feederScore;
           matchType = 'exact';
+          matchedText = feed;
         } else if(fn.length >= 3){
           const tokens = normB.split('_').filter(Boolean);
-          let best = 0;
-          tokens.forEach(t=>{ const s = stringSimilarity(fn, t); if(s > best) best = s; });
-          if(best >= FUZZY_THRESHOLD){ score = fn.length * 10 * best; matchType = 'fuzzy'; }
+          let best = 0, bestToken = null;
+          tokens.forEach(t=>{ const s = stringSimilarity(fn, t); if(s > best){ best = s; bestToken = t; } });
+          if(best >= FUZZY_THRESHOLD){
+            feederScore = Math.round(fn.length * 10 * best);
+            score = feederScore;
+            matchType = 'fuzzy';
+            matchedText = bestToken;
+            matchScore = best;
+          }
         }
         if(!score) return;
 
-        score += subBonus;
-        if(detectedType) score += 15;
-        if(numMatch) score += 5;
+        const typeBonus = detectedType ? 15 : 0;
+        const numBonus = numMatch ? 5 : 0;
+        score += subBonus + typeBonus + numBonus;
 
         candidates.push({
-          score, matchType,
+          score, matchType, matchedText, matchScore,
+          breakdown: { feeder: feederScore, substation: subBonus, type: typeBonus, number: numBonus },
           mode:'feeder', substation:sub, voltage:v, scheme:sc, feeder:feed,
           main: mainMatch, subset: mainMatch, type: detectedType, number: numMatch || null
         });
@@ -1179,8 +1188,10 @@ function scoreFeederCandidates(normB, numMatch, mainMatch, detectedType){
 
     if(!isDefault && normB.includes(norm(sub)) && sub.length > 4){
       const sc2 = v ? (getSchemesFor(sub, v)[0] || null) : null;
+      const subScore = norm(sub).length * 8;
       candidates.push({
-        score: norm(sub).length * 8, matchType:'substation-only',
+        score: subScore, matchType:'substation-only', matchedText: sub,
+        breakdown: { substation: subScore },
         mode:'feeder', substation:sub, voltage:v, scheme:sc2, feeder:null,
         main: mainMatch, subset: mainMatch, type: detectedType, number: numMatch || null
       });
@@ -1196,7 +1207,13 @@ function scoreDeviceCandidates(normB, detectedType){
   Object.keys(GROUPS).forEach(dev=>{
     const dn = norm(dev);
     if(normB.includes(dn)){
-      candidates.push({ score: dn.length*10 + (detectedType?15:0), matchType:'exact', mode:'device', device:dev, type:detectedType });
+      const deviceScore = dn.length*10;
+      const typeBonus = detectedType?15:0;
+      candidates.push({
+        score: deviceScore + typeBonus, matchType:'exact', matchedText: dev,
+        breakdown: { device: deviceScore, type: typeBonus },
+        mode:'device', device:dev, type:detectedType
+      });
     }
   });
   return candidates.sort((a,b)=>b.score-a.score);
@@ -1346,14 +1363,33 @@ function showManualRouteModal(filename, partialRoute) {
   window._mrCurrentFilename = filename;
   window._mrCandidates = partialRoute?.candidates || [];
   const altBox = document.getElementById('manualRouteCandidates');
+  const MATCH_TYPE_BADGE = {
+    exact: '<span style="font-size:9px;font-family:var(--mono);background:var(--green-bg);color:var(--green);border:1px solid var(--green-bdr);border-radius:3px;padding:1px 6px">exact match</span>',
+    'substation-only': '<span style="font-size:9px;font-family:var(--mono);background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bdr);border-radius:3px;padding:1px 6px">substation only</span>',
+  };
   altBox.innerHTML = (window._mrCandidates.length > 1) ? `
     <div style="margin-bottom:14px">
       <div style="font-size:11px;font-family:var(--mono);color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Candidate matches (click to use)</div>
-      <div style="display:flex;flex-direction:column;gap:5px">
+      <div style="display:flex;flex-direction:column;gap:6px">
         ${window._mrCandidates.map((c,i)=>{
-          const label = c.mode==='device' ? c.device+' / '+(c.type||'?') : [c.substation, c.feeder, c.type].filter(Boolean).join(' / ');
-          return `<button class="btn" style="justify-content:flex-start;font-size:11px;font-family:var(--mono);${i===0?'border-color:var(--accent);background:var(--accent-light)':''}" onclick="mrApplyCandidate(${i})">
-            ${i===0?'★ ':''}${label} <span style="margin-left:auto;color:var(--text3)">score ${Math.round(c.score)}</span>
+          const isTop = i===0;
+          const path = c.mode==='device'
+            ? [c.device, c.type].filter(Boolean).join(' / ')
+            : [c.substation, c.voltage, c.scheme, c.feeder, c.number].filter(Boolean).join(' / ') + (c.type ? ' — '+c.type : '');
+          const matchBadge = c.matchType==='fuzzy'
+            ? `<span style="font-size:9px;font-family:var(--mono);background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bdr);border-radius:3px;padding:1px 6px">fuzzy ${Math.round((c.matchScore||0)*100)}%</span>`
+            : (MATCH_TYPE_BADGE[c.matchType] || '');
+          const matchedNote = c.matchedText ? `<span style="font-size:10px;color:var(--text3);font-family:var(--mono)">matched "${c.matchedText}"</span>` : '';
+          const chips = Object.entries(c.breakdown||{}).filter(([,v])=>v).map(([k,v])=>
+            `<span style="font-size:9px;font-family:var(--mono);color:var(--text3);background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:1px 5px">${k} +${Math.round(v)}</span>`
+          ).join('');
+          return `<button class="btn" style="justify-content:flex-start;flex-direction:column;align-items:flex-start;gap:4px;padding:8px 12px;height:auto;width:100%;font-family:var(--font);white-space:normal;text-align:left;${isTop?'border-color:var(--accent);background:var(--accent-light)':''}" onclick="mrApplyCandidate(${i})">
+            <div style="display:flex;align-items:center;gap:8px;width:100%">
+              <span style="font-weight:600;font-size:12px">${isTop?'★ ':''}${path}</span>
+              <span style="margin-left:auto;font-size:11px;font-family:var(--mono);font-weight:600;color:${isTop?'var(--accent)':'var(--text2)'}">score ${Math.round(c.score)}</span>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">${matchBadge}${matchedNote}</div>
+            ${chips ? `<div style="display:flex;gap:4px;flex-wrap:wrap">${chips}</div>` : ''}
           </button>`;
         }).join('')}
       </div>
