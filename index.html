@@ -1178,14 +1178,36 @@ function scoreFeederCandidates(normB, numMatch, mainMatch, detectedType){
         }
         if(!score) return;
 
+        // NEW: check this feeder's actual number/main options against the filename,
+        // rather than applying a flat bonus regardless of whether they're real for this feeder
+        const feedCfg = schemeNode(sub, v, sc)?.feeders?.[feed] || SCHEME_TEMPLATES[sc]?.feeders?.[feed];
+
+        let numberBonus = 0;
+        if(feedCfg?.hasNumbers && numMatch){
+          const numKeys = Object.keys(feedCfg.numbers || {});
+          // strong signal: the parsed number is one of THIS feeder's real numbers
+          numberBonus = numKeys.includes(numMatch) ? 12 : 3;
+        } else if(numMatch){
+          // feeder has no numbers at all — weak legacy signal, same as before
+          numberBonus = 5;
+        }
+
+        let mainBonus = 0;
+        if(feedCfg?.hasMain !== false && mainMatch){
+          const mains = feedCfg?.hasNumbers
+            ? (feedCfg.numbers?.[numMatch]?.mains || [])
+            : (feedCfg?.mains || []);
+          // strong signal: the parsed main is one of THIS feeder's real mains
+          mainBonus = mains.includes(mainMatch) ? 8 : 0;
+       }
+
         const typeBonus = detectedType ? 15 : 0;
-        const numBonus = numMatch ? 5 : 0;
         const schemeBonus = (schemeNorm.length >= 3 && normB.includes(schemeNorm)) ? 20 : 0;
-        score += subBonus + typeBonus + numBonus + schemeBonus + voltageBonus;
+        score += subBonus + typeBonus + numberBonus + schemeBonus + voltageBonus + mainBonus;
 
         candidates.push({
           score, matchType, matchedText, matchScore,
-          breakdown: { feeder: feederScore, substation: subBonus, type: typeBonus, number: numBonus, scheme: schemeBonus, voltage: voltageBonus },
+          breakdown: { feeder: feederScore, substation: subBonus, type: typeBonus, number: numberBonus, scheme: schemeBonus, voltage: voltageBonus, main: mainBonus },
           mode:'feeder', substation:sub, voltage:v, scheme:sc, feeder:feed,
           main: mainMatch, subset: mainMatch, type: detectedType, number: numMatch || null
         });
