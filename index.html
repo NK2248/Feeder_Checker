@@ -1137,7 +1137,20 @@ function scoreFeederCandidates(normB, numMatch, mainMatch, detectedType){
 
   Object.keys(FEEDER_STRUCTURE).forEach(sub => {
     const isDefault = sub === DEFAULT_SUBSTATION_NAME;
-    const subBonus = (!isDefault && normB.includes(norm(sub))) ? 30 : 0;
+    // NEW: never surface DEFAULT as a routing candidate unless the user is
+    // already inside the "editing default template" flow — matches the same
+    // rule showManualRouteModal uses for its substation dropdown.
+    if(isDefault && !isEditingDefault()) return;
+
+
+    // NEW: only credit a substation match when the filename actually names it,
+    // OR when it's the substation the user currently has open — a substation
+    // that merely shares characters with the filename (but isn't open, and
+    // isn't named) shouldn't get free credit just for existing.
+    const nameMatchesFile = normB.includes(norm(sub));
+    const isCurrentlyOpen = sub === currentSubstation;
+    const subBonus = (!isDefault && (nameMatchesFile || isCurrentlyOpen)) ? 30 : 0;
+
 
     const schemes = isDefault
       ? (getSchemesFor(sub).length ? getSchemesFor(sub) : Object.keys(SCHEME_TEMPLATES))
