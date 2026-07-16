@@ -1143,6 +1143,8 @@ function scoreFeederCandidates(normB, numMatch, mainMatch, detectedType){
       ? (getSchemesFor(sub).length ? getSchemesFor(sub) : Object.keys(SCHEME_TEMPLATES))
       : getSchemesFor(sub);
     const v = isDefault ? null : (getVoltagesForSub(sub)[0] || null);
+    // NEW: bonus if the filename mentions this substation's voltage level (e.g. "115kV", "22kV")
+    const voltageBonus = (!isDefault && v && normB.includes(norm(v))) ? 10 : 0;
 
     schemes.forEach(sc => {
       // NEW: bonus if the filename mentions the scheme name itself (e.g. "H_Scheme", "DBSB", "BR_A_Half")
@@ -1179,11 +1181,11 @@ function scoreFeederCandidates(normB, numMatch, mainMatch, detectedType){
         const typeBonus = detectedType ? 15 : 0;
         const numBonus = numMatch ? 5 : 0;
         const schemeBonus = (schemeNorm.length >= 3 && normB.includes(schemeNorm)) ? 20 : 0;
-        score += subBonus + typeBonus + numBonus + schemeBonus;
+        score += subBonus + typeBonus + numBonus + schemeBonus + voltageBonus;
 
         candidates.push({
           score, matchType, matchedText, matchScore,
-          breakdown: { feeder: feederScore, substation: subBonus, type: typeBonus, number: numBonus, scheme: schemeBonus },
+          breakdown: { feeder: feederScore, substation: subBonus, type: typeBonus, number: numBonus, scheme: schemeBonus, voltage: voltageBonus },
           mode:'feeder', substation:sub, voltage:v, scheme:sc, feeder:feed,
           main: mainMatch, subset: mainMatch, type: detectedType, number: numMatch || null
         });
