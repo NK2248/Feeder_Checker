@@ -1138,6 +1138,23 @@ function findMatchingNumberKey(numMatch, feedCfg){
   return keys.find(k => parseInt(k, 10) === target) || null;
 }
 
+function findMatchingMainKey(mainGuess, mainsList){
+  if(!mainGuess || !mainsList || !mainsList.length) return null;
+  const norm = s => String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  const target = norm(mainGuess);
+  let found = mainsList.find(m => norm(m) === target);
+  if(found) return found;
+  const targetNum = (target.match(/(\d+)$/)||[])[1];
+  if(targetNum){
+    found = mainsList.find(m => {
+      const mn = (norm(m).match(/(\d+)$/)||[])[1];
+      return mn && parseInt(mn,10) === parseInt(targetNum,10);
+    });
+    if(found) return found;
+  }
+  return null;
+}
+
 function scoreFeederCandidates(normB, numMatch, mainMatch, detectedType){
   const candidates = [];
   const norm = s => String(s||'').replace(/[^a-z0-9]/gi, '_').toLowerCase();
@@ -1216,12 +1233,13 @@ function scoreFeederCandidates(normB, numMatch, mainMatch, detectedType){
         }
 
         let mainBonus = 0;
+        let matchedMainKey = null;
         if(feedCfg?.hasMain !== false && mainMatch){
           const mains = feedCfg?.hasNumbers
             ? (feedCfg.numbers?.[matchedNumberKey]?.mains || [])
             : (feedCfg?.mains || []);
-          // strong signal: the parsed main is one of THIS feeder's real mains
-          mainBonus = mains.includes(mainMatch) ? 8 : 0;
+          matchedMainKey = findMatchingMainKey(mainMatch, mains);
+          mainBonus = matchedMainKey ? 8 : 0;
        }
 
         const typeBonus = detectedType ? 15 : 0;
@@ -1231,7 +1249,7 @@ function scoreFeederCandidates(normB, numMatch, mainMatch, detectedType){
           score, matchType, matchedText, matchScore,
           breakdown: { feeder: feederScore, substation: subBonus, type: typeBonus, number: numberBonus, scheme: schemeBonus, voltage: voltageBonus, main: mainBonus },
           mode:'feeder', substation:sub, voltage:v, scheme:sc, feeder:feed,
-          main: mainMatch, subset: mainMatch, type: detectedType,
+          main: matchedMainKey || mainMatch, subset: matchedMainKey || mainMatch, type: detectedType,
           number: (feedCfg?.hasNumbers ? matchedNumberKey : numMatch) || null
         });
       });
@@ -1312,7 +1330,13 @@ function parseFilenameForRouting(filename, sheetName, extraText) {
     if (keys.some(k => normB.includes(norm(k)))) { detectedType = type; break; }
   }
 
-  const mainMatch = (base.match(/MAIN_\d+/i) || [])[0]?.toUpperCase() || null;
+  const mainMatch = (() => {
+    let m = base.match(/MAIN[_\s-]?(\d{1,2})/i);
+    if(m) return 'MAIN_'+m[1].padStart(2,'0');
+    m = normB.match(/(?:^|_)m(\d{1,2})(?:_|$)/i);
+    if(m) return 'MAIN_'+m[1].padStart(2,'0');
+    return null;
+  })();
   const numMatch = (normB.match(/(?:^|_)(\d{2})(?:_|$)/) ||
                     normB.match(/no[_\s]*(\d+)/i) || [])[1];
   const detectedNumber = numMatch ? numMatch.padStart(2, '0') : null;
