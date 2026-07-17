@@ -1131,6 +1131,13 @@ function onDragLeave(){document.getElementById('dropZone').classList.remove('dra
 function onDrop(e){e.preventDefault();document.getElementById('dropZone').classList.remove('drag');const f=e.dataTransfer.files[0];if(f)processFile(f);}
 function handleUpload(inp){const f=inp.files[0];if(f)processFile(f);inp.value='';}
 
+function findMatchingNumberKey(numMatch, feedCfg){
+  if(!feedCfg?.numbers) return null;
+  const keys = Object.keys(feedCfg.numbers);
+  const target = parseInt(numMatch, 10);
+  return keys.find(k => parseInt(k, 10) === target) || null;
+}
+
 function scoreFeederCandidates(normB, numMatch, mainMatch, detectedType){
   const candidates = [];
   const norm = s => String(s||'').replace(/[^a-z0-9]/gi, '_').toLowerCase();
