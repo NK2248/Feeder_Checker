@@ -1141,6 +1141,9 @@ function scoreFeederCandidates(normB, numMatch, mainMatch, detectedType){
     // already inside the "editing default template" flow — matches the same
     // rule showManualRouteModal uses for its substation dropdown.
     if(isDefault && !isEditingDefault()) return;
+    // NEW: when a substation is currently open, don't offer candidates from
+    // other substations at all — the user is clearly working within this one.
+    if(!isDefault && currentSubstation && sub !== currentSubstation) return;
 
 
     // NEW: only credit a substation match when the filename actually names it,
@@ -1422,16 +1425,11 @@ function showManualRouteModal(filename, partialRoute) {
             ? `<span style="font-size:9px;font-family:var(--mono);background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bdr);border-radius:3px;padding:1px 6px">fuzzy ${Math.round((c.matchScore||0)*100)}%</span>`
             : (MATCH_TYPE_BADGE[c.matchType] || '');
           const matchedNote = c.matchedText ? `<span style="font-size:10px;color:var(--text3);font-family:var(--mono)">matched "${c.matchedText}"</span>` : '';
-          const chips = Object.entries(c.breakdown||{}).filter(([,v])=>v).map(([k,v])=>
-            `<span style="font-size:9px;font-family:var(--mono);color:var(--text3);background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:1px 5px">${k} +${Math.round(v)}</span>`
-          ).join('');
           return `<button class="btn" style="justify-content:flex-start;flex-direction:column;align-items:flex-start;gap:4px;padding:8px 12px;height:auto;width:100%;font-family:var(--font);white-space:normal;text-align:left;${isTop?'border-color:var(--accent);background:var(--accent-light)':''}" onclick="mrApplyCandidate(${i})">
             <div style="display:flex;align-items:center;gap:8px;width:100%">
               <span style="font-weight:600;font-size:12px">${isTop?'★ ':''}${path}</span>
-              <span style="margin-left:auto;font-size:11px;font-family:var(--mono);font-weight:600;color:${isTop?'var(--accent)':'var(--text2)'}">score ${Math.round(c.score)}</span>
             </div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">${matchBadge}${matchedNote}</div>
-            ${chips ? `<div style="display:flex;gap:4px;flex-wrap:wrap">${chips}</div>` : ''}
           </button>`;
         }).join('')}
       </div>
