@@ -1199,10 +1199,10 @@ function scoreFeederCandidates(normB, numMatch, mainMatch, detectedType){
         const feedCfg = schemeNode(sub, v, sc)?.feeders?.[feed] || SCHEME_TEMPLATES[sc]?.feeders?.[feed];
 
         let numberBonus = 0;
+        let matchedNumberKey = null;
         if(feedCfg?.hasNumbers && numMatch){
-          const numKeys = Object.keys(feedCfg.numbers || {});
-          // strong signal: the parsed number is one of THIS feeder's real numbers
-          numberBonus = numKeys.includes(numMatch) ? 12 : 3;
+          matchedNumberKey = findMatchingNumberKey(numMatch, feedCfg);
+          numberBonus = matchedNumberKey ? 12 : 3;
         } else if(numMatch){
           // feeder has no numbers at all — weak legacy signal, same as before
           numberBonus = 5;
@@ -1211,7 +1211,7 @@ function scoreFeederCandidates(normB, numMatch, mainMatch, detectedType){
         let mainBonus = 0;
         if(feedCfg?.hasMain !== false && mainMatch){
           const mains = feedCfg?.hasNumbers
-            ? (feedCfg.numbers?.[numMatch]?.mains || [])
+            ? (feedCfg.numbers?.[matchedNumberKey]?.mains || [])
             : (feedCfg?.mains || []);
           // strong signal: the parsed main is one of THIS feeder's real mains
           mainBonus = mains.includes(mainMatch) ? 8 : 0;
@@ -1224,7 +1224,8 @@ function scoreFeederCandidates(normB, numMatch, mainMatch, detectedType){
           score, matchType, matchedText, matchScore,
           breakdown: { feeder: feederScore, substation: subBonus, type: typeBonus, number: numberBonus, scheme: schemeBonus, voltage: voltageBonus, main: mainBonus },
           mode:'feeder', substation:sub, voltage:v, scheme:sc, feeder:feed,
-          main: mainMatch, subset: mainMatch, type: detectedType, number: numMatch || null
+          main: mainMatch, subset: mainMatch, type: detectedType,
+          number: (feedCfg?.hasNumbers ? matchedNumberKey : numMatch) || null
         });
       });
     });
@@ -1264,16 +1265,33 @@ function scoreDeviceCandidates(normB, detectedType){
   return candidates.sort((a,b)=>b.score-a.score);
 }
 
-function parseFilenameForRouting(filename, sheetName) {
+function parseFilenameForRouting(filename, sheetName, extraText) {
   const base = filename
     .replace(/\.(csv|xlsx|xls)$/i, '')
     .replace(/[-_ ]+export$/i, '')
     .replace(/[-_ ]+copy$/i, '')
     .replace(/\[\d+\]/g, '')
     .trim();
-  const combined = (filename + ' ' + (sheetName || '')).replace(/\.(csv|xlsx|xls)$/i, '');
+  const combined = (filename + ' ' + (sheetName || '') + ' ' + (extraText || '')).replace(/\.(csv|xlsx|xls)$/i, '');
   const norm = s => s.replace(/[^a-z0-9]/gi, '_').toLowerCase();
   const normB = norm(combined);
+  // NEW: pull a small sample of feeder/bay name values from the mapped data
+  // to give parseFilenameForRouting more to work with than just the filename
+  function buildDataHintText(rows, cols){
+    if(!rows || !rows.length) return '';
+    const HINT_COLS = ['FEEDER_NAME','BAY_NAME'];
+    const parts = [];
+    HINT_COLS.forEach(col=>{
+      if(!cols.includes(col)) return;
+      const seen = new Set();
+      for(const r of rows){
+        const v = String(r[col]||'').trim();
+        if(v && !seen.has(v)){ seen.add(v); parts.push(v); }
+        if(seen.size >= 5) break; // cap — a handful of values is plenty of signal
+      }
+    });
+    return parts.join(' ');
+  }
 
   const TYPE_KEYWORDS = [
     { keys: ['status_point', 'status point', 'statuspoint', '_sp_', '_sp','status points','status_points'],         type: 'Status Point'   },
@@ -8252,7 +8270,8 @@ async function applyColumnMapping(){
   // Try to detect type from mapped columns
   const detectedType = detectTypeFromHeaders(mappedCols);
   const remembered = await findRoutePresetMatch(COLMAP.filename, COLMAP.sheetName);
-  const route = remembered || parseFilenameForRouting(COLMAP.filename, COLMAP.sheetName);
+  const dataHintText = buildDataHintText(mapped, mappedCols);
+  const route = remembered || parseFilenameForRouting(COLMAP.filename, COLMAP.sheetName, dataHintText);
   pendingImportRoute = route.confidence !== 'none'
     ? {...route, type: detectedType || route.type}
     : { confidence:'none', mode:null, type: detectedType };
