@@ -778,6 +778,12 @@ onclick="currentMode==='feeder'?saveFeederHistoryPoint('manual').then(()=>{setSy
       <div id="cmpKeyChips" style="display:flex;gap:5px;flex-wrap:wrap;flex:1"></div>
       <button class="btn warn" onclick="runCompare()" style="padding:4px 10px;font-size:11px"><svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>compare</button>
     </div>
+    <div id="cmpColBar" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;margin-bottom:10px;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:11px;font-family:var(--mono);color:var(--text2)">check these columns for differences:</span>
+      <button class="btn" style="font-size:10px;padding:2px 8px" onclick="setCmpCompareColsAll()">all columns</button>
+      <div id="cmpColChips" style="display:flex;gap:5px;flex-wrap:wrap;flex:1"></div>
+      <button class="btn warn" onclick="runCompare()" style="padding:4px 10px;font-size:11px">re-run compare</button>
+    </div>
     <div id="cmpLegend" style="display:none;gap:14px;font-size:11px;font-family:var(--mono);color:var(--text3);margin-bottom:8px;flex-wrap:wrap">
       <div class="leg"><div class="leg-dot" style="background:#90c8a0"></div><span>same in both</span></div>
       <div class="leg"><div class="leg-dot" style="background:#90b8e0"></div><span>only in File A</span></div>
@@ -5490,7 +5496,7 @@ async function exportAllSubstation(){
 }
 
 // ── Compare ───────────────────────────────────────────────────────────────────
-const CMP={A:null,B:null,colsA:[],colsB:[],keyColumns:new Set(),result:null,statusFilter:'all'};
+const CMP={A:null,B:null,colsA:[],colsB:[],keyColumns:new Set(),compareColumns:null,result:null,statusFilter:'all'};
 
 function getDefaultCmpKeys(colsA, colsB){
   const common = colsA.filter(c => colsB.includes(c));
@@ -5565,6 +5571,33 @@ function loadCompareFile(side,inp){
   reader.readAsArrayBuffer(f);inp.value='';
 }
 
+function renderCmpColChips(allCols){
+  const active = CMP.compareColumns; // null = all
+  document.getElementById('cmpColChips').innerHTML = allCols.map(c=>{
+    const on = active === null || active.has(c);
+    return `<button class="chip${on?' on':''}" onclick="toggleCmpCol('${c.replace(/'/g,"\\'")}')">${c}</button>`;
+  }).join('');
+}
+
+function toggleCmpCol(col){
+  const allCols=[...new Set([...CMP.colsA,...CMP.colsB])];
+  // first toggle off from "all" state → start an explicit selection with everything except this one
+  if(CMP.compareColumns === null){
+    CMP.compareColumns = new Set(allCols.filter(c=>c!==col));
+  } else if(CMP.compareColumns.has(col)){
+    if(CMP.compareColumns.size>1) CMP.compareColumns.delete(col);
+  } else {
+    CMP.compareColumns.add(col);
+    if(CMP.compareColumns.size === allCols.length) CMP.compareColumns = null; // back to "all"
+  }
+  renderCmpColChips(allCols);
+}
+
+function setCmpCompareColsAll(){
+  CMP.compareColumns = null;
+  renderCmpColChips([...new Set([...CMP.colsA,...CMP.colsB])]);
+}
+
 function renderCmpKeyChips(allCols){
   document.getElementById('cmpKeyChips').innerHTML=allCols.map(c=>
     `<button class="chip${CMP.keyColumns.has(c)?' on':''}" onclick="toggleCmpKey('${c.replace(/'/g,"\\'")}')">${c}</button>`
@@ -5586,7 +5619,11 @@ function runCompare(){
   const rows=allKeys.map(k=>{
     const ra=mapA.get(k)||null;const rb=mapB.get(k)||null;let status='same';
     if(ra&&!rb)status='only-a';else if(!ra&&rb)status='only-b';
-    else{if(allCols.some(c=>String(ra[c]??'')!==String(rb[c]??'')))status='diff';}
+    // NEW
+    else{
+      const checkCols = CMP.compareColumns ? [...CMP.compareColumns] : allCols;
+      if(checkCols.some(c=>String(ra[c]??'')!==String(rb[c]??'')))status='diff';
+    }
     return{key:k,ra,rb,status,cols:allCols};
   });
   CMP.result=rows;
@@ -5624,7 +5661,15 @@ function renderCmpTable(){
   const tbody=filtered.map((r,i)=>{
     const sc=r.status==='same'?'row-same':r.status==='only-a'?'row-only-a':r.status==='only-b'?'row-only-b':'row-diff';
     const statusBadge=r.status==='same'?`<span class="badge orig">same</span>`:r.status==='only-a'?`<span class="badge new">A only</span>`:r.status==='only-b'?`<span class="badge dup" style="background:var(--amber-bg);color:var(--amber)">B only</span>`:`<span class="badge dup">different</span>`;
-    const cells=r.cols.map(c=>{const va=r.ra?String(r.ra[c]??''):'—';const vb=r.rb?String(r.rb[c]??''):'—';const isDiff=va!==vb;return `<td style="border-left:2px solid var(--border2)" class="${isDiff?'cell-diff':''}" title="${va}">${va}</td><td class="${isDiff?'cell-diff-b':''}" title="${vb}">${vb}</td>`;}).join('');
+    // NEW
+const checkCols = CMP.compareColumns ? new Set(CMP.compareColumns) : null;
+const cells=r.cols.map(c=>{
+  const va=r.ra?String(r.ra[c]??''):'—';
+  const vb=r.rb?String(r.rb[c]??''):'—';
+  const isChecked = !checkCols || checkCols.has(c);
+  const isDiff = isChecked && va!==vb;
+  return `<td style="border-left:2px solid var(--border2)" class="${isDiff?'cell-diff':''}" title="${va}">${va}</td><td class="${isDiff?'cell-diff-b':''}" title="${vb}">${vb}</td>`;
+}).join('');
     return `<tr class="${sc}"><td class="rn">${i+1}</td><td>${statusBadge}</td>${cells}</tr>`;
   }).join('');
   document.getElementById('cmpTable').innerHTML=`<div class="cmp-tbl-wrap"><table><thead>${thead}</thead><tbody>${tbody}</tbody></table></div>`;
@@ -8324,12 +8369,16 @@ async function applyColumnMapping(){
     document.getElementById('dzB').style.background  = 'var(--green-bg)';
     // show key column picker if both files loaded
     // NEW
-  if(CMP.A && CMP.B){
-    const allCols = [...new Set([...CMP.colsA, ...CMP.colsB])];
-    CMP.keyColumns = getDefaultCmpKeys(CMP.colsA, CMP.colsB);
-    renderCmpKeyChips(allCols);
-    document.getElementById('cmpKeyBar').style.display = 'flex';
-  }
+    if(CMP.A && CMP.B){
+      const allCols = [...new Set([...CMP.colsA, ...CMP.colsB])];
+      CMP.keyColumns = getDefaultCmpKeys(CMP.colsA, CMP.colsB);
+      CMP.compareColumns = null; // reset to "all" on fresh file load
+      renderCmpKeyChips(allCols);
+      renderCmpColChips(allCols);
+      document.getElementById('cmpKeyBar').style.display = 'flex';
+      document.getElementById('cmpColBar').style.display = 'flex';
+    }
+
     // reopen compare modal
     document.getElementById('compareModal').classList.add('open');
     return;
