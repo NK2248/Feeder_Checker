@@ -1347,10 +1347,14 @@ function detectTypeFromColumns(data) {
 
 function detectTypeFromHeaders(headers) {
   const h = headers.map(s => String(s).toUpperCase());
-  if (h.some(c => c.includes('STATE_0') || c.includes('STATE_1')))           return 'Status Point';
-  if (h.some(c => c.includes('STATE_CLOSE') || c.includes('STATE_TRIP')))    return 'Control Output';
-  if (h.some(c => c.includes('SCALE_ACTUAL') || c.includes('SPECIFICATION_UNIT') || c === 'UNIT')) return 'Analog Point';
-  return null;
+  const score = keys => keys.filter(k => h.some(c => c.includes(k))).length;
+  const scores = {
+    'Status Point':   score(['STATE_0','STATE_1','STATE_2','STATE_3']),
+    'Control Output': score(['STATE_CLOSE','STATE_TRIP']),
+    'Analog Point':   score(['SCALE_ACTUAL','SCALE_RAW','SPECIFICATION_UNIT']),
+  };
+  const [best, bestScore] = Object.entries(scores).sort((a,b)=>b[1]-a[1])[0];
+  return bestScore > 0 ? best : null;
 }
 
 function processFile(f){
