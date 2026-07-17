@@ -1265,19 +1265,7 @@ function scoreDeviceCandidates(normB, detectedType){
   return candidates.sort((a,b)=>b.score-a.score);
 }
 
-function parseFilenameForRouting(filename, sheetName, extraText) {
-  const base = filename
-    .replace(/\.(csv|xlsx|xls)$/i, '')
-    .replace(/[-_ ]+export$/i, '')
-    .replace(/[-_ ]+copy$/i, '')
-    .replace(/\[\d+\]/g, '')
-    .trim();
-  const combined = (filename + ' ' + (sheetName || '') + ' ' + (extraText || '')).replace(/\.(csv|xlsx|xls)$/i, '');
-  const norm = s => s.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-  const normB = norm(combined);
-  // NEW: pull a small sample of feeder/bay name values from the mapped data
-  // to give parseFilenameForRouting more to work with than just the filename
-  function buildDataHintText(rows, cols){
+function buildDataHintText(rows, cols){
     if(!rows || !rows.length) return '';
     const HINT_COLS = ['FEEDER_NAME','BAY_NAME'];
     const parts = [];
@@ -1291,7 +1279,21 @@ function parseFilenameForRouting(filename, sheetName, extraText) {
       }
     });
     return parts.join(' ');
-  }
+}
+
+function parseFilenameForRouting(filename, sheetName, extraText) {
+  const base = filename
+    .replace(/\.(csv|xlsx|xls)$/i, '')
+    .replace(/[-_ ]+export$/i, '')
+    .replace(/[-_ ]+copy$/i, '')
+    .replace(/\[\d+\]/g, '')
+    .trim();
+  const combined = (filename + ' ' + (sheetName || '') + ' ' + (extraText || '')).replace(/\.(csv|xlsx|xls)$/i, '');
+  const norm = s => s.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  const normB = norm(combined);
+  // NEW: pull a small sample of feeder/bay name values from the mapped data
+  // to give parseFilenameForRouting more to work with than just the filename
+  
 
   const TYPE_KEYWORDS = [
     { keys: ['status_point', 'status point', 'statuspoint', '_sp_', '_sp','status points','status_points'],         type: 'Status Point'   },
