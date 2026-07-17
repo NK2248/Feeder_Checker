@@ -5492,6 +5492,13 @@ async function exportAllSubstation(){
 // ── Compare ───────────────────────────────────────────────────────────────────
 const CMP={A:null,B:null,colsA:[],colsB:[],keyColumns:new Set(),result:null,statusFilter:'all'};
 
+function getDefaultCmpKeys(colsA, colsB){
+  const common = colsA.filter(c => colsB.includes(c));
+  const preferred = ['SPECIFICATION_POINT_NAME','DNP3.0_ADDRESS'].filter(c => common.includes(c));
+  if(preferred.length) return new Set(preferred);
+  return new Set(common.length ? [common[0]] : [colsA[0]]);
+}
+
 function openCompare(){
   CMP.A=null;CMP.B=null;CMP.colsA=[];CMP.colsB=[];CMP.keyColumns=new Set();CMP.result=null;CMP.statusFilter='all';
   document.getElementById('lblB').textContent='Drop or click to upload File B';
@@ -5546,9 +5553,10 @@ function loadCompareFile(side,inp){
       if(side==='A')CMP.colsA=fileCols;else CMP.colsB=fileCols;
       document.getElementById('lbl'+side).textContent=f.name+' ('+data.length+' rows)';
       document.getElementById('dz'+side).style.borderColor='var(--green-bdr)';
+      // NEW
       if(CMP.A&&CMP.B){
         const allCols=[...new Set([...CMP.colsA,...CMP.colsB])];
-        CMP.keyColumns=new Set([CMP.colsA[0]]);
+        CMP.keyColumns=getDefaultCmpKeys(CMP.colsA, CMP.colsB);
         renderCmpKeyChips(allCols);
         document.getElementById('cmpKeyBar').style.display='flex';
       }
@@ -8315,12 +8323,13 @@ async function applyColumnMapping(){
     document.getElementById('dzB').style.borderColor = 'var(--green-bdr)';
     document.getElementById('dzB').style.background  = 'var(--green-bg)';
     // show key column picker if both files loaded
-    if(CMP.A && CMP.B){
-      const allCols = [...new Set([...CMP.colsA, ...CMP.colsB])];
-      CMP.keyColumns = new Set([CMP.colsA[0]]);
-      renderCmpKeyChips(allCols);
-      document.getElementById('cmpKeyBar').style.display = 'flex';
-    }
+    // NEW
+  if(CMP.A && CMP.B){
+    const allCols = [...new Set([...CMP.colsA, ...CMP.colsB])];
+    CMP.keyColumns = getDefaultCmpKeys(CMP.colsA, CMP.colsB);
+    renderCmpKeyChips(allCols);
+    document.getElementById('cmpKeyBar').style.display = 'flex';
+  }
     // reopen compare modal
     document.getElementById('compareModal').classList.add('open');
     return;
