@@ -1162,6 +1162,7 @@ function scoreFeederCandidates(normB, numMatch, mainMatch, detectedType){
     schemes.forEach(sc => {
       // NEW: bonus if the filename mentions the scheme name itself (e.g. "H_Scheme", "DBSB", "BR_A_Half")
      const schemeNorm = norm(sc);
+     const schemeBonus = (schemeNorm.length >= 3 && normB.includes(schemeNorm)) ? 20 : 0;
       const feederNames = schemeNode(sub, v, sc)?.feeders
         ? getFeederNames(sub, v, sc)
         : Object.keys(SCHEME_TEMPLATES[sc]?.feeders || {});
@@ -1214,8 +1215,6 @@ function scoreFeederCandidates(normB, numMatch, mainMatch, detectedType){
        }
 
         const typeBonus = detectedType ? 15 : 0;
-        // bonus if the filename mentions the scheme name itself (e.g. "H_Scheme", "DBSB", "BR_A_Half")
-        const schemeBonus = (schemeNorm.length >= 3 && normB.includes(schemeNorm)) ? 20 : 0;
         score += subBonus + typeBonus + numberBonus + schemeBonus + voltageBonus + mainBonus;
 
         candidates.push({
@@ -1229,10 +1228,12 @@ function scoreFeederCandidates(normB, numMatch, mainMatch, detectedType){
 
     if(!isDefault && normB.includes(norm(sub)) && sub.length > 4){
       const sc2 = v ? (getSchemesFor(sub, v)[0] || null) : null;
-      const subScore = norm(sub).length * 8;
+      const sc2Norm = sc2 ? norm(sc2) : '';
+      const sc2Bonus = (sc2 && sc2Norm.length >= 3 && normB.includes(sc2Norm)) ? 20 : 0;
+      const subScore = norm(sub).length * 8 + voltageBonus + sc2Bonus;
       candidates.push({
         score: subScore, matchType:'substation-only', matchedText: sub,
-        breakdown: { substation: subScore },
+        breakdown: { substation: norm(sub).length * 8, voltage: voltageBonus, scheme: sc2Bonus },
         mode:'feeder', substation:sub, voltage:v, scheme:sc2, feeder:null,
         main: mainMatch, subset: mainMatch, type: detectedType, number: numMatch || null
       });
@@ -1281,7 +1282,7 @@ function parseFilenameForRouting(filename, sheetName) {
     if (keys.some(k => normB.includes(norm(k)))) { detectedType = type; break; }
   }
 
-  const mainMatch = (base.match(/MAIN_\d+/i) || [])[0]?.toUpperCase() || 'MAIN_01';
+  const mainMatch = (base.match(/MAIN_\d+/i) || [])[0]?.toUpperCase() || null;
   const numMatch = (normB.match(/(?:^|_)(\d{2})(?:_|$)/) ||
                     normB.match(/no[_\s]*(\d+)/i) || [])[1];
   const detectedNumber = numMatch ? numMatch.padStart(2, '0') : null;
