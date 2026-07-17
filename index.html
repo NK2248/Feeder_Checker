@@ -1331,7 +1331,7 @@ function parseFilenameForRouting(filename, sheetName, extraText) {
   }
 
   const mainMatch = (() => {
-    let m = base.match(/MAIN[_\s-]?(\d{1,2})/i);
+    let m = base.match(/MAIN[\s_.-]*(?:NO|NUMBER)?[\s_.-]*(\d{1,2})\b/i);
     if(m) return 'MAIN_'+m[1].padStart(2,'0');
     m = normB.match(/(?:^|_)m(\d{1,2})(?:_|$)/i);
     if(m) return 'MAIN_'+m[1].padStart(2,'0');
