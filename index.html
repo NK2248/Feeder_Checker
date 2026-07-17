@@ -1306,6 +1306,38 @@ function buildDataHintText(rows, cols){
     return parts.join(' ');
 }
 
+const ORDINAL_WORDS = {first:'1',second:'2',third:'3',fourth:'4',fifth:'5',sixth:'6'};
+const NUMBER_WORDS  = {one:'1',two:'2',three:'3',four:'4',five:'5',six:'6'};
+
+function findMainNumberInText(base, normB){
+  // 1. "MAIN" (optionally "NO"/"NUMBER"/"#") + digits, in either order,
+  //    any mix of space/underscore/dot/dash/hash between the parts
+  //    e.g. MAIN_01, Main 2, main no.2, MAIN NUMBER 2, Main#2, 2nd Main, MAIN-02
+  const sep = '[\\s_.#-]*';
+  let m = base.match(new RegExp('MAIN'+sep+'(?:NO|NUMBER)?'+sep+'(\\d{1,2})\\b','i'));
+  if(m) return 'MAIN_'+m[1].padStart(2,'0');
+
+  m = base.match(new RegExp('(\\d{1,2})'+sep+'(?:ST|ND|RD|TH)?'+sep+'MAIN\\b','i'));
+  if(m) return 'MAIN_'+m[1].padStart(2,'0');
+
+  // 2. Ordinal / number words next to "main": "second main", "main second"
+  const wordPattern = Object.keys({...ORDINAL_WORDS,...NUMBER_WORDS}).join('|');
+  m = base.match(new RegExp('\\b('+wordPattern+')'+sep+'MAIN\\b','i')) ||
+      base.match(new RegExp('MAIN'+sep+'('+wordPattern+')\\b','i'));
+  if(m){
+    const w = m[1].toLowerCase();
+    const num = ORDINAL_WORDS[w] || NUMBER_WORDS[w];
+    if(num) return 'MAIN_'+num.padStart(2,'0');
+  }
+
+  // 3. Short abbreviations: MN2, MN_02, M2 (only when not immediately preceded
+  //    by another letter, to avoid false hits inside unrelated words)
+  m = normB.match(/(?:^|_)mn?(\d{1,2})(?:_|$)/i);
+  if(m) return 'MAIN_'+m[1].padStart(2,'0');
+
+  return null;
+}
+
 function parseFilenameForRouting(filename, sheetName, extraText) {
   const base = filename
     .replace(/\.(csv|xlsx|xls)$/i, '')
@@ -1330,13 +1362,7 @@ function parseFilenameForRouting(filename, sheetName, extraText) {
     if (keys.some(k => normB.includes(norm(k)))) { detectedType = type; break; }
   }
 
-  const mainMatch = (() => {
-    let m = base.match(/MAIN[\s_.-]*(?:NO|NUMBER)?[\s_.-]*(\d{1,2})\b/i);
-    if(m) return 'MAIN_'+m[1].padStart(2,'0');
-    m = normB.match(/(?:^|_)m(\d{1,2})(?:_|$)/i);
-    if(m) return 'MAIN_'+m[1].padStart(2,'0');
-    return null;
-  })();
+  const mainMatch = findMainNumberInText(base, normB);
   const numMatch = (normB.match(/(?:^|_)(\d{2})(?:_|$)/) ||
                     normB.match(/no[_\s]*(\d+)/i) || [])[1];
   const detectedNumber = numMatch ? numMatch.padStart(2, '0') : null;
