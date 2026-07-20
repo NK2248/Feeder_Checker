@@ -5528,7 +5528,11 @@ function openCompare(){
     document.getElementById('dzA').style.borderColor='var(--amber-bdr)';
     CMP.A=[];CMP.colsA=c;
   }else{
-    const rawA = d.rows.map(r=>{const o={};c.forEach(col=>o[col]=String(r[col]??''));return o;});
+    const rawA = d.rows.map((r,i)=>{
+      const o={};c.forEach(col=>o[col]=String(r[col]??''));
+      o.__rowNo = i+1; // 1-based row position in current dataset
+      return o;
+    });
     CMP.A = mergeConsecutiveSplitRows(rawA);
     CMP.colsA=c;
     document.getElementById('lblA').textContent=lbl+' ('+d.rows.length+' rows)';
@@ -5609,19 +5613,19 @@ function getRowKey(row){ return [...CMP.keyColumns].map(c=>String(row[c]||'').to
 
 function runCompare(){
   if(!CMP.A||!CMP.B){alert('Upload both files first.');return;}
-  const allCols=[...new Set([...CMP.colsA,...CMP.colsB])];
+  const allCols=[...new Set([...CMP.colsA,...CMP.colsB])].filter(c=>c!=='__rowNo');
   const mapA=new Map();CMP.A.forEach(r=>mapA.set(getRowKey(r),r));
   const mapB=new Map();CMP.B.forEach(r=>mapB.set(getRowKey(r),r));
   const allKeys=[...new Set([...mapA.keys(),...mapB.keys()])];
 
   const rows=allKeys.map(k=>{
-    const ra=mapA.get(k)||null;const rb=mapB.get(k)||null;let status='same';
-    if(ra&&!rb)status='only-a';else if(!ra&&rb)status='only-b';
-    // NEW
-    else{
-      if([...CMP.compareColumns].some(c=>String(ra[c]??'')!==String(rb[c]??'')))status='diff';
+  const ra=mapA.get(k)||null;const rb=mapB.get(k)||null;let status='same';
+  if(ra&&!rb)status='only-a';else if(!ra&&rb)status='only-b';
+  else{
+      const checkCols = CMP.compareColumns ? [...CMP.compareColumns] : allCols;
+      if(checkCols.some(c=>String(ra[c]??'')!==String(rb[c]??'')))status='diff';
     }
-    return{key:k,ra,rb,status,cols:allCols};
+    return{key:k,ra,rb,status,cols:allCols,rowNoA:ra?.__rowNo??null,rowNoB:rb?.__rowNo??null};
   });
   CMP.result=rows;
   CMP.statusFilter='all';
@@ -5654,21 +5658,21 @@ function renderCmpTable(){
     return;
   }
 
-  const thead=`<tr><th>#</th><th>status</th>${allCols.map(c=>`<th colspan="2" style="text-align:center;border-left:2px solid var(--border2)">${c}</th>`).join('')}</tr><tr><th></th><th></th>${allCols.map(()=>`<th style="border-left:2px solid var(--border2);color:#3B6D11">A</th><th style="color:#1a4a7a">B</th>`).join('')}</tr>`;
-  const tbody=filtered.map((r,i)=>{
-    const sc=r.status==='same'?'row-same':r.status==='only-a'?'row-only-a':r.status==='only-b'?'row-only-b':'row-diff';
-    const statusBadge=r.status==='same'?`<span class="badge orig">same</span>`:r.status==='only-a'?`<span class="badge new">A only</span>`:r.status==='only-b'?`<span class="badge dup" style="background:var(--amber-bg);color:var(--amber)">B only</span>`:`<span class="badge dup">different</span>`;
-    // NEW
-const checkCols = CMP.compareColumns ? new Set(CMP.compareColumns) : null;
-const cells=r.cols.map(c=>{
-  const va=r.ra?String(r.ra[c]??''):'—';
-  const vb=r.rb?String(r.rb[c]??''):'—';
-  const isChecked = !checkCols || checkCols.has(c);
-  const isDiff = CMP.compareColumns.has(c) && va!==vb;
-  return `<td style="border-left:2px solid var(--border2)" class="${isDiff?'cell-diff':''}" title="${va}">${va}</td><td class="${isDiff?'cell-diff-b':''}" title="${vb}">${vb}</td>`;
-}).join('');
-    return `<tr class="${sc}"><td class="rn">${i+1}</td><td>${statusBadge}</td>${cells}</tr>`;
+  const thead=`<tr><th>#</th><th>status</th><th>row A</th><th>row B</th>${allCols.map(c=>`<th colspan="2" style="text-align:center;border-left:2px solid var(--border2)">${c}</th>`).join('')}</tr><tr><th></th><th></th><th></th><th></th>${allCols.map(()=>`<th style="border-left:2px solid var(--border2);color:#3B6D11">A</th><th style="color:#1a4a7a">B</th>`).join('')}</tr>`;
+const tbody=filtered.map((r,i)=>{
+  const sc=r.status==='same'?'row-same':r.status==='only-a'?'row-only-a':r.status==='only-b'?'row-only-b':'row-diff';
+  const statusBadge=r.status==='same'?`<span class="badge orig">same</span>`:r.status==='only-a'?`<span class="badge new">A only</span>`:r.status==='only-b'?`<span class="badge dup" style="background:var(--amber-bg);color:var(--amber)">B only</span>`:`<span class="badge dup">different</span>`;
+  const cells=r.cols.map(c=>{
+    const isChecked = !CMP.compareColumns || CMP.compareColumns.has(c);
+    const va=r.ra?String(r.ra[c]??''):'—';const vb=r.rb?String(r.rb[c]??''):'—';
+    const isDiff=isChecked && va!==vb;
+    return `<td style="border-left:2px solid var(--border2)" class="${isDiff?'cell-diff':''}" title="${va}">${va}</td><td class="${isDiff?'cell-diff-b':''}" title="${vb}">${vb}</td>`;
   }).join('');
+  return `<tr class="${sc}"><td class="rn">${i+1}</td><td>${statusBadge}</td>
+    <td style="font-family:var(--mono);font-size:11px;text-align:center;color:var(--green)">${r.rowNoA??'—'}</td>
+    <td style="font-family:var(--mono);font-size:11px;text-align:center;color:var(--blue)">${r.rowNoB??'—'}</td>
+    ${cells}</tr>`;
+}).join('');
   document.getElementById('cmpTable').innerHTML=`<div class="cmp-tbl-wrap"><table><thead>${thead}</thead><tbody>${tbody}</tbody></table></div>`;
 }
 
@@ -8358,7 +8362,7 @@ async function applyColumnMapping(){
   // ── Branch: compare File B vs normal import ──
   if(COLMAP.target === 'compareB'){
     COLMAP.target = 'import'; // reset
-    CMP.B = mapped;
+    CMP.B = mapped.map((r,i)=>({...r, __rowNo: i+1}));;
     CMP.colsB = [...new Set(mappedCols)];
     document.getElementById('lblB').textContent = 
       COLMAP.filename + ' (' + mapped.length + ' rows)';
