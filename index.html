@@ -5507,7 +5507,9 @@ function getDefaultCmpKeys(colsA, colsB){
 }
 
 function openCompare(){
-  CMP.A=null;CMP.B=null;CMP.colsA=[];CMP.colsB=[];CMP.keyColumns=new Set();CMP.result=null;CMP.statusFilter='all';
+  CMP.A=null;CMP.B=null;CMP.colsA=[];CMP.colsB=[];CMP.keyColumns=new Set();
+  CMP.compareColumns=null;CMP.sortBy=null;CMP.sortDir='asc';
+  CMP.result=null;CMP.statusFilter='all';
   document.getElementById('lblB').textContent='Drop or click to upload File B';
   document.getElementById('dzB').style.borderColor='';
   document.getElementById('cmpKeyBar').style.display='none';
@@ -5652,7 +5654,7 @@ function runCompare(){
 function renderCmpTable(){
   const rows = CMP.result || [];
   const filter = CMP.statusFilter || 'all';
-  const filtered = filter==='all' ? rows : rows.filter(r=>r.status===filter);
+  let filtered = filter==='all' ? rows : rows.filter(r=>r.status===filter);
   const allCols = rows.length ? rows[0].cols : [];
   const countEl = document.getElementById('cmpFilterCount');
   if(countEl) countEl.textContent = filtered.length + ' of ' + rows.length + ' rows';
