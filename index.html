@@ -5560,19 +5560,20 @@ function loadCompareFile(side,inp){
       document.getElementById('lbl'+side).textContent=f.name+' ('+data.length+' rows)';
       document.getElementById('dz'+side).style.borderColor='var(--green-bdr)';
       // NEW
-      if(CMP.A&&CMP.B){
-        const allCols=[...new Set([...CMP.colsA,...CMP.colsB])];
-        CMP.keyColumns=getDefaultCmpKeys(CMP.colsA, CMP.colsB);
-        renderCmpKeyChips(allCols);
-        document.getElementById('cmpKeyBar').style.display='flex';
+      if(CMP.A && CMP.B){
+        const allCols = [...new Set([...CMP.colsA, ...CMP.colsB])];
+        const visible = visibleCols(allCols);
+        CMP.compareColumns = new Set(visible.length ? visible : allCols); // all visible ones checked by default
+        renderCmpColChips(visible.length ? visible : allCols); // chip list itself is limited to visible cols
+        document.getElementById('cmpColBar').style.display = 'flex';
       }
     }catch(err){alert('Could not read file: '+err.message);}
   };
   reader.readAsArrayBuffer(f);inp.value='';
 }
 
-function renderCmpColChips(allCols){
-  document.getElementById('cmpColChips').innerHTML = allCols.map(c=>{
+function renderCmpColChips(cols){
+  document.getElementById('cmpColChips').innerHTML = cols.map(c=>{
     const on = CMP.compareColumns.has(c);
     return `<button class="chip${on?' on':''}" onclick="toggleCmpCol('${c.replace(/'/g,"\\'")}')">${c}</button>`;
   }).join('');
@@ -5583,12 +5584,13 @@ function toggleCmpCol(col){
   } else {
     CMP.compareColumns.add(col);
   }
-  renderCmpColChips([...new Set([...CMP.colsA,...CMP.colsB])]);
+  const allCols = [...new Set([...CMP.colsA,...CMP.colsB])];
+  renderCmpColChips(visibleCols(allCols));
 }
 
 function setCmpCompareColsAll(){
   CMP.compareColumns = null;
-  renderCmpColChips([...new Set([...CMP.colsA,...CMP.colsB])]);
+  renderCmpColChips(visibleCols([...new Set([...CMP.colsA,...CMP.colsB])]));
 }
 
 function renderCmpKeyChips(allCols){
@@ -8363,14 +8365,12 @@ async function applyColumnMapping(){
     // show key column picker if both files loaded
     // NEW
     if(CMP.A && CMP.B){
-      const allCols = [...new Set([...CMP.colsA, ...CMP.colsB])];
-      CMP.keyColumns = getDefaultCmpKeys(CMP.colsA, CMP.colsB); // silent, no UI
-      const allColsForDefault = [...new Set([...CMP.colsA, ...CMP.colsB])];
-      const visibleDefault = visibleCols(allColsForDefault);
-      CMP.compareColumns = new Set(visibleDefault.length ? visibleDefault : allColsForDefault);
-      renderCmpColChips(allCols);
-      document.getElementById('cmpColBar').style.display = 'flex';
-    }
+    const allCols = [...new Set([...CMP.colsA, ...CMP.colsB])];
+    const visible = visibleCols(allCols);
+    CMP.compareColumns = new Set(visible.length ? visible : allCols); // all visible ones checked by default
+    renderCmpColChips(visible.length ? visible : allCols); // chip list itself is limited to visible cols
+    document.getElementById('cmpColBar').style.display = 'flex';
+  }
 
     // reopen compare modal
     document.getElementById('compareModal').classList.add('open');
