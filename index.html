@@ -5496,7 +5496,7 @@ async function exportAllSubstation(){
 }
 
 // ── Compare ───────────────────────────────────────────────────────────────────
-const CMP={A:null,B:null,colsA:[],colsB:[],keyColumns:new Set(),compareColumns:null,result:null,statusFilter:'all'};
+const CMP={A:null,B:null,colsA:[],colsB:[],keyColumns:new Set(),compareColumns:null,result:null,statusFilter:'all',sortBy:null,sortDir:'asc'};
 
 function getDefaultCmpKeys(colsA, colsB){
   const common = colsA.filter(c => colsB.includes(c));
@@ -5595,6 +5595,12 @@ function toggleCmpCol(col){
   renderCmpColChips(visibleCols(allCols)); // ← hidden cols never re-appear here either
 }
 
+function toggleCmpSort(field){
+  if(CMP.sortBy===field){ CMP.sortDir = CMP.sortDir==='asc'?'desc':'asc'; }
+  else { CMP.sortBy=field; CMP.sortDir='asc'; }
+  renderCmpTable();
+}
+
 function setCmpCompareColsAll(){
   CMP.compareColumns = null;
   renderCmpColChips(visibleCols([...new Set([...CMP.colsA,...CMP.colsB])]));
@@ -5629,6 +5635,7 @@ function runCompare(){
   });
   CMP.result=rows;
   CMP.statusFilter='all';
+  CMP.sortBy=null; CMP.sortDir='asc'; // start unsorted each time
   const same=rows.filter(r=>r.status==='same').length;
   const onlyA=rows.filter(r=>r.status==='only-a').length;
   const onlyB=rows.filter(r=>r.status==='only-b').length;
@@ -5658,8 +5665,25 @@ function renderCmpTable(){
     return;
   }
 
-  const thead=`<tr><th>#</th><th>status</th><th>row A</th><th>row B</th>${allCols.map(c=>`<th colspan="2" style="text-align:center;border-left:2px solid var(--border2)">${c}</th>`).join('')}</tr><tr><th></th><th></th><th></th><th></th>${allCols.map(()=>`<th style="border-left:2px solid var(--border2);color:#3B6D11">A</th><th style="color:#1a4a7a">B</th>`).join('')}</tr>`;
-const tbody=filtered.map((r,i)=>{
+  if(CMP.sortBy){
+    const field = CMP.sortBy==='rowA' ? 'rowNoA' : 'rowNoB';
+    filtered = [...filtered].sort((a,b)=>{
+      const va=a[field], vb=b[field];
+      if(va===null && vb===null) return 0;
+      if(va===null) return 1;   // items missing a row number sink to the bottom
+      if(vb===null) return -1;
+      return CMP.sortDir==='asc' ? va-vb : vb-va;
+    });
+  }
+
+  const arrow = f => CMP.sortBy===f ? (CMP.sortDir==='asc'?' ▲':' ▼') : '';
+  const thead=`<tr>
+    <th>#</th><th>status</th>
+    <th style="cursor:pointer;user-select:none" onclick="toggleCmpSort('rowA')">row A${arrow('rowA')}</th>
+    <th style="cursor:pointer;user-select:none" onclick="toggleCmpSort('rowB')">row B${arrow('rowB')}</th>
+    ${allCols.map(c=>`<th colspan="2" style="text-align:center;border-left:2px solid var(--border2)">${c}</th>`).join('')}
+  </tr><tr><th></th><th></th><th></th><th></th>${allCols.map(()=>`<th style="border-left:2px solid var(--border2);color:#3B6D11">A</th><th style="color:#1a4a7a">B</th>`).join('')}</tr>`;
+  const tbody=filtered.map((r,i)=>{
   const sc=r.status==='same'?'row-same':r.status==='only-a'?'row-only-a':r.status==='only-b'?'row-only-b':'row-diff';
   const statusBadge=r.status==='same'?`<span class="badge orig">same</span>`:r.status==='only-a'?`<span class="badge new">A only</span>`:r.status==='only-b'?`<span class="badge dup" style="background:var(--amber-bg);color:var(--amber)">B only</span>`:`<span class="badge dup">different</span>`;
   const cells=r.cols.map(c=>{
