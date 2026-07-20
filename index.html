@@ -5499,7 +5499,9 @@ const CMP={A:null,B:null,colsA:[],colsB:[],keyColumns:new Set(),compareColumns:n
 
 function getDefaultCmpKeys(colsA, colsB){
   const common = colsA.filter(c => colsB.includes(c));
-  const preferred = ['SPECIFICATION_POINT_NAME','DNP3.0_ADDRESS'].filter(c => common.includes(c));
+  // prefer the same identity columns the app already uses for feeder datasets
+  const preferredOrder = ['FEEDER_NAME','BAY_NAME','SPECIFICATION_POINT_NAME','DNP3.0_ADDRESS'];
+  const preferred = preferredOrder.filter(c => common.includes(c));
   if(preferred.length) return new Set(preferred);
   return new Set(common.length ? [common[0]] : [colsA[0]]);
 }
