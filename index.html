@@ -5668,15 +5668,22 @@ function renderCmpTable(){
   }
 
   if(CMP.sortBy){
-    const field = CMP.sortBy==='rowA' ? 'rowNoA' : 'rowNoB';
-    filtered = [...filtered].sort((a,b)=>{
-      const va=a[field], vb=b[field];
-      if(va===null && vb===null) return 0;
-      if(va===null) return 1;   // items missing a row number sink to the bottom
-      if(vb===null) return -1;
-      return CMP.sortDir==='asc' ? va-vb : vb-va;
-    });
-  }
+  const primary   = CMP.sortBy==='rowA' ? 'rowNoA' : 'rowNoB';
+  const secondary = CMP.sortBy==='rowA' ? 'rowNoB' : 'rowNoA';
+  filtered = [...filtered].sort((a,b)=>{
+    const pa=a[primary], pb=b[primary];
+    if(pa !== pb){
+      if(pa===null) return 1;
+      if(pb===null) return -1;
+      return CMP.sortDir==='asc' ? pa-pb : pb-pa;
+    }
+    const sa=a[secondary], sb=b[secondary];
+    if(sa===null && sb===null) return 0;
+    if(sa===null) return 1;
+    if(sb===null) return -1;
+    return sa-sb; // secondary always ascending
+  });
+}
 
   const arrow = f => CMP.sortBy===f ? (CMP.sortDir==='asc'?' ▲':' ▼') : '';
   const thead=`<tr>
@@ -8386,29 +8393,31 @@ async function applyColumnMapping(){
   closeModal('colMapModal');
 
   // ── Branch: compare File B vs normal import ──
-  if(COLMAP.target === 'compareB'){
-    COLMAP.target = 'import'; // reset
-    CMP.B = mapped.map((r,i)=>({...r, __rowNo: i+1}));;
-    CMP.colsB = [...new Set(mappedCols)];
-    document.getElementById('lblB').textContent = 
-      COLMAP.filename + ' (' + mapped.length + ' rows)';
-    document.getElementById('dzB').style.borderColor = 'var(--green-bdr)';
-    document.getElementById('dzB').style.background  = 'var(--green-bg)';
-    // show key column picker if both files loaded
-    // NEW
-    if(CMP.A && CMP.B){
-      const allCols = [...new Set([...CMP.colsA, ...CMP.colsB])];
-      CMP.keyColumns = getDefaultCmpKeys(CMP.colsA, CMP.colsB);       // fix 1: row matching
-      const visible = visibleCols(allCols);
-      CMP.compareColumns = new Set(visible.length ? visible : allCols); // fix 2: visible-only, all checked by default
-      renderCmpColChips(visible.length ? visible : allCols);
-      document.getElementById('cmpColBar').style.display = 'flex';
-    }
-
-    // reopen compare modal
-    document.getElementById('compareModal').classList.add('open');
-    return;
+  // applyColumnMapping — compareB branch
+if(COLMAP.target === 'compareB'){
+  COLMAP.target = 'import';
+  let bRows = mapped;
+  if(currentMode === 'feeder' && currentFeeder){
+    const defaultFeederName = defaultFeederNameFor(currentSubstation, currentFeeder, currentNumber, currentScheme);
+    bRows = applyFeederNameGuard(bRows.map(r=>({...r})), defaultFeederName);
   }
+  CMP.B = bRows.map((r,i)=>({...r, __rowNo: i+1}));
+  CMP.colsB = [...new Set(mappedCols)];
+  document.getElementById('lblB').textContent =
+    COLMAP.filename + ' (' + mapped.length + ' rows)';
+  document.getElementById('dzB').style.borderColor = 'var(--green-bdr)';
+  document.getElementById('dzB').style.background  = 'var(--green-bg)';
+  if(CMP.A && CMP.B){
+    const allCols = [...new Set([...CMP.colsA, ...CMP.colsB])];
+    CMP.keyColumns = getDefaultCmpKeys(CMP.colsA, CMP.colsB);
+    const visible = visibleCols(allCols);
+    CMP.compareColumns = new Set(visible.length ? visible : allCols);
+    renderCmpColChips(visible.length ? visible : allCols);
+    document.getElementById('cmpColBar').style.display = 'flex';
+  }
+  document.getElementById('compareModal').classList.add('open');
+  return;
+}
 
   // existing normal import flow
   COLMAP.target = 'import';
