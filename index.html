@@ -8086,6 +8086,24 @@ function updateMappingPreview(){
     `${mapped.length} data rows ready · ${schemaCols.length} columns mapped${boundaryNote}`;
 }
 
+// buildMappedRows(): converts raw imported spreadsheet rows into final dataset rows.
+// Roughly what happens, in order:
+//   1. Determine which row ranges count as "data" — either one contiguous
+//      boundary (COLMAP.activeTableBoundary) or, in merge mode, several
+//      table ranges stitched together (COLMAP.useMergeMode).
+//   2. Walk each range row-by-row, skipping: blank rows, other tables' header
+//      rows, manually marked skip rows, rows hidden in the source Excel file,
+//      repeated header rows, and rows that look like non-numeric "item" rows
+//      or otherwise-unwanted rows (per isRowUnwanted/isRowNonNumericItem) —
+//      unless the row is the table's boundary end or near the sheet end.
+//   3. For each surviving row, build an object by applying the column
+//      mapping (COLMAP.mappings) from file column -> schema column, only
+//      keeping rows that have at least one non-empty mapped value.
+//   4. Merge consecutive "split" rows (mergeConsecutiveSplitRows) — these are
+//      artifacts from merged Excel cells where a point's data spilled across
+//      multiple physical rows — then filter out rows missing the required
+//      SPECIFICATION_POINT_NAME.
+// Returns the final array of clean row objects ready to import.
 function buildMappedRows(){
   if(COLMAP.headerRowIdx === null) return [];
   if(!COLMAP.allRawRows || !COLMAP.allRawRows.length) return [];
@@ -8217,6 +8235,27 @@ function buildMappedRows(){
   });
 }
 
+// mergeConsecutiveSplitRows(): repairs rows that got split across multiple
+// physical Excel rows by a vertically-merged cell (e.g. FEEDER_NAME or
+// BAY_NAME merged across several point rows, leaving only one row with the
+// real value and the rest blank in that column).
+// Roughly what happens, in order:
+//   1. Pre-pass: collapse rows that contain ONLY a BAY_NAME/FEEDER_NAME value
+//      and nothing else — these are pure split-cell artifacts. Their value is
+//      copied up into the previous row (if missing there) and the artifact
+//      row is discarded, unless the previous row already has that value (in
+//      which case it's kept as a genuinely separate row).
+//   2. Pass 1: walk rows and absorb "noise" continuation rows into the row
+//      above — a row counts as absorbable if it has no data of its own
+//      (isAnchorEmpty) and doesn't own its own DNP3 address/state/scale
+//      value (hasOwnAddressData). Item-number mismatches or a differing
+//      point name block absorption so real, distinct records are never
+//      merged together.
+//   3. Pass 2: fill remaining blanks down within the same item-number group,
+//      carrying forward the last non-empty value per column — but never for
+//      DNP3/address/audit columns (NO_COPY_COLS), since those must stay
+//      row-specific.
+// Returns the repaired row array with split artifacts folded back together.
 function mergeConsecutiveSplitRows(rows, itemValues){
   if(!rows || rows.length < 2) return rows;
 
